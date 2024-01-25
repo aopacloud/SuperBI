@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.DatasetApplyMapper">
+
+    <sql id="baseFields">id,username,alias_name,dataset_id,workspace_id,dataset_name,dataset_creator,datasource,reason,approve_status,current_reviewer,expire_duration,extra,authorize_status,authorize_remark,create_time,update_time</sql>
+    <insert id="save" useGeneratedKeys="true" keyProperty="id" parameterType="net.aopacloud.superbi.model.entity.DatasetApply">
+        insert into bi_dataset_apply(username,alias_name,dataset_id,workspace_id,dataset_name,dataset_creator,datasource,reason,approve_status,current_reviewer,expire_duration,extra,authorize_status,authorize_remark)
+        values (
+                #{username},
+                #{aliasName},
+                #{datasetId},
+                #{workspaceId},
+                #{datasetName},
+                #{datasetCreator},
+                #{datasource},
+                #{reason},
+                #{approveStatus},
+                #{currentReviewer},
+                #{expireDuration},
+                #{extra},
+                #{authorizeStatus},
+                #{authorizeRemark}
+               )
+    </insert>
+    <update id="updateApply" parameterType="net.aopacloud.superbi.model.entity.DatasetApply">
+        update bi_dataset_apply set approve_status = #{approveStatus},
+                                    current_reviewer = #{currentReviewer},
+                                    extra = #{extra},
+                                    authorize_status = #{authorizeStatus},
+                                    authorize_remark = #{authorizeRemark}
+        where id = #{id}
+    </update>
+
+    <select id="search" resultType="net.aopacloud.superbi.model.dto.DatasetApplyDTO" parameterType="net.aopacloud.superbi.model.query.DatasetApplyQuery">
+        select t.id,
+               t.username,
+               t.alias_name,
+               t.dataset_id,
+               t.workspace_id,
+               t.dataset_name,
+               t.dataset_creator,
+               t.datasource,
+               t.reason,
+               t.approve_status,
+               t.current_reviewer,
+               t.expire_duration,
+               t.extra,
+               t.authorize_status,
+               t.authorize_remark,
+               t.create_time,
+               t.update_time,
+               w.name as workspace_name
+        from bi_dataset_apply t
+        join bi_workspace w on t.workspace_id = w.id
+        <where>
+            <if test="username != null and username != ''">
+                and username = #{username}
+            </if>
+            <if test="approveStatusList != null">
+                and approve_status in
+                    <foreach collection="approveStatusList" separator="," open="(" close=")" item="approveStatus">
+                        #{approveStatus}
+                    </foreach>
+            </if>
+            <if test="authorizeStatusList != null and authorizeStatusList.length > 0">
+                and authorize_status in
+                    <foreach collection="authorizeStatusList" separator="," open="(" close=")" item="authorizeStatus">
+                        #{authorizeStatus}
+                    </foreach>
+            </if>
+            <if test="datasetCreator != null and datasetCreator != '' and isSuperAdmin == false" >
+                and dataset_creator = #{datasetCreator}
+            </if>
+            <if test="currentReviewer != null and currentReviewer != ''" >
+                and current_reviewer = #{currentReviewer}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                and ( dataset_name like CONCAT('%',#{keyword},'%')
+                    or reason like CONCAT('%',#{keyword},'%')
+                    or w.name like CONCAT('%',#{keyword},'%')
+                <if test="searchUsers != null" >
+                     or username in
+                    <foreach collection="searchUsers" open="(" close=")" separator="," item="usr">
+                        #{usr}
+                    </foreach>
+                    or
+                    dataset_creator in
+                    <foreach collection="searchUsers" open="(" close=")" separator="," item="usr">
+                        #{usr}
+                    </foreach>
+
+                </if>
+                )
+            </if>
+
+        </where>
+        order by
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                t.`${sortField}`  ${sortType}
+            </when>
+            <otherwise>
+                t.create_time desc
+            </otherwise>
+        </choose>
+    </select>
+    <select id="selectOneById" resultType="net.aopacloud.superbi.model.entity.DatasetApply">
+        select <include refid="baseFields"/> from bi_dataset_apply where id = #{id}
+    </select>
+    <select id="selectByDatasetAndUsername" resultType="net.aopacloud.superbi.model.dto.DatasetApplyDTO">
+        select <include refid="baseFields"/> from bi_dataset_apply where dataset_id = #{datasetId} and username = #{username}
+    </select>
+    <select id="selectApplyingCount" resultType="java.lang.Integer">
+        select count(*) from bi_dataset_apply where username = #{username} and approve_status in ('INIT','UNDER_REVIEW')
+    </select>
+    <select id="selectReviewCount" resultType="java.lang.Integer">
+        select count(*) from bi_dataset_apply where current_reviewer = #{username} and approve_status in ('INIT','UNDER_REVIEW')
+    </select>
+    <select id="selectOperationCount" resultType="java.lang.Integer">
+        select count(apply.id) from
+        (select id,dataset_id, create_time from bi_dataset_apply where dataset_creator = #{username} and approve_status = 'PASSED' and authorize_status in  ('NOT_AUTHORIZED','EXPIRED')) apply
+        join
+        (select id from bi_dataset where deleted =0) dataset
+        on apply.dataset_id = dataset.id
+        left join
+        (select dataset_id, max(create_time) as max_create_time from (<include refid="net.aopacloud.superbi.mapper.DatasetAuthorizeMapper.userAllAuthorize" />) t where username = #{username} group by dataset_id) auth
+        on apply.dataset_id = auth.dataset_id
+        where apply.create_time > auth.max_create_time or auth.max_create_time is null
+
+    </select>
+    <select id="selectUnFinished" resultType="net.aopacloud.superbi.model.dto.DatasetApplyDTO">
+        select <include refid="baseFields"/> from bi_dataset_apply where approve_status in ('INIT','UNDER_REVIEW')
+    </select>
+</mapper>

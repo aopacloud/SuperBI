@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.DashboardShareMapper">
+    <resultMap id="BaseResultMap" type="net.aopacloud.superbi.model.entity.DashboardShare">
+        <id column="id" jdbcType="INTEGER" property="id"/>
+        <result column="username" jdbcType="VARCHAR" property="username"/>
+        <result column="permission" jdbcType="VARCHAR" property="permission"/>
+        <result column="operator" jdbcType="VARCHAR" property="operator"/>
+        <result column="dashboard_id" jdbcType="INTEGER" property="dashboardId"/>
+        <result column="type" jdbcType="VARCHAR" property="type"/>
+        <result column="role_id" jdbcType="INTEGER" property="roleId"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id
+        , username, permission, operator, dashboard_id, `type`, role_id, create_time, update_time
+    </sql>
+    <update id="update" parameterType="net.aopacloud.superbi.model.entity.DashboardShare">
+        update bi_dashboard_share set permission = #{permission} where id = #{id}
+    </update>
+    <delete id="deleteById">
+        delete from bi_dashboard_share where id = #{id}
+    </delete>
+    <delete id="deleteByDashboard">
+        delete from bi_dashboard_share where dashboard_id = #{dashboardId}
+    </delete>
+
+    <select id="searchUsers" resultType="net.aopacloud.superbi.model.dto.DashboardShareDTO" parameterType="net.aopacloud.superbi.model.query.DashboardShareQuery">
+        select * from bi_dashboard_share
+        <where>
+                `type` = 'USER'
+            <if test="dashboardId != null">
+                and dashboard_id = #{dashboardId}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                and (username like concat('%',#{keyword},'%')
+                <if test="searchUsers != null and searchUsers.size() > 0">
+                    or username in
+                    <foreach collection="searchUsers" item="usr" separator="," open="(" close=")">
+                        #{usr}
+                    </foreach>
+                </if>
+                )
+            </if>
+        </where>
+        order by id desc
+    </select>
+    <select id="searchRole" resultType="net.aopacloud.superbi.model.dto.DashboardShareDTO" parameterType="net.aopacloud.superbi.model.query.DashboardShareQuery">
+        select distinct t.*,r.name as role_name
+        from
+            bi_dashboard_share t
+        join bi_auth_role r
+        on t.role_id = r.id
+        join bi_auth_role_user usr
+        on r.id = usr.role_id
+        <where>
+            `type` = 'ROLE'
+            <if test="dashboardId != null">
+                and dashboard_id = #{dashboardId}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                and (r.name like concat('%',#{keyword},'%')
+                    or r.description like concat('%',#{keyword},'%')
+                    <if test="searchUsers != null and searchUsers.size() > 0">
+                        or usr.username in
+                        <foreach collection="searchUsers" item="u" separator="," open="(" close=")">
+                            #{u}
+                        </foreach>
+                    </if>
+                )
+            </if>
+
+        </where>
+        order by t.create_time desc
+    </select>
+    <select id="selectById" resultType="net.aopacloud.superbi.model.entity.DashboardShare">
+        select * from bi_dashboard_share where id = #{id}
+    </select>
+
+    <select id="selectIdsByUsername" resultType="java.lang.Long">
+        select dashboard_id from (<include refid="userAllShare" />) t where username = #{username} group by dashboard_id
+    </select>
+    <select id="selectByDashboardAndUsername" resultType="net.aopacloud.superbi.model.dto.DashboardShareDTO">
+        select * from (<include refid="userAllShare" />) t where dashboard_id = #{dashboardId} and username = #{username}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id"
+            parameterType="net.aopacloud.superbi.model.entity.DashboardShare">
+        insert into bi_dashboard_share (username, permission,
+                                        operator, dashboard_id, `type`, role_id)
+        values (#{username,jdbcType=VARCHAR}, #{permission,jdbcType=VARCHAR},
+                #{operator,jdbcType=VARCHAR}, #{dashboardId,jdbcType=INTEGER}, #{type,jdbcType=VARCHAR},
+                #{roleId,jdbcType=INTEGER})
+    </insert>
+
+    <sql id="userAllShare">
+        select username,permission, dashboard_id from bi_dashboard_share where `type` = 'USER'
+        union  all
+        select r.username,s.permission,s.dashboard_id from (select * from bi_dashboard_share where `type` = 'ROLE') s
+            join bi_auth_role_user r on r.role_id = s.role_id
+    </sql>
+
+</mapper>

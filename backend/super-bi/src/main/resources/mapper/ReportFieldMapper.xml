@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.ReportFieldMapper">
+    <resultMap id="BaseResultMap" type="net.aopacloud.superbi.model.entity.ReportField">
+        <id column="id" jdbcType="INTEGER" property="id"/>
+        <result column="aggregation" jdbcType="VARCHAR" property="aggregation"/>
+        <result column="display_name" jdbcType="VARCHAR" property="displayName"/>
+        <result column="dataset_field_id" jdbcType="INTEGER" property="datasetFieldId"/>
+        <result column="dataset_field_name" jdbcType="VARCHAR" property="datasetFieldName"/>
+        <result column="category" jdbcType="VARCHAR" property="category"/>
+        <result column="report_id" jdbcType="INTEGER" property="reportId"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+        <result column="expression" jdbcType="LONGVARCHAR" property="expression"/>
+        <result column="params" jdbcType="LONGVARCHAR" property="params"/>
+    </resultMap>
+    <resultMap id="DTOResultMap" type="net.aopacloud.superbi.model.dto.ReportFieldDTO">
+        <id column="id" jdbcType="INTEGER" property="id"/>
+        <result column="aggregation" jdbcType="VARCHAR" property="aggregation"/>
+        <result column="display_name" jdbcType="VARCHAR" property="displayName"/>
+        <result column="dataset_field_id" jdbcType="INTEGER" property="datasetFieldId"/>
+        <result column="dataset_field_name" jdbcType="VARCHAR" property="datasetFieldName"/>
+        <result column="category" jdbcType="VARCHAR" property="category"/>
+        <result column="report_id" jdbcType="INTEGER" property="reportId"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+        <result column="expression" jdbcType="LONGVARCHAR" property="expression"/>
+        <result column="params" jdbcType="LONGVARCHAR" property="params"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id
+        , aggregation, display_name,dataset_field_id, dataset_field_name, category, report_id, create_time,
+    update_time,`expression`, params
+    </sql>
+    <select id="selectByReportAndCategory" resultMap="DTOResultMap">
+        select
+        t1.id,
+        t1.aggregation,
+        t1.display_name,
+        t1.dataset_field_name,
+        t1.category,
+        t1.report_id,
+        t1.create_time,
+        t1.update_time,
+        t1.expression,
+        t1.params,
+        t2.data_format,
+        t2.data_type,
+        t2.origin_data_type
+        from
+        bi_report_field t1
+        left join bi_dataset_field t2
+        on t1.dataset_field_id = t2.id
+        where t1.report_id = #{reportId}
+        <if test="category != null and category !=''">
+            and t1.category = #{category}
+        </if>
+    </select>
+    <insert id="insert" parameterType="net.aopacloud.superbi.model.entity.ReportField">
+        insert into bi_report_field (aggregation, display_name, dataset_field_id,
+                                     dataset_field_name, category, report_id,
+                                     `expression`, params)
+        values (#{aggregation,jdbcType=VARCHAR}, #{displayName,jdbcType=VARCHAR}, #{datasetFieldId,jdbcType=INTEGER},
+                #{datasetFieldName,jdbcType=VARCHAR}, #{category,jdbcType=VARCHAR}, #{reportId,jdbcType=INTEGER},
+                #{expression,jdbcType=LONGVARCHAR}, #{params,jdbcType=LONGVARCHAR})
+    </insert>
+    <delete id="deleteByReport">
+        delete
+        from bi_report_field
+        where report_id = #{reportId}
+    </delete>
+</mapper>

@@ -1,0 +1,87 @@
+# Tomcat
+server:
+  port: 8761
+  servlet:
+    context-path: /api/super-bi
+
+# Spring
+spring: 
+  application:
+    # 应用名称
+    name: bdp-super-bi
+  messages:
+    basename: i18n/messages
+    encoding: utf-8
+  redis:
+    host: 192.168.11.202
+    port: 6379
+    password:
+  datasource:
+    druid:
+      stat-view-servlet:
+        enabled: true
+        loginUsername: admin
+        loginPassword: 123456
+    dynamic:
+      druid:
+        initial-size: 5
+        min-idle: 5
+        maxActive: 20
+        maxWait: 60000
+        timeBetweenEvictionRunsMillis: 60000
+        minEvictableIdleTimeMillis: 300000
+        validationQuery: SELECT 1 FROM DUAL
+        testWhileIdle: true
+        testOnBorrow: false
+        testOnReturn: false
+        poolPreparedStatements: true
+        maxPoolPreparedStatementPerConnectionSize: 20
+        filters: stat,slf4j
+        connectionProperties: druid.stat.mergeSql\=true;druid.stat.slowSqlMillis\=5000
+      datasource:
+        # 主库数据源
+        master:
+          driver-class-name: com.mysql.cj.jdbc.Driver
+          url: jdbc:mysql://192.168.11.202:3306/bdp_super_bi?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
+          username: root
+          password: 8rYLYfeBTgXX62sX
+          # 从库数据源
+          # slave:
+          # username:
+          # password:
+          # url:
+          # driver-class-name:
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+
+# token配置
+token:
+  # 令牌自定义标识
+  header: Authorization
+  # 令牌密钥
+  secret: abcdefghijklmnopqrstuvwxyz
+  # 令牌有效期（默认3天）
+  expireTime: 14400
+
+bdp:
+  superbi:
+    password:
+      # 密码最大错误次数
+      maxRetryCount: 5
+      # 密码锁定时间（默认10分钟）
+      lockTime: 10
+
+# mybatis配置
+mybatis:
+  # 搜索指定包别名
+  typeAliasesPackage: net.aopacloud.superbi.model
+  # 配置mapper的扫描，找到所有的mapper.xml映射文件
+  mapperLocations:
+    - classpath*:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+

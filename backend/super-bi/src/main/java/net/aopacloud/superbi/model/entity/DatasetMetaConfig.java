@@ -1,0 +1,40 @@
+package net.aopacloud.superbi.model.entity;
+
+import net.aopacloud.superbi.enums.EngineEnum;
+import lombok.Data;
+
+import java.util.Date;
+
+/**
+ * @author: hudong
+ * @date: 2023/8/15
+ * @description:
+ */
+@Data
+public class DatasetMetaConfig {
+
+    private Long id;
+
+    private Long datasetId;
+
+    private Integer version;
+
+    private Long datasourceId;
+
+    private String datasourceName;
+
+    private EngineEnum engine;
+
+    private String dbName;
+
+    private String tableName;
+
+    private String content;
+
+    private String sql;
+
+    private Date createTime;
+
+    private Date updateTime;
+
+}

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.SysUserMapper">
+
+    <sql id="baseFields">
+        `id`,`username`,`alias_name`,`account_expire_time`,`avatar`,`email`,`mobile`,`password`,`deleted`,`login_ip`,`last_online_time`,`creator`,`create_time`,`operator`,`update_time`,`description`
+    </sql>
+
+    <select id="selectSysUserByUsername" resultType="net.aopacloud.superbi.model.dto.SysUserDTO">
+        select <include refid="baseFields"/> from bi_sys_user where username = #{username}
+    </select>
+
+    <update id="updateByUsername">
+        update bi_sys_user
+        SET
+        <trim prefix="" suffixOverrides=",">
+            <if test="aliasName != null">
+                `alias_name` = #{aliasName},
+            </if>
+            <if test="avatar != null">
+                `avatar` = #{avatar},
+            </if>
+            <if test="email != null">
+                `email` = #{email},
+            </if>
+            <if test="mobile != null">
+                `mobile` = #{mobile},
+            </if>
+        </trim>
+        WHERE username=#{username}
+    </update>
+
+    <insert id="insertBatch">
+        insert into bi_sys_user (username, alias_name, password, email, mobile, creator, operator)
+        values
+        <foreach collection="list" item="item" index="index" separator=",">
+            (
+                #{item.username, jdbcType=VARCHAR},
+                #{item.aliasName, jdbcType=VARCHAR},
+                #{item.password, jdbcType=VARCHAR},
+                #{item.email, jdbcType=VARCHAR},
+                #{item.mobile, jdbcType=VARCHAR},
+                #{item.creator, jdbcType=VARCHAR},
+                #{item.operator, jdbcType=VARCHAR}
+            )
+        </foreach>
+    </insert>
+
+    <update id="updatePasswordByUsername">
+        update bi_sys_user
+        SET password=#{password}
+        WHERE username=#{username}
+    </update>
+
+    <delete id="deleteByUsername">
+        delete from bi_sys_user where username=#{username}
+    </delete>
+
+    <select id="search" resultType="net.aopacloud.superbi.model.dto.SysUserDTO" parameterType="net.aopacloud.superbi.model.query.SysUserQuery">
+        select <include refid="baseFields"/> from bi_sys_user
+        <where>
+          deleted = 0
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    username like concat('%', #{keyword}, '%')
+                    OR
+                    alias_name like concat('%', #{keyword}, '%')
+                )
+            </if>
+        </where>
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                order by ${sortField} ${sortType}
+            </when>
+            <otherwise>
+                order by update_time desc
+            </otherwise>
+        </choose>
+    </select>
+</mapper>

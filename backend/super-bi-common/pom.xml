@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>net.aopacloud</groupId>
+        <artifactId>super-bi-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <modules>
+        <module>super-bi-common-core</module>
+        <module>super-bi-common-redis</module>
+        <module>super-bi-common-datasource</module>
+    </modules>
+
+    <artifactId>super-bi-common</artifactId>
+    <packaging>pom</packaging>
+
+    <description>
+        bdp-common
+    </description>
+
+</project>

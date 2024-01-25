@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.FavoriteMapper">
+    <resultMap id="BaseResultMap" type="net.aopacloud.superbi.model.entity.Favorite">
+        <id column="id" jdbcType="INTEGER" property="id"/>
+        <result column="position" jdbcType="VARCHAR" property="position"/>
+        <result column="target_id" jdbcType="INTEGER" property="targetId"/>
+        <result column="username" jdbcType="VARCHAR" property="username"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id
+        , `position`, target_id, username, create_time, update_time
+    </sql>
+    <select id="selectByPrimaryKey" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_favorite
+        where id = #{id,jdbcType=INTEGER}
+    </select>
+    <select id="selectByPosition" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_favorite
+        where `position` = #{position,jdbcType=VARCHAR}
+        and username = #{username,jdbcType=VARCHAR}
+    </select>
+    <select id="selectByExample" resultType="net.aopacloud.superbi.model.entity.Favorite" parameterType="net.aopacloud.superbi.model.entity.Favorite">
+        select <include refid="Base_Column_List" /> from bi_favorite where `position` = #{position} and username = #{username} and target_id = #{targetId}
+    </select>
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer">
+        delete
+        from bi_favorite
+        where id = #{id,jdbcType=INTEGER}
+    </delete>
+    <insert id="insert" parameterType="net.aopacloud.superbi.model.entity.Favorite">
+        insert into bi_favorite (`position`, target_id, username)
+        values (#{position,jdbcType=VARCHAR}, #{targetId,jdbcType=INTEGER},
+                #{username,jdbcType=VARCHAR})
+    </insert>
+    <update id="update" parameterType="net.aopacloud.superbi.model.entity.Favorite">
+        update bi_favorite
+        set `position`  = #{position,jdbcType=VARCHAR},
+            target_id = #{targetId,jdbcType=INTEGER},
+            username  = #{username,jdbcType=VARCHAR}
+        where id = #{id,jdbcType=INTEGER}
+    </update>
+</mapper>

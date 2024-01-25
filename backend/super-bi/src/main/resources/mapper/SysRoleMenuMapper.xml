@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.SysRoleMenuMapper">
+
+    <sql id="baseFields" >id,role_id, menu_id,creator, operator, create_time, update_time</sql>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" parameterType="net.aopacloud.superbi.model.entity.SysRoleMenu">
+        insert into bi_sys_role_menu_rel (role_id, menu_id, creator, operator)
+        values (#{roleId}, #{menuId}, #{creator}, #{operator})
+    </insert>
+    <delete id="deleteByRoleId">
+        delete from bi_sys_role_menu_rel where role_id = #{roleId}
+    </delete>
+    <select id="selectByRoleId" resultType="net.aopacloud.superbi.model.dto.SysMenuDTO">
+        select m.* from bi_sys_role_menu_rel rel join bi_sys_menu m on rel.menu_id = m.id where rel.role_id = #{roleId}
+    </select>
+</mapper>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.DatasetQueryLogMapper">
+    <insert id="save" useGeneratedKeys="true" keyProperty="id" parameterType="net.aopacloud.superbi.model.entity.DatasetQueryLog">
+        insert into bi_dataset_query_log (dataset_id,username,alias_name,`sql`,`type`,status,from_source,error_log,remark,data_num,elapsed,report_id,query_param)
+        values (
+                #{datasetId},
+                #{username},
+                #{aliasName},
+                #{sql},
+                #{type},
+                #{status},
+                #{fromSource},
+                #{errorLog},
+                #{remark},
+                #{dataNum},
+                #{elapsed},
+                #{reportId},
+                #{queryParam}
+               )
+    </insert>
+
+
+    <select id="selectByDatasetAndUsername" resultType="net.aopacloud.superbi.model.dto.DatasetQueryLogDTO">
+        select * from bi_dataset_query_log where dataset_id = #{datasetId} and username = #{username} and type='QUERY' order by create_time desc
+    </select>
+    <select id="selectById" resultType="net.aopacloud.superbi.model.dto.DatasetQueryLogDTO">
+        select * from bi_dataset_query_log where id = #{id}
+    </select>
+</mapper>

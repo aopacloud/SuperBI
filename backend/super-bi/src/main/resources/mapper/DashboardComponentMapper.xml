@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.DashboardComponentMapper">
+    <resultMap id="BaseResultMap" type="net.aopacloud.superbi.model.entity.DashboardComponent">
+        <id column="id" jdbcType="INTEGER" property="id"/>
+        <result column="dashboard_id" jdbcType="INTEGER" property="dashboardId"/>
+        <result column="version" jdbcType="INTEGER" property="version"/>
+        <result column="type" jdbcType="VARCHAR" property="type"/>
+        <result column="report_id" jdbcType="INTEGER" property="reportId"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+        <result column="layout" jdbcType="LONGVARCHAR" property="layout"/>
+        <result column="content" jdbcType="LONGVARCHAR" property="content"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id
+        , dashboard_id, version, `type`, report_id, create_time, update_time,layout, content
+    </sql>
+    <select id="selectById" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_dashboard_component
+        where id = #{id,jdbcType=INTEGER}
+    </select>
+
+    <select id="selectByDashboardAndVersion" resultMap="BaseResultMap">
+        select <include refid="Base_Column_List"/> from bi_dashboard_component where dashboard_id = #{dashboardId} and version = #{version}
+    </select>
+    <select id="selectReportNameByDashboard" resultType="java.lang.String">
+        select r.name
+        from bi_dashboard_component c
+        join bi_report r on c.report_id = r.id
+        where c.dashboard_id = #{dashboardId} and c.version = #{version}
+    </select>
+    <select id="countDashboardByReport" resultType="java.lang.Integer">
+
+        select count(dinstinct d.id)
+        from bi_dashboard_component c
+        left join bi_dashboard d
+        on c.dashboard_id = d.id and c.version = d.version
+        where c.report_id = #{reportId} and d.deleted = 0 and d.status = 'ONLINE'
+
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id"
+            parameterType="net.aopacloud.superbi.model.entity.DashboardComponent">
+        insert into bi_dashboard_component (dashboard_id, version,
+                                            `type`, report_id, layout, content)
+        values (#{dashboardId,jdbcType=INTEGER}, #{version,jdbcType=INTEGER},
+                #{type,jdbcType=VARCHAR}, #{reportId,jdbcType=INTEGER}, #{layout,jdbcType=LONGVARCHAR},
+                #{content,jdbcType=LONGVARCHAR})
+    </insert>
+    <update id="update" parameterType="net.aopacloud.superbi.model.entity.DashboardComponent">
+        update bi_dashboard_component
+        set dashboard_id = #{dashboardId,jdbcType=INTEGER},
+            version      = #{version,jdbcType=INTEGER},
+            `type`       = #{type,jdbcType=VARCHAR},
+            report_id    = #{reportId,jdbcType=INTEGER},
+            layout       = #{layout,jdbcType=LONGVARCHAR},
+            content      = #{content,jdbcType=LONGVARCHAR}
+        where id = #{id,jdbcType=INTEGER}
+    </update>
+    <delete id="deleteById" parameterType="java.lang.Integer">
+        delete
+        from bi_dashboard_component
+        where id = #{id,jdbcType=INTEGER}
+    </delete>
+</mapper>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.DashboardFilterMapper">
+    <resultMap id="BaseResultMap" type="net.aopacloud.superbi.model.entity.DashboardFilter">
+        <id column="id" jdbcType="INTEGER" property="id"/>
+        <result column="component_id" jdbcType="INTEGER" property="componentId"/>
+        <result column="name" jdbcType="VARCHAR" property="name"/>
+        <result column="filter_type" jdbcType="VARCHAR" property="filterType"/>
+        <result column="condition_type" jdbcType="INTEGER" property="conditionType"/>
+        <result column="sort" jdbcType="INTEGER" property="sort"/>
+        <result column="single" jdbcType="INTEGER" property="single"/>
+        <result column="required" jdbcType="INTEGER" property="required"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+        <result column="relationship" jdbcType="LONGVARCHAR" property="relationship"/>
+        <result column="params" jdbcType="LONGVARCHAR" property="params"/>
+        <result column="default_value" jdbcType="LONGVARCHAR" property="defaultValue"/>
+        <result column="selected_values" jdbcType="LONGVARCHAR" property="selectedValues"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id
+        , component_id, `name`, filter_type, condition_type, sort, single, required, create_time,
+    update_time,relationship, params, default_value, selected_values
+    </sql>
+    <select id="selectByComponent" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_dashboard_filter where chart_id = #{chartId}
+    </select>
+    <delete id="deleteByChart">
+        delete
+        from bi_dashboard_filter
+        where component_id = #{componentId}
+    </delete>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id"
+            parameterType="net.aopacloud.superbi.model.entity.DashboardFilter">
+        insert into bi_dashboard_filter (component_id, `name`,
+                                         filter_type, condition_type, sort,
+                                         single, required, relationship, params,
+                                         default_value, selected_values)
+        values (#{componentId,jdbcType=INTEGER}, #{name,jdbcType=VARCHAR},
+                #{filterType,jdbcType=VARCHAR}, #{conditionType,jdbcType=INTEGER}, #{sort,jdbcType=INTEGER},
+                #{single,jdbcType=INTEGER}, #{required,jdbcType=INTEGER}, #{relationship,jdbcType=LONGVARCHAR},
+                #{params,jdbcType=LONGVARCHAR}, #{defaultValue,jdbcType=LONGVARCHAR},
+                #{selectedValues,jdbcType=LONGVARCHAR})
+    </insert>
+</mapper>

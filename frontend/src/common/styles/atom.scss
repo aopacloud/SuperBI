@@ -1,0 +1,130 @@
+﻿/* 清楚浮动 start */
+.clearfix {
+  &:after {
+    visibility: hidden;
+    display: block;
+    font-size: 0;
+    content: ' ';
+    clear: both;
+    height: 0;
+  }
+}
+/* 清楚浮动 end */
+
+/* 鼠标样式 start */
+.pointer {
+  cursor: pointer;
+}
+/* 鼠标样式 end */
+
+/* 显示隐藏 start */
+.none {
+  display: none !important;
+}
+.block {
+  display: block;
+}
+.block-inline {
+  display: inline-block;
+}
+/* 显示隐藏 end */
+
+/* 溢出隐藏 start */
+.hidden {
+  overflow: hidden;
+}
+.scroll {
+  overflow: auto;
+}
+.scroll-x {
+  overflow-x: auto;
+}
+.scroll-y {
+  overflow-y: auto;
+}
+.scrolled {
+  overflow: scroll;
+}
+/* 溢出隐藏 end */
+
+/* flex布局 start */
+.flex {
+  display: flex;
+  width: 100%;
+}
+.flex-inline {
+  display: inline-flex;
+}
+.flex-1 {
+  flex: 1;
+}
+.flex-column {
+  @extend .flex;
+  width: initial;
+  height: 100%;
+  flex-direction: column;
+}
+.justify-start {
+  justify-content: flex-start;
+}
+.justify-center {
+  justify-content: center;
+}
+.justify-end {
+  justify-content: flex-end;
+}
+.justify-between {
+  justify-content: space-between;
+}
+.justify-around {
+  justify-content: space-around;
+}
+.justify-evenly {
+  justify-content: space-evenly;
+}
+.align-start {
+  align-items: flex-start;
+}
+.align-center {
+  align-items: center;
+}
+.align-end {
+  align-items: flex-end;
+}
+.flex-center {
+  justify-content: center;
+  align-items: center;
+}
+/* flex布局 end */
+
+/* 定位 start */
+.relative {
+  position: relative;
+}
+.absolute {
+  position: absolute;
+}
+.fixed {
+  position: fixed;
+}
+.sticky {
+  position: sticky;
+}
+/* 定位 end */
+
+/* 文本对齐 start */
+.text-left {
+  text-align: left;
+}
+.text-center {
+  text-align: center;
+}
+.text-right {
+  text-align: right;
+}
+/* 文本对齐 end */
+
+.page {
+  width: 100%;
+  height: 100%;
+}
