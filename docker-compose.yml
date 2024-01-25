@@ -32,7 +32,7 @@ services:
 
   super-bi:
     container_name: superbi
-    image: aopacloud/superbi:latest
+    image: aopacloud/superbi:1.0.0
     restart: always
     ports:
       - "80:80"

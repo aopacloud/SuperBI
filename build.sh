@@ -27,6 +27,8 @@ npm install --force && npm run build
 
 if [ $# -gt 0 ] && [ "docker" = "$1" ]; then
   # build docker image
+  rm ${BASE_DIR}/docker/super-bi.jar
+  rm -r ${BASE_DIR}/docker/super-bi
   cp ${BASE_DIR}/backend/super-bi/target/super-bi.jar ${BASE_DIR}/docker/super-bi.jar
   cp -r ${BASE_DIR}/frontend/dist-production ${BASE_DIR}/docker/super-bi
   cd ${BASE_DIR}/docker

@@ -87,10 +87,7 @@ $ java -jar super-bi/target/super-bi.jar
 > 前端项目依赖 NODE 环境，请确保本地 NODE 正确安装
 
 ```shell
-# 拉去仓库
-git clone https://github.com/aopacloud/SuperBI.git
 
-# 进入项目目录
 cd frontend
 
 # 安装依赖
