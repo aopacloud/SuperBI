@@ -39,7 +39,6 @@ import SideList from './components/SideList.vue'
 import DetailInfo from './components/DetailInfo.vue'
 import ModifyModal from './modify/index.vue'
 import TableList from './TableList.vue'
-import { getDatasourceDetailById } from '@/apis/datasource'
 
 const sideListRef = ref()
 

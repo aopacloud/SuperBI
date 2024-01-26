@@ -43,7 +43,7 @@ export const staticRoutes = [
     path: '/system',
     name: 'System',
     redirect: '/system/profile',
-    component: () => import('@/layout/index.vue'),
+    component: Layout,
     children: [
       {
         path: '/system/role',

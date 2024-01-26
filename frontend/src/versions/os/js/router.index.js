@@ -45,12 +45,6 @@ export const dynamicRoutes = [
     meta: { title: '数据源' },
   },
   {
-    path: '/datasource/m/:id?',
-    name: 'DatasourceModify',
-    component: () => import('@/versions/os/views/datasource/modify/index.vue'),
-    meta: { title: '创建数据源' },
-  },
-  {
     path: '/authority/approve',
     name: 'AuthorityApprove',
     component: () => import('@/views/authority/approve/index.vue'),
