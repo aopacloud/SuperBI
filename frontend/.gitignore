@@ -7,9 +7,12 @@ dist*/
 dist*?
 
 
+# 自动导入
+auto-imports.d.ts
+
+
 # 环境变量
 envs/*.local
-
 
 
 # 部署
