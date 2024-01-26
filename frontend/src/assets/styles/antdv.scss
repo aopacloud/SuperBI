@@ -1,0 +1,73 @@
+﻿/*多选下拉框样式重置*/
+.ant-select-dropdown.multiple {
+  .ant-select-item-option {
+    padding-right: 10px;
+    padding-left: 35px;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 8px;
+      left: 10px;
+      width: 16px;
+      height: 16px;
+      line-height: 16px;
+      border: 1px solid #e8e8e8;
+    }
+    &::after {
+      content: '';
+      position: absolute;
+      top: 15px;
+      left: 14px;
+      display: table;
+      width: 5.71428571px;
+      height: 9.14285714px;
+      border: 2px solid #fff;
+      border-top: 0;
+      border-left: 0;
+      transform: rotate(45deg) scale(1) translate(-50%, -50%);
+      transition: all 0.2s cubic-bezier(0.12, 0.4, 0.29, 1.46) 0.1s;
+    }
+
+    &:not(.ant-select-item-option-selected):hover {
+      &::after {
+        border-color: #999;
+      }
+    }
+
+    &.ant-select-item-option-selected {
+      &::before {
+        background-color: #1c9aee;
+        border-color: #1c9aee;
+      }
+    }
+
+    .ant-select-item-option-state {
+      display: none;
+    }
+  }
+}
+
+.fullscreen-modal {
+  .ant-modal {
+    position: static;
+    width: 100% !important;
+    max-width: initial;
+    height: 100%;
+    padding-bottom: 0;
+  }
+  .ant-modal-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    border-radius: 0 !important;
+  }
+  .ant-modal-body {
+    flex: 1;
+    overflow: auto;
+  }
+}
+
+.fullscreen-search-drawer .ant-drawer-content-wrapper {
+  padding-top: 60px;
+}
