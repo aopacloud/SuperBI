@@ -1,0 +1,366 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+<mapper namespace="net.aopacloud.superbi.mapper.DatasetMapper" >
+
+    <select id="selectById" resultType="net.aopacloud.superbi.model.entity.Dataset">
+        select * from bi_dataset where id = #{id}
+    </select>
+
+    <select id="search" resultType="net.aopacloud.superbi.model.dto.DatasetDTO" parameterType="net.aopacloud.superbi.model.query.DatasetQuery">
+        select
+            t.id,
+            t.workspace_id,
+            t.status,
+            t.name,
+            t.description,
+            t.version,
+            t.last_edit_version,
+            t.doc_url,
+            t.enable_apply,
+            t.creator,
+            t.operator,
+            t.create_time,
+            t.update_time,
+            folder.folder_id,
+            if(fav.id is null, false, true) as favorite,
+--             if(auth.is_actived = 1, auth.permission , 'NONE') as permission,
+--             if(auth.is_actived = 1, false , true) as expired,
+            case when auth.is_actived = 1 then auth.permission when auth.is_actived = 0 then 'EXPIRED' else 'NONE' end as permission,
+            concat(c.db_name,'.',c.table_name) as source
+        from bi_dataset t
+        join bi_dataset_meta_config c
+        on t.id = c.dataset_id and t.version = c.version
+        left join (
+            select r.folder_id,r.target_id, f.`type` from bi_folder f join bi_folder_resource_rel r on f.id = r.folder_id
+            where f.deleted = 0 and f.position = 'DATASET'
+            <if test="folderType == 'PERSONAL'">
+                and f.type = #{folderType} and f.creator = #{username}
+            </if>
+            <if test="folderType == 'ALL' or folderType == null">
+                and f.type = #{folderType}
+            </if>
+        ) folder
+        on t.id = folder.target_id
+        left join (
+        select id,target_id from bi_favorite where `position` = 'DATASET' and username = #{username}
+        ) fav
+        on t.id = fav.target_id
+        left join
+        (
+            select dataset_id, max(permission) as permission, max(is_actived) as is_actived
+            from ( <include refid="net.aopacloud.superbi.mapper.DatasetAuthorizeMapper.userAllAuthorize"/> ) tmp
+            where username = #{username} group by dataset_id
+        )auth
+        on auth.dataset_id = t.id
+        <where>
+               t.deleted = 0
+            <if test="workspaceId != null">
+                and t.workspace_id = #{workspaceId}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                and (
+                    t.name LIKE concat('%', #{keyword}, '%')
+                    OR
+                    t.description LIKE concat('%', #{keyword}, '%')
+                    OR
+                    c.db_name LIKE concat('%', #{keyword}, '%')
+                    OR
+                    c.table_name LIKE concat('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="folderId != null and folderId > 0">
+                and folder.folder_id = #{folderId}
+            </if>
+            <if test="folderId = 0">
+                and folder.folder_id is null
+            </if>
+            <if test="folderType == 'PERSONAL'">
+                and (fav.id is not null or t.creator = #{username} or auth.is_actived = 1 ) and (t.status = 'ONLINE' or t.creator = #{username})
+            </if>
+            <if test="folderType == 'ALL'">
+                and  t.status = 'ONLINE' and (t.enable_apply = 1 or auth.is_actived = 1)
+            </if>
+            <if test="folderType == null or folderType == '' ">
+                and (t.status = 'ONLINE' or t.creator = #{username}) and (t.enable_apply = 1 or auth.is_actived = 1)
+            </if>
+            <if test="favorite != null and favorite == 1" >
+                and fav.id is not null
+            </if>
+            <if test="hasPermission == 1">
+                and auth.dataset_id is not null and auth.is_actived = 1
+            </if>
+        </where>
+    </select>
+
+    <insert id="save" useGeneratedKeys="true" keyProperty="id" parameterType="net.aopacloud.superbi.model.entity.Dataset">
+        insert into bi_dataset (`name`,description,version,last_edit_version, creator, operator , workspace_id ,doc_url, enable_apply, status)
+        values (
+                #{name},
+                #{description},
+                #{version},
+                #{lastEditVersion},
+                #{creator},
+                #{operator},
+                #{workspaceId},
+                #{docUrl},
+                #{enableApply},
+                #{status}
+               )
+    </insert>
+
+    <sql id="baseSelect" >
+        select d.*,
+        if(f.target_id is null, false, true) as favorite,
+        concat(c.db_name,'.',c.`table_name`) as source
+        from
+        bi_dataset d
+        left join
+        (select target_id from bi_favorite where `position` = 'DATASET' and username = #{username}) f
+        on d.id = f.target_id
+        left join bi_dataset_meta_config c
+        on d.id = c.dataset_id and d.version = c.version
+        <if test="folderIds != null">
+            join (select target_id from bi_folder_resource_rel
+            where folder_id in
+            <foreach collection="folderIds" item="folderId" separator="," open="(" close=")">
+                #{folderId}
+            </foreach>
+            ) folder
+            on d.id = folder.target_id
+        </if>
+        where
+            d.deleted = 0
+            and d.workspace_id = #{workspaceId}
+            <if test="keyword != null and keyword != ''">
+                and (
+                d.name LIKE concat('%', #{keyword}, '%')
+                OR
+                d.description LIKE concat('%', #{keyword}, '%')
+                OR
+                c.db_name LIKE concat('%', #{keyword}, '%')
+                OR
+                c.table_name LIKE concat('%', #{keyword}, '%')
+                <if test="searchUsernames != null and searchUsernames.size() > 0">
+                    OR
+                    d.creator in
+                    <foreach collection="searchUsernames" item="usr" separator="," open="(" close=")">
+                        #{usr}
+                    </foreach>
+                </if>
+            )
+            </if>
+    </sql>
+
+    <select id="findMyAll" resultType="net.aopacloud.superbi.model.dto.DatasetDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
+        <include refid="baseSelect" />
+            and (f.target_id is not null
+                or d.creator = #{username}
+                <if test="ids != null and ids.size() > 0 ">
+                    or d.id in
+                    <foreach collection="ids" item="id" separator="," open="(" close=")">
+                        #{id}
+                    </foreach>
+                </if>
+                <if test="superAdmin">
+                    or 1=1
+                </if>
+
+            )
+            and (d.status = 'ONLINE' or d.creator = #{username})
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                order by ${sortField} ${sortType}
+            </when>
+            <otherwise>
+                order by d.name asc
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="findMyFavorite" resultType="net.aopacloud.superbi.model.dto.DatasetDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
+        <include refid="baseSelect" />
+            and f.target_id is not null
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                order by ${sortField} ${sortType}
+            </when>
+            <otherwise>
+                order by d.name asc
+            </otherwise>
+        </choose>
+    </select>
+    <select id="findMyCreate" resultType="net.aopacloud.superbi.model.dto.DatasetDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
+        <include refid="baseSelect" />
+            and d.creator = #{username}
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                order by ${sortField} ${sortType}
+            </when>
+            <otherwise>
+                order by d.name asc
+            </otherwise>
+        </choose>
+    </select>
+    <select id="findHasPermission" resultType="net.aopacloud.superbi.model.dto.DatasetDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
+        <include refid="baseSelect" />
+            and (d.status = 'ONLINE' or d.creator = #{username})
+            <if test="ids != null and ids.size() > 0">
+                and d.id in
+                <foreach collection="ids" item="id" separator="," open="(" close=")">
+                    #{id}
+                </foreach>
+            </if>
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                order by ${sortField} ${sortType}
+            </when>
+            <otherwise>
+                order by d.name asc
+            </otherwise>
+        </choose>
+    </select>
+    <select id="findList" resultType="net.aopacloud.superbi.model.dto.DatasetDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
+        <include refid="baseSelect" />
+            <if test="folderType.name() == 'ALL' ">
+                and d.status = 'ONLINE'
+            </if>
+            <if test="folderType.name() == 'PERSONAL'">
+                and (d.status = 'ONLINE' or d.creator = #{username})
+            </if>
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                order by ${sortField} ${sortType}
+            </when>
+            <otherwise>
+                order by d.name asc
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="findUnclassified" resultType="net.aopacloud.superbi.model.dto.DatasetDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
+        select d.*,
+        if(f.target_id is null, false, true) as favorite
+        from
+        bi_dataset d
+        left join
+        (select target_id from bi_favorite where `position` = 'DATASET' and username = #{username}) f
+        on d.id = f.target_id
+        left join
+            (select r.target_id from bi_folder fo join bi_folder_resource_rel r on fo.id = r.folder_id and  fo.`type` = 'ALL' and fo.workspace_id = #{workspaceId} and fo.deleted = 0 and fo.`position` = 'DATASET') folder
+        on d.id = folder.target_id
+        <where>
+            d.deleted = 0
+            and d.workspace_id = #{workspaceId}
+            and d.status = 'ONLINE'
+            and folder.target_id is null
+        </where>
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                order by d.${sortField} ${sortType}
+            </when>
+            <otherwise>
+                order by d.name asc
+            </otherwise>
+        </choose>
+    </select>
+    <select id="selectIdsByWorkspaceAndCreator" resultType="java.lang.Long">
+        select id from bi_dataset
+        where
+            deleted = 0
+            <if test="workspaceId != null">
+                and workspace_id = #{workspaceId}
+            </if>
+            <if test="creator != null and creator != ''">
+                and creator = #{creator}
+            </if>
+    </select>
+    <select id="countByTable" resultType="java.lang.Integer">
+        select count(*) from bi_dataset d
+        join bi_dataset_meta_config c
+        on d.id = c.dataset_id and d.version = c.version
+        <where>
+            d.deleted = 0 and d.status = 'ONLINE'
+            <if test="workspaceId != null">
+                and d.workspace_id = #{workspaceId}
+            </if>
+            <if test="datasourceName != null">
+                and c.datasource_name = #{datasourceName}
+            </if>
+            <if test="tableName != null">
+                and table_name = #{tableName}
+            </if>
+        </where>
+    </select>
+    <select id="selectByDatasourceAndTable" resultType="net.aopacloud.superbi.model.dto.DatasetDTO">
+        select d.*
+        from bi_dataset d
+        join bi_dataset_meta_config c
+            on d.id = c.dataset_id and d.version = c.version
+        join bi_datasource s
+        on c.datasource_name = s.name and d.workspace_id = s.workspace_id
+        where s.id = #{datasourceId}  and c.table_name = #{tableName}
+        and d.deleted = 0 and d.status = 'ONLINE'
+    </select>
+    <select id="countByUsername" resultType="java.lang.Integer">
+        select count(*) from bi_dataset where deleted = 0 and creator = #{username}
+    </select>
+    <select id="findListByWorkspace" resultType="net.aopacloud.superbi.model.dto.DatasetDTO">
+        select * from bi_dataset where deleted = 0 and workspace_id = #{workspaceId} and status = 'ONLINE'
+    </select>
+    <select id="selectByIdsOrCreator" resultType="net.aopacloud.superbi.model.dto.DatasetDTO">
+        select *
+        from bi_dataset
+        where deleted = 0
+          and status = 'ONLINE'
+          and (creator = #{username}
+            <if test="datasetIds != null and datasetIds.size() > 0">
+                   or id in
+                <foreach collection="ids" item="id" separator="," open="(" close=")">
+                    #{id}
+                </foreach>
+            </if>
+        )
+    </select>
+    <select id="findByDashboard" resultType="net.aopacloud.superbi.model.dto.DatasetDTO">
+        select d.*
+        from bi_dataset d
+        join bi_report r on d.id = r.dataset_id
+        join bi_dashboard_component c on r.id = c.report_id and c.type = 'REPORT'
+        join bi_dashboard dash on c.dashboard_id = dash.id and c.version = dash.version
+        where d.deleted = 0 and d.status = 'ONLINE' and dash.id = #{dashboardId}
+    </select>
+
+    <update id="update" parameterType="net.aopacloud.superbi.model.entity.Dataset">
+        UPDATE bi_dataset
+        SET `name`            = #{name},
+            description       = #{description},
+            operator          = #{operator},
+            status            = #{status},
+            version           = ${version},
+            last_edit_version = #{lastEditVersion},
+            enable_apply      = #{enableApply},
+            doc_url           = #{docUrl}
+        WHERE id = #{id}
+    </update>
+
+    <update id="deleteById">
+        update bi_dataset set deleted = #{id} where id = #{id}
+    </update>
+    <update id="updateStatus">
+        update bi_dataset set status = #{status} where id = #{id}
+    </update>
+    <update id="updateVersion">
+        update bi_dataset set version = #{version} where id = #{id}
+    </update>
+    <update id="updateLastEditVersion">
+        update bi_dataset set last_edit_version = #{lastEditVersion} where id = #{id}
+    </update>
+    <update id="updateApplyEnable">
+        update bi_dataset set enable_apply = #{enableApply} where id = #{id}
+    </update>
+    <update id="updateCreator">
+        update bi_dataset set creator=#{toUsername} where creator=#{fromUsername} and deleted = 0
+    </update>
+
+</mapper>

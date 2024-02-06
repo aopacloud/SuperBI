@@ -1,0 +1,124 @@
+﻿.ant-picker-dropdown {
+  &.mini {
+    --header-height: 32px; // 操作头高度
+    --td-width: 26px; // 单元格宽度
+    --month-td-width: 60px; // 单元格宽度
+
+    --date-table-width: calc(var(--td-width) * 7); // 表格宽度
+    --month-table-width: calc(var(--month-td-width) * 3); // 表格宽度
+    --quarter-table-width: 200px; // 表格宽度
+    --year-table-width: calc(var(--month-td-width) * 3); // 表格宽度
+
+    --date-table-wrapper-width: var(--date-table-width) + 24; // 表格容器宽度
+    --month-table-wrapper-width: var(--month-table-width) + 16; // 表格容器宽度
+    --quarter-table-wrapper-width: var(--quarter-table-width) + 24; // 表格容器宽度
+    --year-table-wrapper-width: var(--year-table-width) + 16; // 表格容器宽度
+  }
+
+  &.small {
+    --header-height: 36px; // 操作头高度
+    --td-width: 30px; // 单元格宽度
+    --month-td-width: 70px; // 单元格宽度
+
+    --date-table-width: calc(var(--td-width) * 7); // 表格宽度
+    --month-table-width: calc(var(--month-td-width) * 3); // 表格宽度
+    --quarter-table-width: 200px; // 表格宽度
+    --year-table-width: calc(var(--month-td-width) * 3); // 表格宽度
+
+    --date-table-wrapper-width: var(--date-table-width) + 24; // 表格容器宽度
+    --month-table-wrapper-width: var(--month-table-width) + 16; // 表格容器宽度
+    --quarter-table-wrapper-width: var(--quarter-table-width) + 24; // 表格容器宽度
+    --year-table-wrapper-width: var(--year-table-width) + 16; // 表格容器宽度
+  }
+
+  &.mini,
+  &.small {
+    .ant-picker-date-panel {
+      width: var(--date-table-wrapper-width) !important;
+    }
+    .ant-picker-month-panel {
+      width: var(--month-table-wrapper-width) !important;
+    }
+    .ant-picker-quarter-panel {
+      width: var(--quarter-table-wrapper-width) !important;
+    }
+    .ant-picker-year-panel {
+      width: var(--year-table-wrapper-width) !important;
+    }
+
+    .ant-picker-date-panel .ant-picker-content {
+      width: var(--date-table-width) !important;
+    }
+    .ant-picker-month-panel .ant-picker-content {
+      width: var(--month-table-width) !important;
+    }
+    .ant-picker-quarter-panel .ant-picker-content {
+      width: var(--quarter-table-width) !important;
+      height: 55px;
+    }
+    .ant-picker-year-panel .ant-picker-content {
+      width: var(--year-table-width) !important;
+    }
+    .ant-picker-decade-panel .ant-picker-content {
+      height: 213px !important;
+    }
+
+    .ant-picker-content th {
+      width: var(--td-width) !important;
+      height: calc(var(--td-width) + 2px) !important;
+    }
+
+    .ant-picker-header-super-prev-btn,
+    .ant-picker-header-super-next-btn,
+    .ant-picker-header-prev-btn,
+    .ant-picker-header-next-btn,
+    .ant-picker-header-view,
+    .ant-picker-year-btn,
+    .ant-picker-month-btn,
+    .ant-picker-decade-btn {
+      line-height: var(--header-height) !important;
+    }
+  }
+
+  &.mini {
+    .ant-picker-month-panel .ant-picker-content,
+    .ant-picker-year-panel .ant-picker-content {
+      height: 198px !important;
+    }
+    .ant-picker-cell {
+      padding: 1px 0 !important;
+    }
+  }
+
+  &.small {
+    .ant-picker-month-panel .ant-picker-content,
+    .ant-picker-year-panel .ant-picker-content {
+      height: 216px !important;
+    }
+    .ant-picker-cell {
+      padding: 2px 0 !important;
+    }
+  }
+}
+
+.ant-drawer {
+  .ant-drawer-header-title {
+    flex-direction: row-reverse;
+    .ant-drawer-close {
+      margin-right: 0;
+    }
+  }
+}
+
+.ant-modal {
+  .ant-modal-close {
+    top: 21px;
+  }
+  .ant-modal-header {
+    margin-bottom: 16px;
+  }
+
+  .ant-modal-footer {
+    margin-top: 16px;
+  }
+}

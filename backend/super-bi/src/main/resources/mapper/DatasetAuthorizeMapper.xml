@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+<mapper namespace="net.aopacloud.superbi.mapper.DatasetAuthorizeMapper" >
+
+    <sql id="baseFields">id,`scope`,permission,username,role_id,dataset_id,privilege_type,operator,start_time,expire_duration,column_privilege,row_privilege,row_param,remark,deleted,create_time,update_time</sql>
+
+    <sql id="userAllAuthorize">
+        select username,permission,dataset_id,privilege_type,start_time,expire_duration,column_privilege,row_privilege,create_time,if(expire_duration = 0 or  ( UNIX_TIMESTAMP(start_time) + expire_duration ) > UNIX_TIMESTAMP(now()),1,0) as is_actived, expired
+        from bi_dataset_authorize
+        where `scope` = 'USER' and deleted = 0
+        union all
+        select r.username,a.permission,a.dataset_id,a.privilege_type,a.start_time,a.expire_duration,a.column_privilege,a.row_privilege,a.create_time,if(expire_duration = 0 or  ( UNIX_TIMESTAMP(start_time) + expire_duration ) > UNIX_TIMESTAMP(now()),1,0) as is_actived,expired
+        from bi_dataset_authorize a join bi_auth_role_user r
+            on  a.role_id = r.role_id
+        where a.`scope` = 'ROLE' and a.deleted = 0
+    </sql>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" parameterType="net.aopacloud.superbi.model.entity.DatasetAuthorize">
+        insert into bi_dataset_authorize(`scope`,permission,username,role_id,dataset_id,privilege_type,operator,start_time,expire_duration,column_privilege,row_privilege,row_param,remark)
+        values (
+                #{scope},
+                #{permission},
+                #{username},
+                #{roleId},
+                #{datasetId},
+                #{privilegeType},
+                #{operator},
+                #{startTime},
+                #{expireDuration},
+                #{columnPrivilege},
+                #{rowPrivilege},
+                #{rowParam},
+                #{remark}
+               )
+    </insert>
+    <update id="softDelete">
+        update bi_dataset_authorize set deleted = 1 where id = #{id}
+    </update>
+    <update id="update" parameterType="net.aopacloud.superbi.model.entity.DatasetAuthorize">
+        update bi_dataset_authorize set permission = #{permission},
+                                        privilege_type = #{privilegeType},
+                                        start_time = #{startTime},
+                                        expire_duration = #{expireDuration},
+                                        column_privilege = #{columnPrivilege},
+                                        row_privilege = #{rowPrivilege},
+                                        row_param = #{rowParam},
+                                        remark = #{remark}
+        where id = #{id}
+    </update>
+    <update id="updateAuthorizeExpire">
+        update bi_dataset_authorize set expired = 1 where id = #{id}
+    </update>
+
+    <select id="searchUserAuthorize" resultType="net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO" parameterType="net.aopacloud.superbi.model.query.DatasetAuthorizeQuery">
+        select <include refid="baseFields"/>
+        from bi_dataset_authorize
+        <where>
+            deleted = 0 and `scope` = 'USER'
+            <if test="datasetId != null and datasetId != 0">
+                and dataset_id = #{datasetId}
+            </if>
+            <if test="searchUsers != null">
+                and username in
+                <foreach collection="searchUsers" item="usr" open="(" close=")" separator=",">
+                    #{usr}
+                </foreach>
+            </if>
+        </where>
+
+    </select>
+    <select id="searchRoleAuthorize" resultType="net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO" parameterType="net.aopacloud.superbi.model.query.DatasetAuthorizeQuery">
+        select auth.id,
+               auth.`scope`,
+               auth.permission,
+               auth.username,
+               auth.role_id,
+               auth.dataset_id,
+               auth.privilege_type,
+               auth.operator,
+               auth.start_time,
+               auth.expire_duration,
+               auth.column_privilege,
+               auth.row_privilege,
+               auth.row_param,
+               auth.remark,
+               auth.deleted,
+               auth.create_time,
+               auth.update_time,
+            r.name as role_name
+        from bi_dataset_authorize auth
+        left join bi_auth_role r
+        on auth.role_id = r.id
+        <where>
+            auth.deleted = 0 and auth.scope = 'ROLE'
+            <if test="datasetId != null and datasetId != 0">
+                and dataset_id = #{datasetId}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                and (r.name like CONCAT('%',#{keyword},'%') or r.description like CONCAT('%',#{keyword},'%'))
+            </if>
+        </where>
+    </select>
+    <select id="selectOneById" resultType="net.aopacloud.superbi.model.entity.DatasetAuthorize">
+        select <include refid="baseFields"/> from bi_dataset_authorize where id = #{id}
+    </select>
+    <select id="selectActiveByDatasetAndUsername"
+            resultType="net.aopacloud.superbi.model.entity.DatasetAuthorize">
+
+        select * from (<include refid="userAllAuthorize" />) t where is_actived = 1 and dataset_id = #{datasetId} and username = #{username}
+
+    </select>
+    <select id="selectByDatasetAndUsername" resultType="net.aopacloud.superbi.model.entity.DatasetAuthorize">
+        select * from (<include refid="userAllAuthorize" />) t where  dataset_id = #{datasetId} and username = #{username}
+    </select>
+
+    <select id="selectMaybeExpire" resultType="net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO">
+        select * from (<include refid="userAllAuthorize"/>) t where is_actived = 0 and expired = 0
+    </select>
+    <select id="findActivedAuthorize" resultType="net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO">
+        select t.*
+        from (select * from (<include refid="userAllAuthorize" /> ) t where is_actived = 1 and username = #{username} ) t
+        join bi_dataset d on t.dataset_id = d.id
+        where d.deleted = 0 and d.workspace_id = #{workspaceId}
+    </select>
+    <select id="selectUserAuthorizeByDatasetAndUsername"
+            resultType="net.aopacloud.superbi.model.entity.DatasetAuthorize">
+
+        select * from bi_dataset_authorize where `scope` = 'USER' and deleted = 0 and dataset_id = #{datasetId} and username = #{username} order by create_time desc
+
+    </select>
+    <select id="selectAuthorizeByRole" resultType="net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO">
+        select * from bi_dataset_authorize where `scope` = 'ROLE' and deleted = 0 and expired = 0 and role_id = #{roleId}
+    </select>
+    <select id="selectWriteAuthorize" resultType="net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO">
+        select
+            *
+        from (<include refid="userAllAuthorize" />) t
+        join bi_dataset d on t.dataset_id = d.id
+        where d.deleted = 0 and d.workspace_id = #{workspaceId} and t.is_actived = 1 and t.permission = 'WRITE' and t.username = #{username}
+    </select>
+    <select id="selectAuthorizeByUsername" resultType="net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO">
+        select * from bi_dataset_authorize where `scope` = 'USER' and deleted = 0 and expired = 0 and username = #{username}
+    </select>
+    <select id="selectAuthorizeByDataset" resultType="net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO">
+        select * from bi_dataset_authorize where  deleted = 0 and expired = 0 and dataset_id = #{datasetId}
+    </select>
+</mapper>

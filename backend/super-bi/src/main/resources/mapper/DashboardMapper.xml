@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+<mapper namespace="net.aopacloud.superbi.mapper.DashboardMapper" >
+
+    <resultMap id="BaseResultMap" type="net.aopacloud.superbi.model.entity.Dashboard">
+        <id column="id" jdbcType="INTEGER" property="id" />
+        <result column="workspace_id" jdbcType="INTEGER" property="workspaceId" />
+        <result column="name" jdbcType="VARCHAR" property="name" />
+        <result column="description" jdbcType="VARCHAR" property="description" />
+        <result column="status" jdbcType="VARCHAR" property="status" />
+        <result column="version" jdbcType="INTEGER" property="version" />
+        <result column="last_edit_version" jdbcType="INTEGER" property="lastEditVersion" />
+        <result column="creator" jdbcType="VARCHAR" property="creator" />
+        <result column="operator" jdbcType="VARCHAR" property="operator" />
+        <result column="deleted" jdbcType="INTEGER" property="deleted" />
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime" />
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime" />
+    </resultMap>
+    <sql id="Base_Column_List">
+        id, workspace_id, name, description, status, version, last_edit_version, creator,
+    operator, deleted, create_time, update_time
+    </sql>
+
+    <select id="search" resultType="net.aopacloud.superbi.model.dto.DashboardDTO" parameterType="net.aopacloud.superbi.model.query.DashboardQuery">
+        select *,
+               if(fav.target_id is null, false ,true ) as favorite
+        from
+             bi_dashboard t
+        left join
+             (select distinct target_id from bi_favorite where `position` = 'DASHBOARD' and username = #{username}) fav
+        on fav.target_id = t.id
+        <where>
+            deleted = 0
+            <if test="workspaceId != null" >
+                and t.workspace_id = #{workspaceId}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                and (t.name like concat('%',#{keyword},'%')
+                or t.description like concat('%',#{keyword},'%')
+                <if test="searchUsers != null ">
+                    or t.creator in (
+                    <foreach collection="searchUsers" item="usr" separator=",">
+                        #{usr}
+                    </foreach>
+                    )
+                </if>
+                )
+            </if>
+            <if test="favorite != null and favorite == 1" >
+                and fav.target_id is not null
+            </if>
+            <if test="authorizedIds != null and authorizedIds.size() > 0">
+                and t.id in
+                    <foreach collection="authorizedIds" item="aid" separator="," open="(" close=")">
+                        #{aid}
+                    </foreach>
+            </if>
+            <if test="creator != null and creator != ''">
+                and t.creator = #{creator}
+            </if>
+            <if test="type == null or type == 'ALL'">
+                and t.status = 'ONLINE'
+            </if>
+        </where>
+
+        order by
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                t.`${sortField}`  ${sortType}
+            </when>
+            <otherwise>
+                t.`update_time` desc
+            </otherwise>
+        </choose>
+
+    </select>
+
+    <select id="selectById" resultType="net.aopacloud.superbi.model.dto.DashboardDTO">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_dashboard
+        where id = #{id,jdbcType=INTEGER}
+    </select>
+
+
+    <insert id="save" keyProperty="id" useGeneratedKeys="true" parameterType="net.aopacloud.superbi.model.entity.Dashboard">
+        insert into bi_dashboard (workspace_id, `name`,
+                                  description, status, version,
+                                  last_edit_version, creator, operator)
+        values (#{workspaceId,jdbcType=INTEGER}, #{name,jdbcType=VARCHAR},
+                #{description,jdbcType=VARCHAR}, #{status,jdbcType=VARCHAR}, #{version,jdbcType=INTEGER},
+                #{lastEditVersion,jdbcType=INTEGER}, #{creator,jdbcType=VARCHAR}, #{operator,jdbcType=VARCHAR})
+    </insert>
+
+    <delete id="delete">
+        update  bi_dashboard set deleted = #{id} where id = #{id}
+    </delete>
+
+    <update id="update" parameterType="net.aopacloud.superbi.model.entity.Dashboard">
+        update bi_dashboard set `name`=#{name},
+                                description=#{description},
+                                operator=#{operator},
+                                status = #{status},
+                                version = #{version},
+                                last_edit_version = #{lastEditVersion}
+        where id=#{id}
+    </update>
+
+    <update id="updateLastEditVersion">
+        update bi_dashboard set last_edit_version = #{version} where id = #{dashboardId}
+    </update>
+
+    <update id="updateStatus">
+        update bi_dashboard set status = #{status} where id = #{id}
+    </update>
+
+    <update id="updateVersion">
+        update bi_dashboard set version = #{version} where id = #{dashboardId}
+    </update>
+    <update id="updateCreator">
+        update bi_dashboard set creator = #{toUsername} where creator = #{fromUsername} and deleted = 0
+    </update>
+
+
+    <select id="selectByReport" resultType="net.aopacloud.superbi.model.dto.DashboardDTO">
+        select d.*
+        from bi_dashboard_component c
+        join bi_dashboard d
+        on c.dashboard_id = d.id and c.version = d.version
+        where c.report_id = #{reportId} and d.status = 'ONLINE' and d.deleted = 0
+    </select>
+
+    <sql id="baseSelect" >
+        select d.*,
+        if(f.target_id is null, false, true) as favorite
+        from
+        bi_dashboard d
+        left join
+        (select target_id from bi_favorite where `position` = 'DASHBOARD' and username = #{username}) f
+        on d.id = f.target_id
+        <if test="folderIds != null">
+            join (select target_id from bi_folder_resource_rel
+            where folder_id in
+            <foreach collection="folderIds" item="folderId" separator="," open="(" close=")">
+                #{folderId}
+            </foreach>
+            ) folder
+            on d.id = folder.target_id
+        </if>
+        where
+        d.deleted = 0
+        and d.workspace_id = #{workspaceId}
+        <if test="keyword != null and keyword != ''">
+            and (
+            d.name LIKE concat('%', #{keyword}, '%')
+            OR
+            d.description LIKE concat('%', #{keyword}, '%')
+            )
+        </if>
+    </sql>
+
+    <select id="findAuthorized" resultType="net.aopacloud.superbi.model.dto.DashboardDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
+        <include refid="baseSelect" />
+        and (d.status = 'ONLINE' or d.creator = #{username})
+        <if test="ids != null and ids.size() > 0" >
+            and d.id in
+            <foreach collection="ids" item="id" separator="," open="(" close=")" >
+                #{id}
+            </foreach>
+        </if>
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                order by d.`${sortField}`  ${sortType}
+            </when>
+            <otherwise>
+                order by d.`update_time` desc
+            </otherwise>
+        </choose>
+    </select>
+    <select id="findFavorite" resultType="net.aopacloud.superbi.model.dto.DashboardDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
+        <include refid="baseSelect" />
+            and f.target_id is not null
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                order by d.`${sortField}`  ${sortType}
+            </when>
+            <otherwise>
+                order by d.`update_time` desc
+            </otherwise>
+        </choose>
+    </select>
+    <select id="findCreate" resultType="net.aopacloud.superbi.model.dto.DashboardDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
+        <include refid="baseSelect" />
+            and d.creator = #{username}
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                order by d.`${sortField}`  ${sortType}
+            </when>
+            <otherwise>
+                order by d.`update_time` desc
+            </otherwise>
+        </choose>
+    </select>
+    <select id="findUnclassified" resultType="net.aopacloud.superbi.model.dto.DashboardDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
+        select d.*,
+               if(f.target_id is null, false, true) as favorite
+        from
+            bi_dashboard d
+        left join
+            (select target_id from bi_favorite where `position` = 'DASHBOARD' and username = #{username}) f
+            on d.id = f.target_id
+        left join
+            (select r.target_id from bi_folder fo join bi_folder_resource_rel r on fo.id = r.folder_id and  fo.`type` = 'ALL' and fo.workspace_id = #{workspaceId} and fo.deleted = 0 and fo.`position` = 'DASHBOARD') folder
+        on d.id = folder.target_id
+        where d.deleted = 0
+          and d.workspace_id = #{workspaceId}
+          and d.status = 'ONLINE'
+          and folder.target_id is null
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                order by d.`${sortField}`  ${sortType}
+            </when>
+            <otherwise>
+                order by d.`update_time` desc
+            </otherwise>
+        </choose>
+    </select>
+    <select id="findAll" resultType="net.aopacloud.superbi.model.dto.DashboardDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
+        <include refid="baseSelect" />
+        and (f.target_id is not null
+        or d.creator = #{username}
+        <if test="ids != null and ids.size() > 0">
+            or d.id in
+            <foreach collection="ids" item="id" separator="," open="(" close=")">
+                #{id}
+            </foreach>
+        </if>
+        <if test="superAdmin">
+            or 1=1
+        </if>
+        )
+
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                order by d.`${sortField}`  ${sortType}
+            </when>
+            <otherwise>
+                order by d.`update_time` desc
+            </otherwise>
+        </choose>
+    </select>
+    <select id="findRoot" resultType="net.aopacloud.superbi.model.dto.DashboardDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
+        <include refid="baseSelect" />
+            and (d.status = 'ONLINE')
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                order by d.`${sortField}`  ${sortType}
+            </when>
+            <otherwise>
+                order by d.`update_time` desc
+            </otherwise>
+        </choose>
+    </select>
+    <select id="findNormal" resultType="net.aopacloud.superbi.model.dto.DashboardDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
+        <include refid="baseSelect" />
+
+            <if test="folderType.name() == 'ALL' ">
+                and d.status = 'ONLINE'
+            </if>
+            <if test="folderType.name() == 'PERSONAL'">
+                and (d.status = 'ONLINE' or d.creator = #{username})
+            </if>
+
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                order by d.`${sortField}`  ${sortType}
+            </when>
+            <otherwise>
+                order by d.`update_time` desc
+            </otherwise>
+        </choose>
+    </select>
+    <select id="countByUsername" resultType="java.lang.Integer">
+        select count(*) from bi_dashboard where creator = #{username} and deleted = 0
+    </select>
+    <select id="selectByWorkspace" resultType="net.aopacloud.superbi.model.dto.DashboardDTO">
+        select * from bi_dashboard where deleted = 0 and workspace_id = #{workspaceId} and status = 'ONLINE'
+    </select>
+    <select id="selectByIdsAndCreator" resultType="net.aopacloud.superbi.model.dto.DashboardDTO">
+        select *
+        from bi_dashboard
+        where deleted = 0
+        and status = 'ONLINE'
+        and (
+        creator = #{username}
+        <if test="dashboardIds != null and dashboardIds.size() > 0">
+            or id in
+            <foreach collection="dashboardIds" item="id" separator="," open="(" close=")">
+                #{id}
+            </foreach>
+        </if>
+        )
+    </select>
+</mapper>

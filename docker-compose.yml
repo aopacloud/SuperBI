@@ -1,0 +1,50 @@
+version: '3.8'
+services:
+  mysql:
+    image: mysql:8
+    container_name: mysql8
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./sql:/docker-entrypoint-initdb.d
+      - ./.data/mysql:/var/lib/mysql
+    restart: always
+    healthcheck:
+      test: "mysqladmin ping -h127.0.0.1 -uroot -p123456"
+      start_period: 30s
+      timeout: 20s
+      retries: 10
+      interval: 10s
+    networks:
+      - aoponetwork
+
+  redis:
+    image: redis:6
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./.data/redis:/data
+    networks:
+      - aoponetwork
+
+  super-bi:
+    container_name: superbi
+    image: aopacloud/superbi:1.0.0
+    restart: always
+    ports:
+      - "80:80"
+    networks:
+      - aoponetwork
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+
+networks:
+  aoponetwork:
+    driver: bridge

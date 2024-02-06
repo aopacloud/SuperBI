@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.DatasetMetaConfigMapper">
+    <resultMap id="BaseResultMap" type="net.aopacloud.superbi.model.entity.DatasetMetaConfig">
+        <id column="id" jdbcType="INTEGER" property="id"/>
+        <result column="dataset_id" jdbcType="INTEGER" property="datasetId"/>
+        <result column="version" jdbcType="INTEGER" property="version"/>
+        <result column="datasource_name" jdbcType="VARCHAR" property="datasourceName"/>
+        <result column="engine" jdbcType="VARCHAR" property="engine"/>
+        <result column="db_name" jdbcType="VARCHAR" property="dbName"/>
+        <result column="table_name" jdbcType="VARCHAR" property="tableName"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+        <result column="content" jdbcType="LONGVARCHAR" property="content"/>
+        <result column="sql" jdbcType="LONGVARCHAR" property="sql"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id
+        , dataset_id, version, datasource_name, engine, `db_name`, `table_name`, create_time,
+    update_time,content, `sql`
+    </sql>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id"
+            parameterType="net.aopacloud.superbi.model.entity.DatasetMetaConfig">
+        insert into bi_dataset_meta_config(dataset_id, version, datasource_name, engine, db_name, `table_name`, content,
+                                           `sql`)
+        values (#{datasetId},
+                #{version},
+                #{datasourceName},
+                #{engine},
+                #{dbName},
+                #{tableName},
+                #{content},
+                #{sql})
+    </insert>
+
+    <select id="selectOneByDatasetAndVersion" resultMap="BaseResultMap">
+        select
+            id,
+            dataset_id,
+            version,
+            ifnull(datasource_name, `db_name`) as datasource_name,
+            engine,
+            `db_name`,
+            `table_name`,
+            create_time,
+            update_time,
+            content,
+            `sql`
+        from bi_dataset_meta_config
+        where dataset_id = #{datasetId}
+        and version = #{version}
+    </select>
+</mapper>

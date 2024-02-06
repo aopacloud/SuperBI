@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.WorkspaceConfigMapper">
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" parameterType="net.aopacloud.superbi.model.entity.WorkspaceConfig">
+        insert into bi_workspace_config (workspace_id,shared,active_timezone,selected_timezone)
+        values(
+               #{workspaceId},
+               #{shared},
+               #{activeTimezone},
+               #{selectedTimezone}
+              )
+    </insert>
+    <update id="update" parameterType="net.aopacloud.superbi.model.entity.WorkspaceConfig">
+        update bi_workspace_config set shared = #{shared},
+                                       active_timezone = #{activeTimezone},
+                                       selected_timezone = #{selectedTimezone}
+        where id = #{id}
+    </update>
+    <delete id="deleteById">
+        delete from bi_workspace_config where id = #{id}
+    </delete>
+
+    <select id="selectOneByWorkspaceId" resultType="net.aopacloud.superbi.model.entity.WorkspaceConfig">
+        select id,workspace_id, shared, active_timezone, selected_timezone,create_time,update_time from bi_workspace_config where workspace_id = #{workspaceId} limit 1
+    </select>
+
+</mapper>

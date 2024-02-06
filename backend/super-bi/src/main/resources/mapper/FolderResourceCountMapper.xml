@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+<mapper namespace="net.aopacloud.superbi.mapper.FolderResourceCountMapper">
+
+
+    <select id="countResourceByFolder" resultType="java.lang.Integer">
+            select count(*)
+            from
+            (select id,creator,type,`position` from bi_folder where id = #{folder.id}) f
+            join
+            (select folder_id , target_id from bi_folder_resource_rel where folder_id = #{folder.id}) r
+            on f.id = r.folder_id
+            <if test="folder.position.name == 'DASHBOARD'">
+                join bi_dashboard d
+                on r.target_id = d.id and d.deleted = 0
+                <if test="folder.type.name == 'ALL'">
+                    and  d.status = 'ONLINE'
+                </if>
+                <if test="folder.type.name == 'PERSONAL'">
+                    and (d.creator = #{username} or d.status = 'ONLINE')
+                </if>
+            </if>
+            <if test="folder.position.name == 'DATASET'">
+                join bi_dataset d
+                on r.target_id = d.id and d.deleted = 0
+                <if test="folder.type.name == 'ALL'">
+                    and  d.status = 'ONLINE'
+                </if>
+                <if test="folder.type.name == 'PERSONAL'">
+                    and (d.creator = #{username} or d.status = 'ONLINE')
+                </if>
+            </if>
+    </select>
+    <select id="countFavoriteDashboardByUser" resultType="java.lang.Integer">
+        select count(*)
+        from bi_favorite f
+        join bi_dashboard d
+        on d.id = f.target_id and d.deleted = 0
+        where f.username = #{username} and f.position = 'DASHBOARD' and d.workspace_id = #{workspaceId}
+    </select>
+
+    <select id="countFavoriteDatasetByUser" resultType="java.lang.Integer">
+        select count(*)
+        from bi_favorite f
+        join bi_dataset d
+        on d.id = f.target_id and d.deleted = 0
+        where f.username = #{username} and f.position = 'DATASET' and d.workspace_id = #{workspaceId}
+    </select>
+    <select id="countCreateDashboard" resultType="java.lang.Integer">
+        select count(*)
+        from bi_dashboard d
+        where d.creator = #{username} and d.deleted = 0 and d.workspace_id = #{workspaceId}
+    </select>
+    <select id="countCreateDataset" resultType="java.lang.Integer">
+        select count(*)
+        from bi_dataset d
+        where d.creator = #{username} and d.deleted = 0 and d.workspace_id = #{workspaceId}
+    </select>
+    <select id="countShareToMeDashboard" resultType="java.lang.Integer">
+        select count(*)
+        from
+            (
+                select dashboard_id
+                from (
+                         select dashboard_id
+                         from bi_dashboard_share s
+                         where `type` = 'USER' and `username` = #{username}
+                         union all
+                         select s.dashboard_id
+                         from bi_dashboard_share s
+                         join bi_auth_role_user r
+                         on s.`type` = 'ROLE' and s.role_id = r.role_id and r.username = #{username}
+                     ) t
+                group by dashboard_id
+            ) tmp
+            join bi_dashboard d
+            on tmp.dashboard_id = d.id and d.deleted = 0 and d.workspace_id = #{workspaceId} and d.status = 'ONLINE'
+    </select>
+    <select id="countHasPermissionDataset" resultType="java.lang.Integer">
+        select count(*)
+        from bi_dataset d
+        left join ( select distinct dataset_id as dataset_id from (<include refid="net.aopacloud.superbi.mapper.DatasetAuthorizeMapper.userAllAuthorize" /> ) auth where auth.username = #{username} and auth.is_actived = 1 ) tmp
+        on d.id = tmp.dataset_id
+        where d.deleted = 0 and d.workspace_id = #{workspaceId}
+        and (d.status = 'ONLINE' or d.creator = #{username})
+        <if test="allPermission == false">
+            and (tmp.dataset_id is not null or d.creator = #{username})
+        </if>
+
+    </select>
+
+</mapper>

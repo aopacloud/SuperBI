@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.DatasourceMapper">
+
+    <sql id="Base_Column_List">
+        id , workspace_id, engine, version, `name`, url,host,port, `user`, password, `database`,ssl_enable, init_sql,creator, create_time, update_time
+    </sql>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" parameterType="net.aopacloud.superbi.model.entity.Datasource">
+        insert into bi_datasource(workspace_id,engine,version,`name`,url,`user`,password,`database`,init_sql, host,port,creator, ssl_enable)
+        values(
+               #{workspaceId},
+               #{engine},
+               #{version},
+               #{name},
+               #{url},
+               #{user},
+               #{password},
+               #{database},
+               #{initSql},
+               #{host},
+               #{port},
+               #{creator},
+               #{sslEnable}
+              )
+    </insert>
+    <update id="update" parameterType="net.aopacloud.superbi.model.entity.Datasource">
+        update bi_datasource set engine = #{engine},
+                                 version = #{version},
+                                 `name` = #{name},
+                                 `url` = #{url},
+                                 `user` = #{user},
+                                 password = #{password},
+                                 `database` = #{database},
+                                 init_sql = #{initSql},
+                                 ssl_enable = #{sslEnable},
+                                 `host` = #{host},
+                                 `port` = #{port}
+        where id = #{id}
+    </update>
+    <delete id="deleteById">
+        delete from bi_datasource where id = #{id}
+    </delete>
+    <select id="selectAllByWorkspace" resultType="net.aopacloud.superbi.model.dto.DatasourceDTO">
+        select
+            <include refid="Base_Column_List"/>
+        from bi_datasource
+        where
+            workspace_id = #{workspaceId}
+            <if test="keyword !=null and '' != keyword">
+                and name like CONCAT('%',#{keyword},'%')
+            </if>
+    </select>
+    <select id="selectByNameAndWorkspace" resultType="net.aopacloud.superbi.model.dto.DatasourceDTO">
+        select
+            <include refid="Base_Column_List"/>
+        from bi_datasource
+        where workspace_id = #{workspaceId}
+              and name = #{name}
+    </select>
+    <select id="selectOneById" resultType="net.aopacloud.superbi.model.dto.DatasourceDTO">
+        select <include refid="Base_Column_List"/> from bi_datasource where id = #{id}
+    </select>
+</mapper>

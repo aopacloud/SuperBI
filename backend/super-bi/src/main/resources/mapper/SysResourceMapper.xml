@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.SysResourceMapper">
+
+    <sql id="fields">
+        `id`,
+        `resource_type`,
+        `module`,
+        `module_name`,
+        `permission`,
+        `permission_name`,
+        `code`,
+        `name`,
+        `comment`,
+        `remark`,
+        `creator`,
+        `create_time`,
+        `operator`,
+        `update_time`
+    </sql>
+
+    <select id="selectAll" resultType="net.aopacloud.superbi.model.entity.SysResource">
+        select <include refid="fields"/> from bi_sys_resource
+    </select>
+</mapper>

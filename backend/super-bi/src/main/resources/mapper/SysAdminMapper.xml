@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.SysAdminMapper">
+
+    <select id="selectOneByUsername" resultType="net.aopacloud.superbi.model.entity.SysAdmin">
+        select id,username,create_time,update_time from bi_sys_admin where deleted = 0 and username = #{username}
+    </select>
+</mapper>

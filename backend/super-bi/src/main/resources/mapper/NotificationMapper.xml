@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.NotificationMapper">
+    <resultMap id="BaseResultMap" type="net.aopacloud.superbi.model.entity.Notification">
+        <id column="id" jdbcType="INTEGER" property="id"/>
+        <result column="username" jdbcType="VARCHAR" property="username"/>
+        <result column="readed" jdbcType="INTEGER" property="readed"/>
+        <result column="type" jdbcType="VARCHAR" property="type"/>
+        <result column="resource_type" jdbcType="VARCHAR" property="resourceType"/>
+        <result column="resource_id" jdbcType="INTEGER" property="resourceId"/>
+        <result column="resource_name" jdbcType="VARCHAR" property="resourceName"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="content" jdbcType="LONGVARCHAR" property="content"/>
+    </resultMap>
+    <resultMap id="DTOResultMap" type="net.aopacloud.superbi.model.dto.NotificationDTO">
+        <id column="id" jdbcType="INTEGER" property="id"/>
+        <result column="username" jdbcType="VARCHAR" property="username"/>
+        <result column="readed" jdbcType="INTEGER" property="readed"/>
+        <result column="type" jdbcType="VARCHAR" property="type"/>
+        <result column="resource_type" jdbcType="VARCHAR" property="resourceType"/>
+        <result column="resource_id" jdbcType="INTEGER" property="resourceId"/>
+        <result column="resource_name" jdbcType="VARCHAR" property="resourceName"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="content" jdbcType="LONGVARCHAR" property="content"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id
+        , username, readed, `type`, resource_type, resource_id,resource_name, create_time,content
+    </sql>
+    <select id="selectById" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_notification
+        where id = #{id,jdbcType=INTEGER}
+    </select>
+
+    <select id="unreadCount" resultType="java.lang.Integer">
+        select count(*) from bi_notification where readed = 0 and username = #{username}
+    </select>
+    <select id="search" resultType="net.aopacloud.superbi.model.dto.NotificationDTO" parameterType="net.aopacloud.superbi.model.query.NoticeQuery">
+        select
+            <include refid="Base_Column_List"/>
+        from bi_notification
+        where
+            username = #{username,jdbcType=VARCHAR}
+            and type = #{type,jdbcType=VARCHAR}
+            <if test="keyword != null and keyword != ''">
+                and (resource_name like concat('%',#{keyword},'%') or content like concat('%',#{keyword},'%'))
+            </if>
+        order by
+        create_time DESC
+    </select>
+    <delete id="deleteById" parameterType="java.lang.Integer">
+        delete
+        from bi_notification
+        where id = #{id,jdbcType=INTEGER}
+    </delete>
+    <insert id="insert" parameterType="net.aopacloud.superbi.model.entity.Notification">
+        insert into bi_notification (username, readed,
+                                     type, resource_type, resource_id, resource_name, content)
+        values (#{username,jdbcType=VARCHAR}, #{readed,jdbcType=INTEGER},
+                #{type,jdbcType=VARCHAR}, #{resourceType,jdbcType=VARCHAR}, #{resourceId,jdbcType=INTEGER},
+                #{resourceName,jdbcType=VARCHAR}, #{content,jdbcType=LONGVARCHAR})
+    </insert>
+    <update id="update" parameterType="net.aopacloud.superbi.model.entity.Notification">
+        update bi_notification
+        set username      = #{username,jdbcType=VARCHAR},
+            readed        = #{readed,jdbcType=INTEGER},
+            type          = #{type,jdbcType=VARCHAR},
+            resource_type = #{resourceType,jdbcType=VARCHAR},
+            resource_id   = #{resourceId,jdbcType=INTEGER},
+            resource_name = #{resourceName,jdbcType=VARCHAR},
+            create_time   = #{createTime,jdbcType=TIMESTAMP},
+            content       = #{content,jdbcType=LONGVARCHAR}
+        where id = #{id,jdbcType=INTEGER}
+    </update>
+    <update id="readNotice">
+        update bi_notification
+        set readed = 1
+        where id IN
+        <foreach close=")" collection="list" item="item" open="(" separator=",">
+            #{item}
+        </foreach>
+    </update>
+</mapper>

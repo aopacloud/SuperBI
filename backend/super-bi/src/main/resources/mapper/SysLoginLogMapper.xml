@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.SysLoginLogMapper">
+    <insert id="insertSysLoginLog" parameterType="net.aopacloud.superbi.model.entity.SysLoginLog">
+        insert into bi_sys_login_log (username, ip, browser, os, login_status, error_msg)
+        values (#{username}, #{ip}, #{browser}, #{os}, #{loginStatus}, #{errorMsg})
+    </insert>
+</mapper>

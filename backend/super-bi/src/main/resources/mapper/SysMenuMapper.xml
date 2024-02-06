@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.SysMenuMapper">
+
+    <sql id="baseFields">
+      id,`name`,name_en,parent_id,app_path,sort,icon,url,hidden,description,creator,operator,create_time,update_time
+    </sql>
+
+    <select id="selectAll" resultType="net.aopacloud.superbi.model.dto.SysMenuDTO">
+        select <include refid="baseFields"/> from bi_sys_menu
+
+    </select>
+</mapper>

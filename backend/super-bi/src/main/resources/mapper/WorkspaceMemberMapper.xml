@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.WorkspaceMemberMapper">
+
+    <sql id="fields">id, workspace_id, username, `level`,sys_role_id, join_time, create_time, update_time</sql>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" parameterType="net.aopacloud.superbi.model.entity.WorkspaceMember">
+        insert into bi_workspace_member(workspace_id, username, `level` ,sys_role_id, join_time)
+        values(
+               #{workspaceId},
+               #{username},
+               #{level},
+               #{sysRoleId},
+               now()
+              )
+    </insert>
+    <update id="update" parameterType="net.aopacloud.superbi.model.entity.WorkspaceMember">
+        update bi_workspace_member set `level` = #{level}, sys_role_id = #{sysRoleId} where id = #{id}
+    </update>
+    <delete id="deleteById">
+        delete from bi_workspace_member where id = #{id}
+    </delete>
+
+    <select id="countByWorkspace" resultType="java.lang.Integer">
+        select count(*) from bi_workspace_member where workspace_id = #{workspaceId}
+    </select>
+
+    <select id="selectByWorkspaceAndLevel" resultType="net.aopacloud.superbi.model.entity.WorkspaceMember">
+        select <include refid="fields"/> from bi_workspace_member where workspace_id = #{workspaceId} and `level` = #{level}
+    </select>
+
+    <select id="search" resultType="net.aopacloud.superbi.model.dto.WorkspaceMemberDTO" parameterType="net.aopacloud.superbi.model.query.BaseQuery">
+        select <include refid="fields"/> from bi_workspace_member
+        where workspace_id = #{workspaceId}
+        <if test="searchUsers != null ">
+            and username in
+            <foreach collection="searchUsers" separator="," open="(" close=")" item="usr">
+                #{usr}
+            </foreach>
+        </if>
+        order by join_time desc
+    </select>
+    <select id="selectOneById" resultType="net.aopacloud.superbi.model.entity.WorkspaceMember">
+        select <include refid="fields" /> from bi_workspace_member where id = #{id}
+    </select>
+    <select id="selectByWorkspaceAndUsername" resultType="net.aopacloud.superbi.model.entity.WorkspaceMember">
+        select <include refid="fields" /> from bi_workspace_member where workspace_id = #{workspaceId} and username = #{username}
+    </select>
+
+</mapper>

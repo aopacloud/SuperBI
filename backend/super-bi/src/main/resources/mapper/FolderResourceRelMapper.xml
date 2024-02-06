@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.FolderResourceRelMapper">
+    <resultMap id="BaseResultMap" type="net.aopacloud.superbi.model.entity.FolderResourceRel">
+        <id column="id" jdbcType="INTEGER" property="id"/>
+        <result column="folder_id" jdbcType="INTEGER" property="folderId"/>
+        <result column="target_id" jdbcType="INTEGER" property="targetId"/>
+        <result column="resource_type" jdbcType="VARCHAR" property="resourceType"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id
+        , folder_id, target_id, resource_type, create_time, update_time
+    </sql>
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_folder_resource_rel
+        where id = #{id,jdbcType=INTEGER}
+    </select>
+    <select id="selectByTargetId" resultType="net.aopacloud.superbi.model.entity.FolderResourceRel">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_folder_resource_rel
+        where target_id = #{targetId,jdbcType=INTEGER}
+    </select>
+    <select id="countByFolderId" parameterType="java.lang.Long" resultType="java.lang.Integer">
+        select count(*)
+        from bi_folder_resource_rel
+        where folder_id = #{folderId,jdbcType=INTEGER}
+    </select>
+    <select id="selectByFolders" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_folder_resource_rel
+        where
+        folder_id in
+        <foreach close=")" collection="list" item="listItem" open="(" separator=",">
+            #{listItem}
+        </foreach>
+    </select>
+    <select id="countByFolders" resultType="net.aopacloud.superbi.model.dto.FolderResourceRelCountDTO">
+        select
+        folder_id as folderId,
+        count(*) as `count`
+        from bi_folder_resource_rel
+        where
+        folder_id in
+        <foreach close=")" collection="list" item="listItem" open="(" separator=",">
+            #{listItem}
+        </foreach>
+        group by folder_id
+    </select>
+    <delete id="deleteById" parameterType="java.lang.Long">
+        delete
+        from bi_folder_resource_rel
+        where id = #{id,jdbcType=INTEGER}
+    </delete>
+    <delete id="deleteByRelationship" parameterType="net.aopacloud.superbi.model.dto.FolderResourceRelationshipDTO">
+        delete
+        from bi_folder_resource_rel
+        where target_id = #{targetId}
+        and folder_id in (select id from bi_folder where
+            `type` = #{type}
+        and `position` = #{position}
+        and `workspace_id` = #{workspaceId}
+        <if test="type.name == 'PERSONAL'">
+            and creator = #{creator}
+        </if>
+        )
+    </delete>
+    <insert id="insert" parameterType="net.aopacloud.superbi.model.entity.FolderResourceRel">
+        insert into bi_folder_resource_rel (folder_id, target_id, resource_type)
+        values (#{folderId,jdbcType=INTEGER}, #{targetId,jdbcType=INTEGER}, #{resourceType,jdbcType=VARCHAR})
+    </insert>
+    <update id="update" parameterType="net.aopacloud.superbi.model.entity.FolderResourceRel">
+        update bi_folder_resource_rel
+        set folder_id     = #{folderId,jdbcType=INTEGER},
+            target_id     = #{targetId,jdbcType=INTEGER},
+            resource_type = #{resourceType,jdbcType=VARCHAR}
+        where id = #{id,jdbcType=INTEGER}
+    </update>
+</mapper>

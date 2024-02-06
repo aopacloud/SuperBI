@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.SysRoleMapper">
+    <resultMap id="BaseResultMap" type="net.aopacloud.superbi.model.entity.SysRole">
+        <id column="id" jdbcType="INTEGER" property="id"/>
+        <result column="name" jdbcType="VARCHAR" property="name"/>
+        <result column="description" jdbcType="VARCHAR" property="description"/>
+        <result column="role_type" jdbcType="VARCHAR" property="roleType"/>
+        <result column="creator" jdbcType="VARCHAR" property="creator"/>
+        <result column="extra" jdbcType="VARCHAR" property="extra"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id, `name`, description, role_type, creator, extra, create_time, update_time
+    </sql>
+    <select id="selectById" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_sys_role
+        where id = #{id}
+    </select>
+    <select id="queryRole" resultType="net.aopacloud.superbi.model.entity.SysRole" parameterType="net.aopacloud.superbi.model.query.SysRoleQuery">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_sys_role
+        <where>
+            <if test="keyword != null and '' != keyword">
+                and `name` like CONCAT('%',#{keyword},'%')
+            </if>
+        </where>
+    </select>
+    <select id="isRoleExist" resultType="java.lang.Integer">
+        select count(*)
+        from bi_sys_role
+        where `name` = #{name}
+        <if test="id != null">
+            and id != #{id}
+        </if>
+    </select>
+    <select id="findByUserAndWorkspace" resultType="net.aopacloud.superbi.model.dto.SysRoleDTO">
+        select
+        r.id, r.name, r.description, r.role_type, r.creator, r.extra, r.create_time, r.update_time
+        from bi_sys_role r
+        join bi_workspace_member m on r.id = m.sys_role_id
+        where m.username = #{username}
+        and m.workspace_id = #{workspaceId}
+
+    </select>
+    <delete id="deleteById">
+        delete
+        from bi_sys_role
+        where id = #{id}
+    </delete>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" parameterType="net.aopacloud.superbi.model.entity.SysRole">
+        insert into bi_sys_role (name, description,
+                                 role_type, creator, extra)
+        values (#{name,jdbcType=VARCHAR}, #{description,jdbcType=VARCHAR},
+                #{roleType,jdbcType=VARCHAR}, #{creator,jdbcType=VARCHAR}, #{extra,jdbcType=VARCHAR})
+    </insert>
+    <insert id="insertSelective" parameterType="net.aopacloud.superbi.model.entity.SysRole">
+        insert into bi_sys_role
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                id,
+            </if>
+            <if test="name != null">
+                name,
+            </if>
+            <if test="description != null">
+                description,
+            </if>
+            <if test="roleType != null">
+                role_type,
+            </if>
+            <if test="creator != null">
+                creator,
+            </if>
+            <if test="extra != null">
+                extra,
+            </if>
+            <if test="createTime != null">
+                create_time,
+            </if>
+            <if test="updateTime != null">
+                update_time,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id,jdbcType=LONG},
+            </if>
+            <if test="name != null">
+                #{name,jdbcType=VARCHAR},
+            </if>
+            <if test="description != null">
+                #{description,jdbcType=VARCHAR},
+            </if>
+            <if test="roleType != null">
+                #{role_type,jdbcType=VARCHAR},
+            </if>
+            <if test="creator != null">
+                #{creator,jdbcType=VARCHAR},
+            </if>
+            <if test="extra != null">
+                #{extra,jdbcType=VARCHAR},
+            </if>
+            <if test="createTime != null">
+                #{createTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="updateTime != null">
+                #{updateTime,jdbcType=TIMESTAMP},
+            </if>
+        </trim>
+    </insert>
+    <update id="updateByIdSelective" parameterType="net.aopacloud.superbi.model.entity.SysRole">
+        update bi_sys_role
+        <set>
+            <if test="name != null">
+                name = #{name,jdbcType=VARCHAR},
+            </if>
+            <if test="description != null">
+                description = #{description,jdbcType=VARCHAR},
+            </if>
+            <if test="roleType != null">
+                role_type = #{roleType,jdbcType=VARCHAR},
+            </if>
+            <if test="extra != null">
+                extra = #{extra,jdbcType=VARCHAR},
+            </if>
+        </set>
+        where id = #{id}
+    </update>
+    <update id="updateById" parameterType="net.aopacloud.superbi.model.entity.SysRole">
+        update bi_sys_role
+        set name        = #{name,jdbcType=VARCHAR},
+            description = #{description,jdbcType=VARCHAR},
+            role_type = #{roleType,jdbcType=VARCHAR},
+            creator     = #{creator,jdbcType=VARCHAR},
+            extra      = #{extra,jdbcType=VARCHAR},
+            create_time = #{createTime,jdbcType=TIMESTAMP},
+            update_time = #{updateTime,jdbcType=TIMESTAMP}
+        where id = #{id}
+    </update>
+</mapper>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.WorkspaceMapper">
+
+    <sql id="fields">id,`name`,description,sort,create_time,update_time</sql>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" parameterType="net.aopacloud.superbi.model.entity.Workspace">
+        insert into bi_workspace(`name`,description)
+        values(
+               #{name},
+               #{description}
+              )
+    </insert>
+    <update id="update" parameterType="net.aopacloud.superbi.model.entity.Workspace">
+        update bi_workspace set `name` = #{name},
+                                description = #{description},
+                                sort = #{sort}
+        where id = #{id}
+    </update>
+    <update id="updateSort" parameterType="net.aopacloud.superbi.model.entity.Workspace">
+        update bi_workspace set sort = #{sort} where id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        delete from bi_workspace where id = #{id}
+    </delete>
+
+    <select id="selectAllBelongMe" resultType="net.aopacloud.superbi.model.entity.Workspace">
+        select w.id,
+               w.`name`,
+               w.description,
+               w.sort,
+               w.create_time,
+               w.update_time
+        from bi_workspace  w
+        join bi_workspace_member m
+        on w.id = m.workspace_id
+        where m.username = #{me}
+        order by w.sort asc, w.create_time desc
+    </select>
+    <select id="selectOneById" resultType="net.aopacloud.superbi.model.entity.Workspace">
+        select <include refid="fields"/> from bi_workspace where id = #{id}
+    </select>
+    <select id="selectAll" resultType="net.aopacloud.superbi.model.entity.Workspace">
+        select <include refid="fields" /> from bi_workspace order by sort asc, create_time desc
+    </select>
+    <select id="selectOneByName" resultType="net.aopacloud.superbi.model.entity.Workspace">
+        select <include refid="fields" /> from bi_workspace where `name` = #{name} limit 1
+    </select>
+
+
+</mapper>

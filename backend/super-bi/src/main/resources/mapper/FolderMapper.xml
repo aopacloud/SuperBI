@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+<mapper namespace="net.aopacloud.superbi.mapper.FolderMapper">
+    <resultMap id="BaseResultMap" type="net.aopacloud.superbi.model.entity.Folder">
+        <id column="id" jdbcType="INTEGER" property="id"/>
+        <result column="workspace_id" jdbcType="INTEGER" property="workspaceId"/>
+        <result column="name" jdbcType="VARCHAR" property="name"/>
+        <result column="parent_id" jdbcType="INTEGER" property="parentId"/>
+        <result column="creator" jdbcType="VARCHAR" property="creator"/>
+        <result column="type" jdbcType="VARCHAR" property="type"/>
+        <result column="position" jdbcType="VARCHAR" property="position"/>
+        <result column="deleted" jdbcType="INTEGER" property="deleted"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id
+        , workspace_id, `name`, parent_id, creator, `type`, `position`, deleted, create_time,
+    update_time
+    </sql>
+    <insert id="save" useGeneratedKeys="true" keyProperty="id"
+            parameterType="net.aopacloud.superbi.model.entity.Folder">
+        insert into bi_folder(name, parent_id, creator, `type`, `position`, workspace_id)
+        values (#{name},
+                #{parentId},
+                #{creator},
+                #{type},
+                #{position},
+                #{workspaceId})
+    </insert>
+
+    <update id="update" parameterType="net.aopacloud.superbi.model.entity.Folder">
+        update bi_folder
+        set name=#{name},
+            parent_id = #{parentId}
+        where id = #{id}
+    </update>
+
+    <update id="deleteById">
+        update bi_folder
+        set deleted = 1
+        where id = #{id}
+    </update>
+
+    <select id="select" resultType="net.aopacloud.superbi.model.entity.Folder">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_folder
+        <where>
+            <if test="workspaceId != null">
+                and workspace_id = #{workspaceId,jdbcType=INTEGER}
+            </if>
+            <if test="name != null">
+                and name = #{name,jdbcType=VARCHAR}
+            </if>
+            <if test="creator != null">
+                and creator = #{creator,jdbcType=VARCHAR}
+            </if>
+            <if test="type != null">
+                and type = #{type,jdbcType=VARCHAR}
+            </if>
+            <if test="position != null">
+                and position = #{position,jdbcType=VARCHAR}
+            </if>
+        </where>
+    </select>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_folder
+        where id = #{id}
+        and deleted = 0
+    </select>
+
+    <select id="queryFolder" resultType="net.aopacloud.superbi.model.entity.Folder">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_folder
+        where deleted = 0
+        and workspace_id = #{folderQuery.workspaceId}
+        and `position` = #{folderQuery.position}
+        and `type` = #{folderQuery.type}
+        <if test="folderQuery.type == 'PERSONAL'">
+            and creator = #{folderQuery.creator}
+        </if>
+    </select>
+
+    <select id="selectChildren" resultMap="BaseResultMap">
+        select <include refid="Base_Column_List"/>
+        from bi_folder
+        where deleted = 0
+        and parent_id = #{id}
+        and `type` = #{folderQuery.type}
+        <if test="folderQuery.type.name == 'PERSONAL'">
+            and creator = #{folderQuery.creator}
+        </if>
+        and `position` = #{folderQuery.position}
+        and workspace_id = #{folderQuery.workspaceId}
+    </select>
+
+    <select id="selectByTarget" resultMap="BaseResultMap">
+        select g.id,
+               g.workspace_id,
+               g.`name`,
+               g.parent_id,
+               g.creator,
+               g.`type`,
+               g.`position`,
+               g.deleted,
+               g.create_time,
+               g.update_time
+        from bi_folder g
+                 join bi_folder_resource_rel r
+                      on g.id = r.folder_id and g.`type` = 'ALL' and g.position = #{position} and g.deleted = 0
+        where r.target_id = #{targetId}
+    </select>
+
+    <select id="selectPersonalByTarget" resultType="net.aopacloud.superbi.model.entity.Folder">
+        select g.id,
+               g.workspace_id,
+               g.`name`,
+               g.parent_id,
+               g.creator,
+               g.`type`,
+               g.`position`,
+               g.deleted,
+               g.create_time,
+               g.update_time
+        from bi_folder g
+        join bi_folder_resource_rel r
+        on g.id = r.folder_id
+        where r.target_id = #{targetId} and g.`type` = 'PERSONAL' and g.position = #{position} and g.deleted = 0 and g.creator = #{username}
+    </select>
+
+    <select id="selectByRelationship" resultType="net.aopacloud.superbi.model.entity.Folder">
+
+        select f.*
+        from bi_folder f
+        join bi_folder_resource_rel r
+        on f.id = r.folder_id
+        where f.deleted = 0
+          <if test="type.name == 'PERSONAL'">
+              and f.creator = #{creator}
+          </if>
+          and f.type = #{type}
+          and f.position = #{position}
+          and f.workspace_id = #{workspaceId}
+          and r.target_id = #{targetId}
+        limit 1
+    </select>
+
+
+
+</mapper>

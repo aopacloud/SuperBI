@@ -1,0 +1,45 @@
+.DS_Store
+node_modules/
+
+
+# 构建
+dist*/
+dist*?
+
+
+# 自动导入
+auto-imports.d.ts
+
+
+# 环境变量
+envs/*.local
+
+
+# 部署
+deploy.sh
+
+
+# 构建分析页面
+stats.html
+
+
+# 日志
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+**/*.log
+
+
+
+tests/**/coverage/
+tests/e2e/reports
+selenium-debug.log
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.local

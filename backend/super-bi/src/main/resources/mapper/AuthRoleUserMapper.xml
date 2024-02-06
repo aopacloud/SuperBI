@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.AuthRoleUserMapper">
+  <resultMap id="BaseResultMap" type="net.aopacloud.superbi.model.entity.AuthRoleUser">
+    <id column="id" jdbcType="INTEGER" property="id" />
+    <result column="role_id" jdbcType="INTEGER" property="roleId" />
+    <result column="username" jdbcType="VARCHAR" property="username" />
+    <result column="create_time" jdbcType="TIMESTAMP" property="createTime" />
+    <result column="update_time" jdbcType="TIMESTAMP" property="updateTime" />
+  </resultMap>
+  <resultMap id="RoleUser" type="net.aopacloud.superbi.model.dto.AuthRoleDTO">
+    <id column="id" jdbcType="INTEGER" property="id" />
+    <result column="workspace_id" jdbcType="INTEGER" property="workspaceId" />
+    <result column="name" jdbcType="VARCHAR" property="name" />
+    <result column="description" jdbcType="VARCHAR" property="description" />
+    <result column="creator" jdbcType="VARCHAR" property="creator" />
+    <result column="remark" jdbcType="VARCHAR" property="remark" />
+    <result column="create_time" jdbcType="TIMESTAMP" property="createTime" />
+    <result column="update_time" jdbcType="TIMESTAMP" property="updateTime" />
+    <collection property="users" ofType="java.lang.String">
+
+    </collection>
+  </resultMap>
+  <sql id="Base_Column_List">
+    id, role_id, username, create_time, update_time
+  </sql>
+
+  <delete id="deleteAllRoleUser">
+    delete from bi_auth_role_user where role_id = #{roleId}
+  </delete>
+  <delete id="deleteRoleUser">
+      delete
+      from bi_auth_role_user
+      where
+          role_id = #{roleId}
+          and name in
+    <foreach close=")" collection="users" item="listItem" open="(" separator=",">
+        #{listItem}
+    </foreach>
+  </delete>
+    <select id="countByRoleId" resultType="java.lang.Integer">
+        select count(*) from bi_auth_role_user where role_id = #{roleId}
+    </select>
+    <select id="selectUserByRole" resultType="java.lang.String">
+        select username from bi_auth_role_user where role_id = #{roleId}
+    </select>
+
+    <insert id="batchInsert">
+    insert into bi_auth_role_user (role_id, username)
+    values
+      <foreach collection="list" item="item" index="index" separator=",">
+        (
+            #{item.roleId,jdbcType=INTEGER},
+            #{item.username,jdbcType=VARCHAR}
+        )
+      </foreach>
+  </insert>
+</mapper>

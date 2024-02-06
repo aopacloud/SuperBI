@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.ReportMapper">
+    <resultMap id="BaseResultMap" type="net.aopacloud.superbi.model.entity.Report">
+        <id column="id" jdbcType="INTEGER" property="id"/>
+        <result column="workspace_id" jdbcType="INTEGER" property="workspaceId"/>
+        <result column="name" jdbcType="VARCHAR" property="name"/>
+        <result column="description" jdbcType="VARCHAR" property="description"/>
+        <result column="report_type" jdbcType="VARCHAR" property="reportType" />
+        <result column="dataset_id" jdbcType="INTEGER" property="datasetId"/>
+        <result column="creator" jdbcType="VARCHAR" property="creator"/>
+        <result column="operator" jdbcType="VARCHAR" property="operator"/>
+        <result column="deleted" jdbcType="INTEGER" property="deleted"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+        <result column="layout" jdbcType="LONGVARCHAR" property="layout"/>
+        <result column="query_param" jdbcType="LONGVARCHAR" property="queryParam"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id
+        , workspace_id, `name`, description, report_type ,dataset_id, creator, operator, deleted, create_time,
+    update_time,layout, query_param
+    </sql>
+    <select id="search" resultType="net.aopacloud.superbi.model.dto.ReportDTO" parameterType="net.aopacloud.superbi.model.query.ReportQuery">
+        select t.id,
+               t.workspace_id,
+               t.name,
+               t.description,
+               t.report_type,
+               t.dataset_id,
+               t.creator,
+               t.operator,
+               t.create_time,
+               t.update_time,
+               t.query_param,
+               if(f.id is null, false, true) as favorite,
+               dash.dashboard_count,
+               ds.name as datasetName
+        from bi_report t
+        left join bi_favorite f
+        on t.id = f.target_id and f.position = 'REPORT' and f.username = #{username}
+        left join (
+            select c.report_id as report_id,count(*) as dashboard_count from
+            bi_dashboard_component c join bi_dashboard d
+            on c.dashboard_id = d.id and d.version = c.version and d.deleted = 0 and c.type = 'REPORT' and d.status = 'ONLINE'
+            group by c.report_id
+        ) dash
+        on dash.report_id = t.id
+        join (select id,name from bi_dataset where status = 'ONLINE' and deleted =0) ds
+        on t.dataset_id = ds.id
+        <where>
+            t.deleted = 0
+            <if test="workspaceId != null" >
+                and t.workspace_id = #{workspaceId}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                and (t.name like concat('%',#{keyword},'%')
+                    or t.description like concat('%',#{keyword},'%')
+                    <if test="searchUsers != null ">
+                        or t.creator in (
+                            <foreach collection="searchUsers" item="usr" separator=",">
+                                #{usr}
+                            </foreach>
+                        )
+                    </if>
+                )
+            </if>
+            <if test="creator != null and creator != ''">
+                and t.creator = #{creator}
+            </if>
+            <if test="favorite != null and favorite == 1">
+                and f.id is not null
+            </if>
+            <if test="hasPermission == 1 and datasetIds != null">
+                and t.dataset_id in
+                <foreach collection="datasetIds" item="did" separator="," open="(" close=")">
+                    #{did}
+                </foreach>
+            </if>
+        </where>
+        order by
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                t.`${sortField}`  ${sortType}
+            </when>
+            <otherwise>
+                t.create_time desc
+            </otherwise>
+        </choose>
+    </select>
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_report
+        where id = #{id,jdbcType=INTEGER}
+    </select>
+    <select id="countByUsername" resultType="java.lang.Integer">
+        select count(*) from bi_report where deleted = 0 and creator = #{username}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id"
+            parameterType="net.aopacloud.superbi.model.entity.Report">
+        insert into bi_report (workspace_id, `name`,
+                               description,report_type, dataset_id, creator,
+                               operator, layout, query_param)
+        values (#{workspaceId,jdbcType=INTEGER}, #{name,jdbcType=VARCHAR},
+                #{description,jdbcType=VARCHAR}, #{reportType,jdbcType= VARCHAR}, #{datasetId,jdbcType=INTEGER}, #{creator,jdbcType=VARCHAR},
+                #{operator,jdbcType=VARCHAR}, #{layout,jdbcType=LONGVARCHAR}, #{queryParam,jdbcType=LONGVARCHAR})
+    </insert>
+    <update id="update" parameterType="net.aopacloud.superbi.model.entity.Report">
+        update bi_report
+        set
+            `name`       = #{name,jdbcType=VARCHAR},
+            description  = #{description,jdbcType=VARCHAR},
+            report_type = #{reportType, jdbcType=VARCHAR},
+            dataset_id   = #{datasetId,jdbcType=INTEGER},
+            operator     = #{operator,jdbcType=VARCHAR},
+            layout       = #{layout,jdbcType=LONGVARCHAR},
+            query_param  = #{queryParam,jdbcType=LONGVARCHAR}
+        where id = #{id,jdbcType=INTEGER}
+    </update>
+    <update id="updateCreator">
+        update bi_report set creator=#{toUsername} where creator = #{fromUsername} and deleted = 0
+    </update>
+    <delete id="deleteById" parameterType="java.lang.Long">
+        delete
+        from bi_report
+        where id = #{id,jdbcType=INTEGER}
+    </delete>
+</mapper>

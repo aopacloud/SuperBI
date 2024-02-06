@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+<mapper namespace="net.aopacloud.superbi.mapper.DatasetFieldMapper">
+
+    <resultMap id="BaseResultMap" type="net.aopacloud.superbi.model.entity.DatasetField">
+        <id column="id" jdbcType="INTEGER" property="id"/>
+        <result column="dataset_id" jdbcType="INTEGER" property="datasetId"/>
+        <result column="version" jdbcType="INTEGER" property="version"/>
+        <result column="name" jdbcType="VARCHAR" property="name"/>
+        <result column="display_name" jdbcType="VARCHAR" property="displayName"/>
+        <result column="category" jdbcType="VARCHAR" property="category"/>
+        <result column="type" jdbcType="VARCHAR" property="type"/>
+        <result column="source_field_name" jdbcType="VARCHAR" property="sourceFieldName"/>
+        <result column="aggregator" jdbcType="VARCHAR" property="aggregator"/>
+        <result column="data_type" jdbcType="VARCHAR" property="dataType"/>
+        <result column="origin_data_type" jdbcType="VARCHAR" property="originDataType"/>
+        <result column="database_data_type" jdbcType="VARCHAR" property="databaseDataType"/>
+        <result column="data_format" jdbcType="VARCHAR" property="dataFormat"/>
+        <result column="compute_expression" jdbcType="VARCHAR" property="computeExpression"/>
+        <result column="description" jdbcType="VARCHAR" property="description"/>
+        <result column="status" jdbcType="VARCHAR" property="status"/>
+        <result column="sort" jdbcType="INTEGER" property="sort"/>
+        <result column="partition" jdbcType="TINYINT" property="partition"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+        <result column="expression" jdbcType="LONGVARCHAR" property="expression"/>
+        <result column="custom_format_config" jdbcType="LONGVARCHAR" property="customFormatConfig"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id
+        , dataset_id, version, `name`, display_name, category, `type`, source_field_name, aggregator,
+    data_type, origin_data_type, database_data_type, data_format, description, status,
+    sort, `partition`, create_time, update_time,`expression`, custom_format_config, compute_expression
+    </sql>
+
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_dataset_field
+        where id = #{id,jdbcType=INTEGER}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id"
+            parameterType="net.aopacloud.superbi.model.entity.DatasetField">
+        insert into bi_dataset_field (dataset_id, version,
+                                      name, display_name, category,
+                                      type, source_field_name, aggregator,
+                                      data_type, origin_data_type, database_data_type,
+                                      data_format, description, status,
+                                      sort, `partition`, `expression`, custom_format_config, compute_expression)
+        values (#{datasetId,jdbcType=INTEGER}, #{version,jdbcType=INTEGER},
+                #{name,jdbcType=VARCHAR}, #{displayName,jdbcType=VARCHAR}, #{category,jdbcType=VARCHAR},
+                #{type,jdbcType=VARCHAR}, #{sourceFieldName,jdbcType=VARCHAR}, #{aggregator,jdbcType=VARCHAR},
+                #{dataType,jdbcType=VARCHAR}, #{originDataType,jdbcType=VARCHAR}, #{databaseDataType,jdbcType=VARCHAR},
+                #{dataFormat,jdbcType=VARCHAR}, #{description,jdbcType=VARCHAR}, #{status,jdbcType=VARCHAR},
+                #{sort,jdbcType=INTEGER}, #{partition,jdbcType=TINYINT}, #{expression,jdbcType=LONGVARCHAR},
+                #{customFormatConfig,jdbcType=LONGVARCHAR}, #{computeExpression,jdbcType=VARCHAR})
+    </insert>
+
+    <select id="selectByDatasetAndVersion" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_dataset_field
+        where dataset_id = #{datasetId}
+        and version = ${version}
+        order by sort
+    </select>
+</mapper>
