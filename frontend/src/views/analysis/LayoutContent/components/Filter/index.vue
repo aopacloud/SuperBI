@@ -24,7 +24,7 @@
           :extra="{
             dt: field.conditions[0].useLatestPartitionValue,
             current: field.conditions[0]._this,
-            isCurrent: field.conditions[0]._current,
+            isCustom: field.conditions[0]._current,
           }"
           @cancel="cancel"
           @ok="ok" />
@@ -37,7 +37,9 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, inject, onMounted } from 'vue'
-import { DownOutlined, FilterOutlined } from '@ant-design/icons-vue'
+import { FilterOutlined } from '@ant-design/icons-vue'
+import { RELATION } from '@/CONST.dict'
+import { NOT_IN, IN } from '@/views/dataset/config.field'
 import FilterText from './Text.vue'
 import FilterDate from 'common/components/DatePickers/PickerPanel.vue'
 
@@ -84,7 +86,7 @@ const ok = e => {
   if (isDate.value) {
     const { moda, offset, date, extra = {} } = e
 
-    props.field.logical = 'AND'
+    props.field.logical = RELATION.AND
     props.field.conditions = [
       {
         useLatestPartitionValue: extra.dt || undefined,
@@ -92,7 +94,7 @@ const ok = e => {
         timeType: moda === 0 ? 'RELATIVE' : 'EXACT', // 时间字段的筛选类型， EXACT 精确时间， RELATIVE 相对时间
         args: moda === 0 ? offset : date,
         _this: extra.current,
-        _current: extra.isCurrent,
+        _current: extra.isCustom,
       },
     ]
   } else {
@@ -101,7 +103,7 @@ const ok = e => {
     props.field.filterType = mode
     // 条件过滤
     if (mode === 'CONDITION') {
-      props.field.logical = relation === 'OR' ? 'OR' : 'AND'
+      props.field.logical = relation === RELATION.OR ? RELATION.OR : RELATION.AND
       props.field.having = scope
       props.field.conditions = conditions.map(t => {
         const { operator, value } = t
@@ -113,10 +115,10 @@ const ok = e => {
         }
       })
     } else {
-      props.field.logical = 'AND'
+      props.field.logical = RELATION.AND
       props.field.conditions = [
         {
-          functionalOperator: exclude ? 'NOT_IN' : 'IN',
+          functionalOperator: exclude ? NOT_IN : IN,
           args: Array.isArray(conditions)
             ? conditions
             : conditions?.split(/\n/).filter(Boolean) ?? [],

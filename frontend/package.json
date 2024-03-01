@@ -1,9 +1,9 @@
 {
   "name": "superbi",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "SuperBI多维可视分析",
   "author": "huang",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "scripts": {
     "dev": "vite",
     "build:dev": "vite build --mode develop",
@@ -16,7 +16,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/olaola-chat/superbi.git"
+    "url": "https://github.com/aopacloud/SuperBI.git"
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",

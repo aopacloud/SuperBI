@@ -1,5 +1,5 @@
 ﻿<template>
-  <div ref="virtualWrapper" class="virtual-wrapper" v-resize="init" @scroll="onScroll">
+  <div ref="rootRef" class="virtual-wrapper" v-resize="init" @scroll="onScroll">
     <div class="virtual-scroll" :style="{ height: totalHeight + 'px' }">
       <div
         class="virtual-list"
@@ -27,7 +27,11 @@
 <script setup>
 import { ref, computed, toRaw, onMounted } from 'vue'
 
-defineOptions({ inheritAttrs: false })
+defineOptions({
+  inheritAttrs: false,
+})
+
+// defineOptions({ inheritAttrs: false })
 const props = defineProps({
   dataSource: {
     type: Array,
@@ -61,23 +65,36 @@ const list = computed(() => {
   )
 })
 
+const reset = () => {
+  startIndex.value = 0
+  endIndex.value = 0
+  keepBuffer.value = 0
+
+  rootRef.value.scrollTo(0, 0)
+}
+
 // 容器总高度
 const totalHeight = computed(() => {
   return props.dataSource.length * props.itemHeight
 })
 
-const virtualWrapper = ref(null)
+const rootRef = ref(null)
 const init = () => {
-  while (list.length * props.itemHeight < virtualWrapper.value.clientHeight) {
+  reset()
+
+  while (
+    props.dataSource.length > list.value.length &&
+    list.value.length * props.itemHeight < rootRef.value.clientHeight
+  ) {
     keepBuffer.value += props.keep
   }
 }
 
 const onScroll = e => {
-  const scrollTop = e.target.scrollTop
+  const curentItem = e.target.scrollTop / props.itemHeight
 
-  startIndex.value = Math.floor(scrollTop / props.itemHeight)
-  endIndex.value = startIndex.value + props.keep + keepBuffer.value
+  startIndex.value = Math.floor(curentItem)
+  endIndex.value = Math.ceil(curentItem) + props.keep + keepBuffer.value
 }
 
 onMounted(init)

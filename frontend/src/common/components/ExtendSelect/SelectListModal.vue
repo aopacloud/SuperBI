@@ -9,6 +9,7 @@
       ref="selectListRef"
       v-bind="{ ...$attrs, value: modelValue }"
       @update:value="e => (modelValue = e)" />
+    <slot v-bind="{ value: modelValue, setValue }"></slot>
   </a-modal>
 </template>
 
@@ -50,6 +51,10 @@ watch(
     }
   }
 )
+
+const setValue = (value = []) => {
+  modelValue.value = value
+}
 
 const cancel = () => {
   emits('update:open', false)

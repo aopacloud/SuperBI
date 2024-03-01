@@ -72,7 +72,7 @@
 import { h, computed, ref, shallowRef } from 'vue'
 import { Compact } from 'ant-design-vue'
 import { FilterOutlined, MinusOutlined, PlusOutlined } from '@ant-design/icons-vue'
-import { useVModel } from 'common/hooks/useVModel'
+import { RELATION } from '@/CONST.dict'
 import { operatorMap } from '@/views/dataset/config.field'
 import { postAnalysisQuery } from '@/apis/analysis'
 
@@ -88,7 +88,7 @@ const props = defineProps({
         type: 'ENUM',
         field: undefined,
         fieldType: 'TIME',
-        operator: 'EQUAL',
+        operator: RELATION.EQUAL,
       }
     },
   },
@@ -160,7 +160,7 @@ watch(
 )
 
 const onTypeChange = e => {
-  props.item.operator = e === 'TEXT' ? 'EQUAL' : undefined
+  props.item.operator = e === 'TEXT' ? RELATION.EQUAL : undefined
   props.item.value = e === 'TEXT' ? undefined : []
 }
 

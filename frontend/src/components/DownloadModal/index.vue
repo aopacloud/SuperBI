@@ -9,14 +9,11 @@
       <div>
         <span>数据范围</span>
 
-        <a-radio-group style="margin-left: 10px" v-model:value="modelValue">
+        <a-radio-group style="margin-left: 16px" v-model:value="modelValue">
           <a-radio :value="false">展示数据</a-radio>
           <a-radio :value="true">全量数据</a-radio>
         </a-radio-group>
       </div>
-      <p style="font-size: 12px; color: #aaa">
-        最多下载 {{ !modelValue ? 1000 : 100000 }} 条数据
-      </p>
 
       <!-- <a-progress :percent="30" /> -->
     </div>

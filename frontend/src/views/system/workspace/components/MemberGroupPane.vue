@@ -31,11 +31,26 @@
     title="成员管理"
     keyField="username"
     labelField="aliasName"
+    class="role-member-select-modal"
+    width="600px"
     :loading="userSelectLoading"
     :data-source="alluers"
     :value="groupInfo.users"
     v-model:open="userSelectModalOpen"
     :confirmFn="onGroupUserModalOk">
+    <template #default="{ value, setValue }">
+      <div class="select-preview">
+        <a-tag
+          class="preview-tag"
+          color="blue"
+          closable
+          v-for="v in value"
+          :key="v"
+          @close="setValue(value.filter(t => t !== v))"
+          >{{ displaySelectedTag(v) }}</a-tag
+        >
+      </div>
+    </template>
   </SelectListModal>
 </template>
 
@@ -49,6 +64,7 @@ import { getRoleList, deleteRole } from '@/apis/workspace/role'
 import { getUserByRoleId, posUsersByRoleId } from '@/apis/role'
 import { getUserByWorkspaceId } from '@/apis/user'
 import { ROLE_TABLE_COLUMNS } from './config'
+import { findBy } from '@/common/utils/help'
 
 const props = defineProps({
   workspaceId: {
@@ -130,6 +146,12 @@ const fetchWorkspaceUsers = async () => {
   }
 }
 
+const displaySelectedTag = e => {
+  const item = findBy(alluers.value, t => t.username === e)
+
+  return item ? item.aliasName : e
+}
+
 const userSelectLoading = ref(false)
 const userSelectModalOpen = ref(false)
 
@@ -183,4 +205,19 @@ defineExpose({ insert, init })
 watch(() => props.workspaceId, fetchList, { immediate: true })
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss">
+.role-member-select-modal {
+  .ant-modal-body {
+    display: flex;
+  }
+  .select-preview {
+    width: 320px;
+    max-height: 520px;
+    margin-left: 10px;
+    overflow: auto;
+    .preview-tag {
+      margin-bottom: 6px;
+    }
+  }
+}
+</style>

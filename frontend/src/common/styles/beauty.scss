@@ -50,7 +50,7 @@
     transform: translateY(-50%);
     width: 7px;
     height: 1px;
-    background: #d9d9d9;
+    background: rgba(0, 0, 0, 0.25);
     transition: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
   }
 
@@ -66,19 +66,19 @@
   &.large {
     select {
       height: 30px;
-      line-height: 28px;
+      line-height: 30px;
     }
   }
   &.small {
     select {
       height: 24px;
-      line-height: 22px;
+      line-height: 24px;
     }
   }
   &.mini {
     select {
       height: 20px;
-      line-height: 18px;
+      line-height: 20px;
       font-size: 12px;
     }
   }

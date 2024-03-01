@@ -84,10 +84,11 @@
 import { h, ref, reactive, computed, watch, nextTick, inject, onMounted } from 'vue'
 import { Form, message } from 'ant-design-vue'
 import { ClearOutlined } from '@ant-design/icons-vue'
+import { CATEGORY, RELATION } from '@/CONST.dict'
+import { NOT_IN } from '@/views/dataset/config.field'
 import Conditions from './Conditions.vue'
 import { getRandomKey } from 'common/utils/help'
 import { postAnalysisQuery } from '@/apis/analysis'
-import { CATEGORY } from '@/CONST.dict'
 import { postParseExcel } from '@/apis/system/excel'
 
 const emits = defineEmits(['ok', 'cancel'])
@@ -165,7 +166,7 @@ const { resetFields, clearValidate, validate, validateInfos } = useForm(
 // 过滤方式改变
 const onModeChange = e => {
   if (e.target.value === 'CONDITION') {
-    formState.conditions = [{ _id: getRandomKey(), operator: 'EQUAL', value: '' }]
+    formState.conditions = [{ _id: getRandomKey(), operator: RELATION.EQUAL, value: '' }]
   } else {
     formState.conditions = undefined
   }
@@ -224,7 +225,7 @@ const init = () => {
           }
         })
       : conditions[0].args?.join('\n')
-  formState.exclude = conditions[0]?.functionalOperator === 'NOT_IN'
+  formState.exclude = conditions[0]?.functionalOperator === NOT_IN
 }
 
 defineExpose({ init })

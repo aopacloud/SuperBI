@@ -232,8 +232,9 @@ const displayFilter = field => {
     return conditions
       .map(t => {
         const { functionalOperator, args = [] } = t
+        const hasV = args.filter(Boolean).length
 
-        return operators[functionalOperator] + "'" + args.join('、') + "'"
+        return operators[functionalOperator] + (hasV ? "'" + args.join('、') + "'" : '')
       })
       .join(logical === 'AND' ? '且' : '或')
   }

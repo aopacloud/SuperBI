@@ -25,13 +25,7 @@ export const getStartDate = ({ type, offset = 0 }, utcOffset = 8) => {
   // ?? 这里是否需要用到 getUtcDate
   utcOffset = typeof utcOffset === 'number' ? utcOffset : +utcOffset
 
-  const map = {
-    day: () => dayjs().utcOffset(utcOffset).add(offset, 'day'),
-    week: () => dayjs().utcOffset(utcOffset).add(offset, 'week').day(1),
-    month: () => dayjs().utcOffset(utcOffset).add(offset, 'month').date(1),
-  }
-
-  return map[type]()
+  return dayjs().utcOffset(utcOffset).add(offset, type).startOf(type)
 }
 
 /**
@@ -46,27 +40,29 @@ export const getEndDate = ({ type, offset = 0 }, utcOffset = 8) => {
   utcOffset = typeof utcOffset === 'number' ? utcOffset : +utcOffset
 
   const map = {
-    day: o =>
+    day: () =>
       dayjs()
         .utcOffset(utcOffset)
-        .subtract(o === 0 ? 0 : 1, 'day'),
+        .subtract(offset === 0 ? 0 : 1, 'day'),
     week: () => {
+      // 本周到今天， 上n周到上周的最后一天
       if (offset === 0) {
         return dayjs().utcOffset(utcOffset).endOf('day')
       } else {
-        return dayjs().utcOffset(utcOffset).subtract(1, 'week').day(7)
+        return dayjs().utcOffset(utcOffset).subtract(1, 'week').endOf('week') // .endOf('week').endOf('day')
       }
     },
     month: () => {
+      // 本月到今天， 上n月到上一个月的最后一天
       if (offset === 0) {
-        return dayjs().utcOffset(utcOffset)
+        return dayjs().utcOffset(utcOffset).endOf('day')
       } else {
         return dayjs().utcOffset(utcOffset).subtract(1, 'month').endOf('month')
       }
     },
   }
 
-  return map[type](offset)
+  return map[type]()
 }
 
 /**

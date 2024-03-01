@@ -27,7 +27,18 @@
     <p-a-space style="font-size: 14px">
       <div class="query-info">
         耗时 <b>{{ responseInfo.elapsed }}</b> S; 查询 <b>{{ responseInfo.total }}</b> 行;
-        展示前 <b>{{ queryTotal }}</b> 条
+        展示前
+        <div class="custom-select small">
+          <select
+            style="width: 80px; margin: 0 2px; padding-left: 4px; text-align: center"
+            v-model="queryTotal"
+            @change="onQueryTotalChange">
+            <option v-for="opt in queryTotalOptions" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+        </div>
+        条
       </div>
 
       <DownloadOutlined
@@ -50,16 +61,16 @@ import {
   PlayCircleTwoTone,
   DownloadOutlined,
   HistoryOutlined,
-  ClearOutlined,
   LoadingOutlined,
 } from '@ant-design/icons-vue'
-import { postAnalysisQuery } from '@/apis/analysis'
 import { CATEGORY } from '@/CONST.dict'
+import { IS_NOT_NULL, IS_NULL } from '@/views/dataset/config.field'
+import { postAnalysisQuery } from '@/apis/analysis'
 import { repeatIndex } from '@/views/analysis/utils'
 import { getByInlcudesKeys, deepClone } from 'common/utils/help'
 import dayjs from 'dayjs'
 import { versionJs } from '@/versions'
-import { toContrastFiled } from '@/views/analysis/config'
+import { toContrastFiled, queryTotalOptions } from '@/views/analysis/config'
 
 const emits = defineEmits([
   'run-loading',
@@ -75,6 +86,7 @@ const {
   choosed: indexChoosed,
   options: indexOptions,
   compare: indexCompare,
+  paging: indexPaging,
   topN: indexTopN,
   requestResponse: indexRequestResponse,
   permissions,
@@ -125,12 +137,18 @@ const doanloadDisabled = computed(() => {
   return res.status !== 'SUCCESS'
 })
 
-const queryTotal = computed(() => {
-  const res = indexRequestResponse.get('response')
-  if (!res) return 0
-
-  return res.total
+// 查询条数配置
+const queryTotal = computed({
+  get() {
+    return indexPaging.get('limit')
+  },
+  set(val) {
+    indexPaging.set('limit', val)
+  },
 })
+const onQueryTotalChange = () => {
+  run()
+}
 
 // 历史记录
 const isHistoryMode = ref(false)
@@ -162,13 +180,9 @@ const mergeDashbaordFilters = choosedMap => {
   if (!dashboardFilters || !dashboardFilters.length) return choosedFilters
 
   // 看板筛选dt
-  const dashboardDt = dashboardFilters.find(
-    t => t.name === versionJs.ViewsDatasetModify.dtFieldName
-  )
+  const dashboardDt = dashboardFilters.find(versionJs.ViewsDatasetModify.isDt)
   // 选中的dt
-  const choosedDt = choosedFilters.find(
-    t => t.name === versionJs.ViewsDatasetModify.dtFieldName
-  )
+  const choosedDt = choosedFilters.find(versionJs.ViewsDatasetModify.isDt)
 
   if (choosedDt && dashboardDt) {
     const {
@@ -179,17 +193,15 @@ const mergeDashbaordFilters = choosedMap => {
       conditions: [cond2],
     } = choosedDt
 
-    const { timeType, args, useLatestPartitionValue } = cond1
+    const { useLatestPartitionValue, timeType, args } = cond1
 
+    cond2.timeType = timeType
     cond2.useLatestPartitionValue = useLatestPartitionValue
+
     if (useLatestPartitionValue) {
       cond2.args = []
     } else {
-      if (timeType === 'EXACT') {
-        cond2.args = args.map(t => dayjs().diff(dayjs(t), 'day'))
-      } else {
-        cond2.args = [...args]
-      }
+      cond2.args = [...args]
     }
   }
   return [
@@ -246,11 +258,15 @@ const run = async from => {
     let sorts = indexTopN.get()
     sorts = !!sorts.sortField ? [{ ...sorts }] : undefined
 
+    // 查询分页
+    const paging = indexPaging.get()
+
     const paylaod = {
       datasetId: dataset.value.id,
       fromSource: 'temporary', // dashboard 从看板查询, report 保存图表查询, temporary 临时查询
       compare,
       sorts,
+      paging,
       ...choosedPayload,
     }
     // type: // QUERY 查询, TOTAL 查询条数, SINGLE_FIELD 枚举值, RATIO 同环比 , PREVIEW 预览
@@ -258,7 +274,7 @@ const run = async from => {
     // 查询条数放入异步
     Promise.resolve().then(async () => {
       // 查询条数
-      const { elapsed = 0, rows = 0 } = await postAnalysisQuery({
+      const { rows = 0 } = await postAnalysisQuery({
         ...paylaod,
         type: 'TOTAL',
       })
@@ -340,14 +356,21 @@ const validateFilter = (filters = []) => {
     return
   }
 
-  const unVali = filters.some(item => {
+  const unValidatedWithEmpty = filters.some(item => {
     return (
       !item.conditions.length ||
-      item.conditions?.some(t => !t.args.length && !t.useLatestPartitionValue)
+      item.conditions?.some(t => {
+        // 有值、无值 跳过校验
+        if (t.functionalOperator === IS_NOT_NULL || t.functionalOperator === IS_NULL) {
+          return false
+        } else {
+          return !t.args.length && !t.useLatestPartitionValue
+        }
+      })
     )
   })
 
-  if (unVali) {
+  if (unValidatedWithEmpty) {
     message.warn('有过滤字段未筛选条件，请检查后再查询')
 
     return false

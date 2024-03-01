@@ -1,6 +1,9 @@
 ﻿// 默认展示类型
 export const defaultRenderType = 'table'
 
+// 默认查询数量
+export const defaultQueryTotal = 10000
+
 /**
  * 同环比配置
  * mode: 显示模式, 0 默认，1 差值， 2 差值百分比
@@ -20,6 +23,7 @@ export const defaultCompareOptions = {
 export const defaultTableOptions = {
   layout: 'auto',
   bordered: true,
+  showSummary: true,
   pager: {
     show: true,
     pageSize: 20,

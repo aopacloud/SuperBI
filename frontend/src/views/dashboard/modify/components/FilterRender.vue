@@ -59,7 +59,7 @@
           </template>
         </a-input>
 
-        <template v-if="method === 'OR' || method === 'AND'">
+        <template v-if="method === RELATION.OR || method === RELATION.AND">
           <span style="margin: 0 10px">{{ filterMethodLabel }}</span>
           <a-input
             :style="{ width: layout === 'inline' ? '240px' : '' }"
@@ -93,6 +93,7 @@
 import { ref, computed, watch, inject, watchEffect } from 'vue'
 import { Form } from 'ant-design-vue'
 import { CalendarOutlined, CloseOutlined } from '@ant-design/icons-vue'
+import { RELATION } from '@/CONST.dict'
 import { operatorMap } from '@/views/dataset/config.field'
 import DatePicker from 'common/components/DatePickers/index.vue'
 import TagsInput from 'common/components/TagsInput/index.vue'
@@ -171,12 +172,12 @@ const init = type => {
   } else if (type === 'TIME') {
     modelValue.value = value ?? {}
   } else if (type === 'TEXT' || type === 'NUMBER') {
-    const item = { operator: 'EQUAL', value: '' }
+    const item = { operator: RELATION.EQUAL, value: '' }
 
     if (value?.length) {
       modelValue.value = value
     } else {
-      if (filterMethod === 'OR' || filterMethod === 'AND') {
+      if (filterMethod === RELATION.OR || filterMethod === RELATION.AND) {
         modelValue.value = [{ ...item }, { ...item }]
       } else {
         modelValue.value = [{ ...item }]
@@ -236,7 +237,7 @@ const operators = computed(() => {
 })
 // 筛选方式文本
 const filterMethodLabel = computed(() => {
-  return method.value === 'OR' ? '或' : method.value === 'AND' ? '且' : ''
+  return method.value === RELATION.OR ? '或' : method.value === RELATION.AND ? '且' : ''
 })
 
 const removeDate = () => {

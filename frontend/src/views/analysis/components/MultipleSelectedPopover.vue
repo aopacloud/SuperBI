@@ -5,7 +5,7 @@
     placement="bottomLeft"
     v-model:open="open">
     <slot>
-      <a-button @dragover.prevent size="small" :icon="h(PlusOutlined)" />
+      <a-button @dragover.stop size="small" :icon="h(PlusOutlined)" />
     </slot>
 
     <template #content>

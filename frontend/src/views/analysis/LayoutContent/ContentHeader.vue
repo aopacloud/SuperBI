@@ -5,11 +5,13 @@
       v-if="renderType !== 'statistic'"
       :category="CATEGORY.PROPERTY"
       :data-source="dimensions" />
+
     <!-- 指标 -->
     <SectionList
       style="margin-top: 8px"
       :category="CATEGORY.INDEX"
       :data-source="indexes" />
+
     <!-- 筛选 -->
     <SectionList
       style="margin-top: 8px"

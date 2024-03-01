@@ -6,21 +6,21 @@
     </div>
 
     <div v-show="settingOpen" class="setting" :class="{ disabled: !hasDatasetAnalysis }">
-      <SettingTypeSection v-model:type="cType" @change="onRenderTypeChange" />
+      <SettingTypeSection v-model:type="renderType" @change="onRenderTypeChange" />
 
       <Divider style="margin: 10px 0" />
 
-      <template v-if="cType !== 'statistic'">
+      <template v-if="renderType !== 'statistic'">
         <keep-alive>
           <SettingTableSection
-            v-if="cType === 'table'"
-            v-model:options="cTableOptions"
-            v-model:compare="cContrastOptions" />
+            v-if="renderType === 'table'"
+            v-model:options="tableOption"
+            v-model:compare="compareOption" />
           <SettingChartSection
             v-else
-            :type="cType"
-            v-model:options="cChartOptions"
-            v-model:compare="cContrastOptions" />
+            :type="renderType"
+            v-model:options="chartOption"
+            v-model:compare="compareOption" />
         </keep-alive>
       </template>
     </div>
@@ -28,7 +28,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, watchEffect } from 'vue'
+import { ref, watch, watchEffect } from 'vue'
 import { Divider } from 'ant-design-vue'
 import { DoubleRightOutlined, DoubleLeftOutlined } from '@ant-design/icons-vue'
 import SettingTypeSection from './components/SettingTypeSection.vue'
@@ -37,6 +37,7 @@ import SettingChartSection from './components/SettingChartSection.vue'
 import {
   defaultRenderType,
   defaultTableOptions,
+  defaultQueryTotal,
   defaultChartOptions,
   defaultCompareOptions,
 } from '../defaultOptions.js'
@@ -59,50 +60,46 @@ const handleSettingCollapse = () => {
 }
 
 // 展示类型
-const cType = ref('table')
+const renderType = ref('table')
 // 表格配置
-const cTableOptions = ref({})
+const tableOption = ref({})
 // 图表配置
-const cChartOptions = ref({})
+const chartOption = ref({})
 // 同环比配置
-const cContrastOptions = ref({})
+const compareOption = ref({})
 
 watchEffect(() => {
   const {
-    renderType = defaultRenderType,
+    renderType: type = defaultRenderType,
     table = defaultTableOptions,
     chart = defaultChartOptions,
     compare = defaultCompareOptions,
   } = props.options
 
-  cType.value = renderType
-  cContrastOptions.value = compare
-  cTableOptions.value = table
-  cChartOptions.value = chart
-})
-
-const modelValue = computed(() => {
-  return {
-    renderType: cType,
-    table: cTableOptions,
-    chart: cChartOptions,
-    compare: cContrastOptions,
-  }
+  renderType.value = type
+  compareOption.value = compare
+  tableOption.value = table
+  chartOption.value = chart
 })
 
 const onRenderTypeChange = e => {
   if (e === 'bar' || e === 'line') {
-    ;(cChartOptions.value.axis || []).forEach(item => {
+    ;(chartOption.value.axis || []).forEach(item => {
       item.chartType = e
     })
   }
 }
+
 watch(
-  modelValue,
-  v => {
-    emits('update:options', v)
-  },
-  { deep: true, immediate: true }
+  [renderType, compareOption, tableOption, chartOption],
+  ([type, compare, table, chart]) => {
+    emits('update:options', {
+      renderType: type,
+      compare,
+      table,
+      chart,
+    })
+  }
 )
 </script>
 
@@ -113,7 +110,7 @@ watch(
 }
 .setting-arrow-icon {
   position: absolute;
-  left: -18px;
+  left: -16px;
   top: 50%;
   transform: translateY(-50%);
   height: 50px;

@@ -129,6 +129,7 @@ import { computed, provide, reactive, ref, watch, shallowRef } from 'vue'
 import { Form, message } from 'ant-design-vue'
 import SelectList from 'common/components/ExtendSelect'
 import Row from './components/Row.vue'
+import { RELATION } from '@/CONST.dict'
 import { levels, expireDays, dayToSec } from './config'
 import { getDetailById as getDatasetDetail } from '@/apis/dataset'
 import {
@@ -434,7 +435,7 @@ const { validate, resetFields, clearValidate, validateInfos } = useForm(
 const _transformRows = (rows, level = 1) => {
   if (typeof rows !== 'object') return
 
-  const { relation: rel = 'OR', children: list = [] } = rows
+  const { relation: rel = RELATION.OR, children: list = [] } = rows
 
   return {
     relation: rel,

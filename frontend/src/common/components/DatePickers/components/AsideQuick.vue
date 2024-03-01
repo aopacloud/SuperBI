@@ -111,9 +111,9 @@ const isItemActive = item => {
 watch(
   () => props.extra,
   e => {
-    const { isCurrent, current } = e
+    const { isCustom, current } = e
 
-    isCustomActive.value = isCurrent
+    isCustomActive.value = isCustom
 
     if (current) {
       const [type, offset] = current.toLowerCase().split('_')
@@ -127,7 +127,7 @@ watch(
 watch([customValue, customType], val => {
   const [v, t] = val
 
-  emits('click', { offset: v, type: t, custom: true })
+  emits('click', { offset: v, type: t, custom: isCustomActive.value })
 })
 
 watchEffect(() => {

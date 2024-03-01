@@ -1,4 +1,6 @@
-﻿// 过滤类型
+﻿import { RELATION } from '@/CONST.dict'
+
+// 过滤类型
 export const filterTypeOptions = [
   { label: '文本输入框', value: 'TEXT' },
   { label: '日期过滤', value: 'TIME' },
@@ -18,9 +20,9 @@ export const filterTypeOptions = [
 
 // 过滤方式
 export const filterMethodsOptions = [
-  { label: '单条件', value: 'EQUAL' },
-  { label: '或条件', value: 'OR' },
-  { label: '且条件', value: 'AND' },
+  { label: '单条件', value: RELATION.EQUAL },
+  { label: '或条件', value: RELATION.OR },
+  { label: '且条件', value: RELATION.AND },
 ]
 // 默认过滤项
 export const defaultFilterItem = {
@@ -29,11 +31,11 @@ export const defaultFilterItem = {
   filterType: 'TEXT',
   required: false,
   single: false,
-  filterMethod: 'EQUAL',
+  filterMethod: RELATION.EQUAL,
   enumResourceType: undefined,
   enumList: [],
   enumList_input: [],
   setDefault: false,
-  value: [{ operator: 'EQUAL', value: '' }],
+  value: [{ operator: RELATION.EQUAL, value: '' }],
   charts: {},
 }

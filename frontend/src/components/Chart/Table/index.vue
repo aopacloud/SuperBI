@@ -15,6 +15,9 @@
         :column-config="vColumnConfig"
         :sort-config="vSortConfig"
         :scroll-y="{ enabled: true, gt: 20 }"
+        :show-footer="showSummary"
+        :footer-method="renderFooter"
+        footer-row-class-name="summary-row"
         @sort-change="onSortChange">
         <template></template>
         <!-- 表头 -->
@@ -34,9 +37,9 @@
           </SettingDropdown>
         </template>
 
-        <template #date="{ column, row }">{{
-          formatDtDisplay(row[column.field], column)
-        }}</template>
+        <template #date="{ column, row }">
+          {{ formatDtDisplay(row[column.field], column) }}
+        </template>
 
         <!-- 维度插槽 -->
         <template #[CATEGORY.PROPERTY]="{ column, row }">
@@ -45,7 +48,8 @@
 
         <!-- 指标插槽 -->
         <template #[CATEGORY.INDEX]="{ column, row }">
-          {{ formatIndexDisplay(row[column.field], column) }}
+          <span v-if="row._summary">{{ summaryMap[column.field] }}</span>
+          <span v-else>{{ formatIndexDisplay(row[column.field], column) }}</span>
         </template>
 
         <!-- 同环比插槽 -->
@@ -56,6 +60,37 @@
             :compare="config.compare"
             :target="getVsTarget(column.field, row)"
             :origin="row[column.field]" />
+        </template>
+
+        <!-- 表尾汇总 -->
+        <template #footer.summary>
+          <div class="summary-text">
+            <b style="margin-right: 4px">汇总:</b>
+            <span
+              :class="['all', { active: summaryScope === 'ALL' }]"
+              @click="toggleSummaryScope('ALL')"
+              >全部
+            </span>
+            <span> / </span>
+            <span
+              :class="['page', { active: summaryScope === 'PAGE' }]"
+              @click="toggleSummaryScope('PAGE')"
+              >当前页
+            </span>
+          </div>
+        </template>
+        <template #[footerSummarySlot]="{ column }">
+          <!-- 同环比汇总 -->
+          <CompareDisplay
+            v-if="column.params.field._isVs"
+            :dataset="dataset"
+            :field="column.params.field"
+            :compare="config.compare"
+            :target="getVsTarget(column.field, summaryMap)"
+            :origin="summaryMap[column.field]" />
+          <span v-else>
+            {{ formatIndexDisplay(summaryMap[column.field], column) }}
+          </span>
         </template>
       </vxe-grid>
     </main>
@@ -85,7 +120,7 @@
   </teleport>
 </template>
 <script setup lang="jsx">
-import { ref, reactive, shallowRef, computed, watchEffect, watch } from 'vue'
+import { ref, reactive, shallowRef, computed, watchEffect, watch, nextTick } from 'vue'
 import { SettingOutlined } from '@ant-design/icons-vue'
 import SettingDropdown from './components/SettingDropdown.vue'
 import NumberCustomFormatter from '@/components/CustomFormatter/index.vue'
@@ -96,15 +131,20 @@ import {
   FORMAT_CUSTOM_CODE,
   formatterOptions,
 } from '@/views/dataset/config.field'
-import { getByPager, createSortByOrder } from './utils'
+import { getByPager, createSortByOrder, getCompareDisplay } from './utils'
 import {
   getFixedPlace,
   CELL_HEADER_PADDING,
   CELL_BODY_PADDING,
   CELL_BUFFER_WIDTH,
   CELL_MIN_WIDTH,
+  getSummary,
 } from '@/components/Chart/utils/createTableData'
-import { VS_FIELD_SUFFIX, formatDtWithOption } from '@/components/Chart/utils/index.js'
+import {
+  VS_FIELD_SUFFIX,
+  is_vs,
+  formatDtWithOption,
+} from '@/components/Chart/utils/index.js'
 import CompareDisplay from './components/CompareDisplay.vue'
 import { getWordWidth } from '@/common/utils/help'
 
@@ -247,15 +287,50 @@ const setColumnFixed = () => {
   })
 }
 
+/**
+ * 获取汇总行列宽
+ * @param {列信息} column
+ * @param {汇总数据} summaryMap
+ * @param {列原始字段} originField
+ */
+const getSummaryColumnWidth = (column, summaryMap, field) => {
+  // 无汇总行
+  if (!showSummary.value) return 0
+
+  // 同环比同时显示
+  if (config.compare.merge) {
+    const target = formatIndexDisplay(getVsTarget(column.field, summaryMap), column)
+
+    // 原值的格式化
+    const origin =
+      ' ( ' +
+      getCompareDisplay(getVsTarget(column.field, summaryMap), summaryMap[column.field])(
+        field,
+        dataset.value.fields
+      ) +
+      ' ) '
+
+    return getWordWidth(target) + getWordWidth(origin)
+  } else {
+    return summaryMap[column.field]
+      ? getWordWidth(formatIndexDisplay(summaryMap[column.field], column))
+      : 0
+  }
+}
+
 // 更新列宽度
 const updateColumnWidth = () => {
   if (tableConfig.value.layout === 'auto') {
-    rColumns.value = rColumns.value.map(col => {
+    rColumns.value = rColumns.value.map((col, i) => {
       const originField = col.params.field
+      const summaryWidth = getSummaryColumnWidth(col, summaryMap.value, originField)
+
       if (col._width) {
+        // 同环比的汇总列
+
         return {
           ...col,
-          width: col._width + CELL_BUFFER_WIDTH,
+          width: Math.max(col._width, summaryWidth) + CELL_BUFFER_WIDTH,
         }
       }
 
@@ -274,19 +349,23 @@ const updateColumnWidth = () => {
                 return getWordWidth(t)
               }
             }
-          })
+          }),
+          showSummary.value && i === 0 ? 105 : 0
         ) + CELL_BODY_PADDING
+
       // 表头宽度
       const titleWidth = getWordWidth(col.title) + CELL_HEADER_PADDING
 
       return {
         ...col,
-        width: Math.max(contentMaxWidth, titleWidth) + CELL_BUFFER_WIDTH,
+        width:
+          Math.max(titleWidth, contentMaxWidth, summaryWidth, CELL_MIN_WIDTH) +
+          CELL_BUFFER_WIDTH,
       }
     })
   } else {
     // 所有字段的宽度
-    const contentMaxWidths = rColumns.value.map(col => {
+    const contentMaxWidths = rColumns.value.map((col, i) => {
       const originField = col.params.field
       // 当前字段的所有数据(当前页)
       const data = list.value.map(t => t[col.field])
@@ -303,12 +382,15 @@ const updateColumnWidth = () => {
                 return getWordWidth(t)
               }
             }
-          })
+          }),
+          showSummary.value && i === 0 ? 105 : 0
         ) + CELL_BODY_PADDING
+
       // 表头宽度
       const titleWidth = getWordWidth(col.title) + CELL_HEADER_PADDING
+      const summaryWidth = getSummaryColumnWidth(col, summaryMap.value, originField)
 
-      return Math.max(contentMaxWidth, titleWidth, col._width ?? 0)
+      return Math.max(titleWidth, contentMaxWidth, summaryWidth, col._width ?? 0)
     })
 
     rColumns.value = rColumns.value.map(col => {
@@ -406,7 +488,9 @@ const init = () => {
   rColumns.value = columns
 
   setColumnFixed()
-  updateColumnWidth()
+  nextTick(() => {
+    updateColumnWidth()
+  })
 }
 // 排序数据
 const sortedList = (arr = []) => {
@@ -464,10 +548,12 @@ const onSettingDropdownMenuClick = ({ key }, column) => {
   const [type, val] = key.split('_/_')
 
   if (type === SORT_PREFFIX) {
-    config.sorter.field = field
-    config.sorter.order = val
+    const order = !!val ? val : null
 
-    vTableRef.value.sort({ field, order: val !== '' ? val : null })
+    config.sorter.field = field
+    config.sorter.order = order
+
+    vTableRef.value.sort({ field, order })
   } else {
     if (val === FORMAT_CUSTOM_CODE) {
       const { code, config } = formatterConfig.value.find(t => t.field === field) || {}
@@ -547,6 +633,63 @@ const formatIndexDisplay = (value, column) => {
 const getVsTarget = (fieldName, row) => {
   return row[fieldName.replace(VS_FIELD_SUFFIX, '')]
 }
+
+// 显示汇总行
+// const showSummary = ref(true)
+const showSummary = computed(() => {
+  return (
+    tableConfig.value.showSummary &&
+    props.columns.some(t => t.params.field.category === CATEGORY.INDEX)
+  )
+})
+
+// 表尾渲染
+const renderFooter = () => {
+  return [{}]
+}
+const footerSummarySlot = computed(() => 'footer.' + CATEGORY.INDEX)
+
+/**
+ * 汇总范围
+ * ALL: 全部
+ * PAGE: 当前页
+ */
+const summaryScope = ref('ALL')
+const toggleSummaryScope = scope => {
+  summaryScope.value = scope
+}
+
+// 汇总数据
+const summaryMap = computed(() => {
+  // 只有指标需要被汇总计算
+  const summaryColumns = props.columns
+    .filter(t => t.params.field.category === CATEGORY.INDEX)
+    .reduce((acc, col) => {
+      if (config.compare.merge && col.params.field._isVs) {
+        acc.push({
+          ...col,
+          field: col.field.replace(VS_FIELD_SUFFIX, ''),
+        })
+      }
+
+      acc.push(col)
+
+      return acc
+    }, [])
+
+  const keys = summaryColumns.map(t => t.field)
+
+  // 汇总的数据范围
+  const summaryList = summaryScope.value === 'ALL' ? originSortedList.value : list.value
+
+  return {
+    ...getSummary({
+      keys,
+      columns: summaryColumns,
+      list: summaryList.filter(t => !t._summary),
+    }),
+  }
+})
 </script>
 
 <style lang="scss" scoped>
@@ -576,6 +719,23 @@ const getVsTarget = (fieldName, row) => {
       &:hover {
         background-color: #f1f1f2;
       }
+    }
+
+    .summary-row {
+      background-color: #f8f8f9;
+    }
+  }
+}
+
+.summary-text {
+  user-select: none;
+  color: #333;
+  .all,
+  .page {
+    color: #aaa;
+    cursor: pointer;
+    &.active {
+      color: inherit;
     }
   }
 }

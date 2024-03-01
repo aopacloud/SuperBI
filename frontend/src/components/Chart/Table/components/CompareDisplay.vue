@@ -1,20 +1,20 @@
 ﻿<template>
   <!-- 合并显示 -->
-  <span v-if="compare.merge">{{ displayTarget }}</span>
+  <span class="target" v-if="compare.merge">{{ displayTarget }}</span>
 
   <!-- 非合并显示 -->
   <span>
     <span v-if="compare.merge"> ( </span>
-    <span :style="valStyle">{{ displayValue }}</span>
+    <span class="origin" :style="valStyle">{{ displayValue }}</span>
     <span v-if="compare.merge"> ) </span>
   </span>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import { toPercent } from 'common/utils/number'
 import { formatFieldDisplay } from '@/components/Chart/utils/index.js'
 import { COMPARE } from '@/CONST.dict'
+import { getCompareDisplay } from '../utils'
 
 const props = defineProps({
   field: {
@@ -51,17 +51,7 @@ const displayValue = computed(() => {
   const { origin, target, compare } = props
   const { mode } = compare
 
-  if (mode === COMPARE.MODE.DIFF_PERSENT) {
-    const v = toPercent((target - origin) / origin, 2)
-
-    return parseInt(v) > 0 ? '+' + v : v
-  } else if (mode === COMPARE.MODE.DIFF) {
-    const v = formatFieldDisplay(target - origin, props.field, props.dataset.fields)
-
-    return parseInt(v) > 0 ? '+' + v : v
-  } else {
-    return formatFieldDisplay(origin, props.field, props.dataset.fields)
-  }
+  return getCompareDisplay(origin, target, mode)(props.field, props.dataset.fields)
 })
 
 const valStyle = computed(() => {

@@ -28,10 +28,10 @@
 
       <!-- 字段多选 -->
       <MultipleSelectedPopover
-        v-if="hasDatasetAnalysis && category !== CATEGORY.FILTER"
+        v-if="hasDatasetAnalysis"
         class="multiple-trigger"
         :data-source="datasetFields"
-        :value="modelValue"
+        :value="multipleValue"
         @ok="onMultipleOk" />
     </main>
 
@@ -54,6 +54,7 @@ import SectionTag from './SectionTag.vue'
 import { categoryMap } from '@/views/dataset/config.field'
 import { CATEGORY } from '@/CONST.dict'
 import { getRandomKey } from 'common/utils/help'
+import { versionJs } from '@/versions'
 
 const props = defineProps({
   category: {
@@ -80,22 +81,35 @@ const renderType = computed(() => {
   return indexOptions.get('renderType')
 })
 
-const modelValue = computed(() => {
+const multipleValue = computed(() => {
   const { category, dataSource } = props
 
-  return category === CATEGORY.PROPERTY ? dataSource.map(item => item.name) : []
+  return category === CATEGORY.INDEX ? [] : dataSource.map(item => item.name)
 })
 
 const dataset = computed(() => {
   return datasetInfo.get()
 })
+
 // 原始字段
 const datasetFields = computed(() => {
-  return (
+  const list =
     dataset.value.fields?.filter(
-      item => item.status !== 'HIDE' && item.category === props.category
+      item =>
+        item.status !== 'HIDE' &&
+        (item.category === props.category || props.category === CATEGORY.FILTER)
     ) || []
-  )
+
+  // 筛选项需要确认dt字段作为必填筛选条件
+  return props.category === CATEGORY.FILTER &&
+    versionJs.ViewsAnalysis.dtInDatasetFields(dataset.value.fields)
+    ? list.map(item => {
+        return {
+          ...item,
+          disabled: versionJs.ViewsDatasetModify.isDt(item),
+        }
+      })
+    : list
 })
 
 const label = computed(() => {
@@ -203,10 +217,10 @@ const onMultipleOk = value => {
       return { ...item, _id: getRandomKey() }
     })
 
-    if (props.category === CATEGORY.PROPERTY) {
-      choosedSet(props.category, choosed)
-    } else {
+    if (props.category === CATEGORY.INDEX) {
       choosedSet(props.category, props.dataSource.concat(choosed))
+    } else {
+      choosedSet(props.category, choosed)
     }
   }, 20)
 }

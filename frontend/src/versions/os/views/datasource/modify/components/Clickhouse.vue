@@ -54,7 +54,7 @@
 </template>
 
 <script setup>
-import { reactive, toRaw, watch, onMounted, nextTick } from 'vue'
+import { reactive, toRaw, watch, nextTick } from 'vue'
 import { Form } from 'ant-design-vue'
 
 const emits = defineEmits(['connect'])
@@ -121,10 +121,6 @@ const initFormData = () => {
   })
 }
 
-onMounted(() => {
-  initFormData()
-})
-
 watch(
   () => [formState.host, formState.port],
   ([host, port]) => {
@@ -134,10 +130,11 @@ watch(
   }
 )
 
-watch(() => props.initData.id, initFormData)
+watch(() => props.initData.id, initFormData, { immediate: true })
 
 const {
   validate: formValidate,
+  resetFields,
   clearValidate,
   validateInfos,
 } = Form.useForm(formState, formRules)
@@ -153,6 +150,7 @@ const validate = () => {
 }
 
 defineExpose({
+  reset: resetFields,
   validate,
 })
 </script>

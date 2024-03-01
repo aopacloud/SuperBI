@@ -3,7 +3,7 @@
     class="pane-list"
     :class="{ single: !multiple }"
     :data-source="dataSource"
-    :item-height="26">
+    :item-height="25">
     <template #item="{ item, index, $index }">
       <div
         class="pane-item"
