@@ -13,6 +13,8 @@ public class AuthRoleUserVO {
 
     private String username;
 
+    private String usernameAlias;
+
     private Date createTime;
 
     private Date updateTime;

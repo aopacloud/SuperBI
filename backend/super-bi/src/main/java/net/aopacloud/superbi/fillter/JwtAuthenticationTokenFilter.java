@@ -1,6 +1,7 @@
 package net.aopacloud.superbi.fillter;
 
 import lombok.RequiredArgsConstructor;
+import net.aopacloud.superbi.cache.AuthorizeThreadLocalCache;
 import net.aopacloud.superbi.common.core.context.LoginContextHolder;
 import net.aopacloud.superbi.common.core.utils.StringUtils;
 import net.aopacloud.superbi.model.entity.LoginUser;
@@ -41,5 +42,6 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
             LoginContextHolder.setUserId(String.valueOf(loginUser.getId()));
         }
         filterChain.doFilter(request, response);
+        AuthorizeThreadLocalCache.remove();
     }
 }

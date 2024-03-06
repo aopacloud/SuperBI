@@ -2,6 +2,7 @@ package net.aopacloud.superbi.service.impl;
 
 import com.google.common.base.Joiner;
 import lombok.RequiredArgsConstructor;
+import net.aopacloud.superbi.cache.AuthorizeThreadLocalCache;
 import net.aopacloud.superbi.common.core.context.LoginContextHolder;
 import net.aopacloud.superbi.common.core.utils.StringUtils;
 import net.aopacloud.superbi.constant.BiConsist;
@@ -71,7 +72,8 @@ public class DatasetPrivilegeServiceImpl implements DatasetPrivilegeService {
             return PermissionEnum.READ;
         }
 
-        List<DatasetAuthorize> datasetAuthorizes = datasetAuthorizeMapper.selectByDatasetAndUsername(datasetId, username);
+//        List<DatasetAuthorize> datasetAuthorizes = datasetAuthorizeMapper.selectByDatasetAndUsername(datasetId, username);
+        List<DatasetAuthorize> datasetAuthorizes = getDatasetAuthorize(dataset, username);
 
         if (datasetAuthorizes.isEmpty()) {
             return PermissionEnum.NONE;
@@ -140,47 +142,6 @@ public class DatasetPrivilegeServiceImpl implements DatasetPrivilegeService {
     }
 
 
-//    @Override
-//    public List<ReportDTO> batchCheckReportPrivilege(List<ReportDTO> reports, String username) {
-//        if (Objects.isNull(reports) || reports.isEmpty()) {
-//            return reports;
-//        }
-//        boolean isSuperAdmin = sysUserService.isSuperAdmin(username);
-//        Long workspaceId = reports.get(0).getWorkspaceId();
-//        boolean hasWorkspaceAllPrivilege = hasWorkspaceAllPrivilege(workspaceId);
-//
-//        if (isSuperAdmin || hasWorkspaceAllPrivilege) {
-//            reports.stream().forEach(report -> report.setPermission(PermissionEnum.WRITE));
-//            return reports;
-//        }
-//
-//        Map<Long, DatasetPrivilege> privilegeCache = new HashMap<>();
-//
-//        for (ReportDTO report : reports) {
-//            if (report.getCreator().equals(username)) {
-//                report.setPermission(PermissionEnum.WRITE);
-//                continue;
-//            }
-//
-//            Dataset dataset = datasetMapper.selectById(report.getDatasetId());
-//            QueryParam queryParam = JSONUtils.parseObject(report.getQueryParam(), QueryParam.class);
-//
-//            DatasetPrivilege datasetPrivilege = privilegeCache.get(report.getDatasetId());
-//            if(Objects.isNull(datasetPrivilege)) {
-//                DatasetDTO datasetDTO = datasetConverter.entityToDTO(dataset);
-//                datasetPrivilege = checkDatasetPrivilege(datasetDTO, username, isSuperAdmin, hasWorkspaceAllPrivilege);
-//                privilegeCache.put(report.getDatasetId(), datasetPrivilege);
-//            }
-//
-//            QueryPrivilege queryPrivilege = doCheckQueryPrivilege(datasetPrivilege, queryParam);
-//            if (queryPrivilege.isPass()) {
-//                report.setPermission(PermissionEnum.READ);
-//            } else {
-//                report.setPermission(PermissionEnum.NONE);
-//            }
-//        }
-//        return reports;
-//    }
 
     private DatasetPrivilege checkDatasetPrivilege(DatasetDTO dataset, String username) {
 
@@ -208,8 +169,8 @@ public class DatasetPrivilegeServiceImpl implements DatasetPrivilegeService {
     private DatasetPrivilege doCheckDatasetPrivilege(DatasetDTO dataset, String username) {
         DatasetPrivilege result = new DatasetPrivilege().setDataset(dataset);
 
-        List<DatasetAuthorize> datasetAuthorizes = datasetAuthorizeMapper.selectActiveByDatasetAndUsername(dataset.getId(), username);
-
+//        List<DatasetAuthorize> datasetAuthorizes = datasetAuthorizeMapper.selectActiveByDatasetAndUsername(dataset.getId(), username);
+        List<DatasetAuthorize> datasetAuthorizes = getDatasetAuthorize(datasetConverter.toEntity(dataset), username);
 
         // no dataset privilege
         if (datasetAuthorizes.isEmpty()) {
@@ -326,6 +287,20 @@ public class DatasetPrivilegeServiceImpl implements DatasetPrivilegeService {
         }
         String expression = Joiner.on(" or ").join(rows);
         return String.format("(%s)", expression);
+    }
+
+
+    private List<DatasetAuthorize> getDatasetAuthorize(Dataset dataset, String username) {
+
+        List<DatasetAuthorize> datasetAuthorizeInWorkspace = AuthorizeThreadLocalCache.getDatasetAuthorize(dataset.getWorkspaceId());
+
+        if(Objects.isNull(datasetAuthorizeInWorkspace)) {
+             datasetAuthorizeInWorkspace = datasetAuthorizeMapper.selectActiveByWorkspaceAndUsername(dataset.getWorkspaceId(), username);
+             AuthorizeThreadLocalCache.setDatasetAuthorize(dataset.getWorkspaceId(), datasetAuthorizeInWorkspace);
+        }
+
+        return datasetAuthorizeInWorkspace.stream().filter(item -> item.getDatasetId().equals(dataset.getId())).collect(Collectors.toList());
+
     }
 
 }

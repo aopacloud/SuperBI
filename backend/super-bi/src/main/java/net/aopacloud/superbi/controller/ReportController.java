@@ -69,8 +69,7 @@ public class ReportController {
             query.setSearchUsers(usernames);
         }
 
-        List<ReportDTO> reportDTOS = reportService.search(query);
-        PageVO pageVO = new PageVO(reportConverter.toVOList(reportDTOS), reportDTOS.size());
+        PageVO pageVO =  reportService.search(query);
         return RestApiResponse.success(pageVO);
     }
 

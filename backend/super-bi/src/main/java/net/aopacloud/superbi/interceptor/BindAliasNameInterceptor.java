@@ -37,6 +37,12 @@ public class BindAliasNameInterceptor implements ResponseBodyAdvice<Object> {
 
     private final static String USERNAME_ALIAS = "usernameAlias";
 
+    private final static String DATASET_CREATOR_NAME = "datasetCreator";
+
+    private final static String DATASET_CREATOR_ALIAS = "datasetCreatorAlias";
+    private final static String DASHBOARD_CREATOR = "dashboardCreator";
+    private final static String DASHBOARD_CREATOR_ALIAS = "dashboardCreatorAlias";
+
 
     @Autowired
     private SysUserService sysUserService;
@@ -93,6 +99,12 @@ public class BindAliasNameInterceptor implements ResponseBodyAdvice<Object> {
 
         // set usernameAlias value
         setAliasName(target, USERNAME_ALIAS, USERNAME_NAME);
+
+        // set datasetCreatorAlias value
+        setAliasName(target, DATASET_CREATOR_ALIAS, DATASET_CREATOR_NAME);
+
+        // set dashboardCreatorAlias value
+        setAliasName(target, DASHBOARD_CREATOR_ALIAS, DASHBOARD_CREATOR);
     }
 
     private void setAliasName(Object target, String aliasFieldName, String originFieldName) {

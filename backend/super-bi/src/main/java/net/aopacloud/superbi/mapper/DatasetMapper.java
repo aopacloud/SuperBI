@@ -60,4 +60,6 @@ public interface DatasetMapper {
     List<DatasetDTO> selectByIdsOrCreator(@Param("datasetIds") Set<Long> datasetIds, @Param("username") String username);
 
     List<DatasetDTO> findByDashboard(@Param("dashboardId") Long dashboardId);
+
+    List<DatasetDTO> selectOnlineDataset(@Param("workspaceId") Long workspaceId);
 }

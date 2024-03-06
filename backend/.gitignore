@@ -45,3 +45,5 @@ nbdist/
 !*/build/*.html
 !*/build/*.xml
 .data
+docker/super-bi
+docker/super-bi.jar

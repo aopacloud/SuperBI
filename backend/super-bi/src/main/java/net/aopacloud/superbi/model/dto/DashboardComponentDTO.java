@@ -16,7 +16,7 @@ public class DashboardComponentDTO {
 
     private String type;
 
-    private Integer reportId;
+    private Long reportId;
 
     private Date createTime;
 

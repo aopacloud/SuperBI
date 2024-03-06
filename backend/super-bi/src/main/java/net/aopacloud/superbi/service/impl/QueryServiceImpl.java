@@ -68,7 +68,7 @@ public class QueryServiceImpl implements QueryService {
     @Override
     public void download(QueryParam queryParam, boolean all) {
 
-        Paging paging = all ? new Paging(BiConsist.MAX_DOWNLOAD_NUM) : new Paging(BiConsist.MAX_QUERY_NUM);
+        Paging paging = all ? new Paging(BiConsist.MAX_DOWNLOAD_NUM) : new Paging(BiConsist.DEFAULT_QUERY_NUM);
         queryParam.setPaging(paging);
 
         DatasetDTO dataset = getDataset(queryParam);

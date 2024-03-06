@@ -40,7 +40,7 @@ public class AuthRoleServiceImpl implements AuthRoleService {
     }
 
     @Override
-    public List<AuthRoleDTO> listAll(Long workspaceId, String keyword) {
+    public List<AuthRoleDTO> search(Long workspaceId, String keyword) {
         List<AuthRoleDTO> roles = authRoleMapper.selectAllByWorkspace(workspaceId, keyword);
         roles.stream().forEach(role -> {
             role.setUserNum(authRoleUserMapper.countByRoleId(role.getId()));
@@ -88,5 +88,15 @@ public class AuthRoleServiceImpl implements AuthRoleService {
     @Override
     public Integer countByWorkspace(Long workspaceId) {
         return authRoleMapper.countByWorkspace(workspaceId);
+    }
+
+    @Override
+    public List<AuthRoleDTO> search(String keyword) {
+        return authRoleMapper.search(keyword);
+    }
+
+    @Override
+    public List<AuthRoleDTO> listAll() {
+        return authRoleMapper.selectAllByWorkspace(null, null);
     }
 }

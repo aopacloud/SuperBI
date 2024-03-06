@@ -110,6 +110,17 @@
         select * from (<include refid="userAllAuthorize" />) t where is_actived = 1 and dataset_id = #{datasetId} and username = #{username}
 
     </select>
+    <select id="selectActiveByWorkspaceAndUsername"
+            resultType="net.aopacloud.superbi.model.entity.DatasetAuthorize">
+
+        select * from
+            (<include refid="userAllAuthorize" />) t
+        join
+            bi_dataset d
+        on t.dataset_id = d.id
+        where t.is_actived = 1 and d.deleted = 0 and t.username = #{username} and d.workspace_id = #{workspaceId}
+
+    </select>
     <select id="selectByDatasetAndUsername" resultType="net.aopacloud.superbi.model.entity.DatasetAuthorize">
         select * from (<include refid="userAllAuthorize" />) t where  dataset_id = #{datasetId} and username = #{username}
     </select>
@@ -145,4 +156,120 @@
     <select id="selectAuthorizeByDataset" resultType="net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO">
         select * from bi_dataset_authorize where  deleted = 0 and expired = 0 and dataset_id = #{datasetId}
     </select>
+    <select id="search" resultType="net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO" parameterType="net.aopacloud.superbi.model.query.DatasetAuthorizeBatchQuery">
+        select auth.*,
+            d.creator as dataset_creator,
+            d.name as dataset_name,
+            d.workspace_id as workspace_id,
+            w.name as workspace_name,
+            r.name as role_name,
+            if(auth.expire_duration =0, '2099-12-30 00:00:00' , from_unixtime(UNIX_TIMESTAMP(auth.start_time) + auth.expire_duration) ) expire_time
+        from
+            bi_dataset_authorize auth
+        join bi_dataset d on auth.dataset_id = d.id
+        join bi_workspace w on d.workspace_id = w.id
+        left join bi_auth_role r on auth.role_id = r.id
+        <where>
+            auth.deleted = 0
+            <if test="creators != null and creators.length > 0">
+                and d.creator in
+                <foreach collection="creators" item="creator" open="(" close=")" separator=",">
+                    #{creator}
+                </foreach>
+            </if>
+            <if test="scopes != null and scopes.length > 0">
+                and auth.`scope` in
+                <foreach collection="scopes" item="scope" open="(" close=")" separator=",">
+                    #{scope}
+                </foreach>
+            </if>
+            <if test="permissions != null and permissions.length > 0">
+                and auth.permission in
+                <foreach collection="permissions" item="permission" open="(" close=")" separator=",">
+                    #{permission}
+                </foreach>
+            </if>
+            <if test="privilegeTypes != null and privilegeTypes.length > 0">
+                and auth.privilege_type in
+                <foreach collection="privilegeTypes" item="privilegeType" open="(" close=")" separator=",">
+                    #{privilegeType}
+                </foreach>
+            </if>
+            <if test="workspaceIds != null and workspaceIds.length > 0">
+                and d.workspace_id in
+                <foreach collection="workspaceIds" item="workspaceId" open="(" close=")" separator=",">
+                    #{workspaceId}
+                </foreach>
+            </if>
+
+            <if test="datasetIds != null">
+                and auth.dataset_id in
+                <foreach collection="datasetIds" item="datasetId" open="(" close=")" separator=",">
+                    #{datasetId}
+                </foreach>
+            </if>
+
+            <if test="userAndRoles != null and userAndRoles.length > 0">
+                and (
+                    auth.username in
+                        <foreach collection="userAndRoles" item="item" separator="," open="(" close=")">
+                            #{item}
+                        </foreach>
+                    or auth.role_id in
+                        <foreach collection="userAndRoles" item="item" separator="," open="(" close=")">
+                            #{item}
+                        </foreach>
+                )
+            </if>
+
+            <if test="keyword != null and keyword != ''" >
+                and d.name like concat('%', #{keyword}, '%')
+            </if>
+        </where>
+        <choose>
+
+            <when test="sortField == 'user_and_roles'">
+                order by auth.username ${sortType} , auth.role_id ${sortType}
+            </when>
+            <when test="sortField == 'expire_duration'">
+                order by expire_time ${sortType}
+            </when>
+            <when test="sortField != null and sortField != ''">
+                order by ${sortField} ${sortType}
+            </when>
+            <otherwise>
+                order by auth.update_time desc
+            </otherwise>
+        </choose>
+    </select>
+    <select id="selectAuthorizeByDatasetsAndUsername"
+            resultType="net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO">
+        select * from (<include refid="userAllAuthorize" />) t
+        where dataset_id in
+            <foreach collection="datasetIds" item="datasetId" open="(" close=")" separator=",">
+                #{datasetId}
+            </foreach>
+        <if test="username != null and username != ''">
+            and username = #{username}
+        </if>
+
+    </select>
+    <select id="selectAuthorizeByDatasetsAndRole"
+            resultType="net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO">
+        select * from bi_dataset_authorize t
+        where dataset_id in
+        <foreach collection="datasetIds" item="datasetId" open="(" close=")" separator=",">
+            #{datasetId}
+        </foreach>
+        <if test="roleId != null and roleId != 0">
+            and role_id = #{roleId}
+        </if>
+    </select>
+    <select id="selectByPermission" resultType="net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO">
+        select t.*
+        from (<include refid="userAllAuthorize" />) t
+        join bi_dataset d on t.dataset_id = d.id and d.deleted = 0
+        where t.is_actived = 1 and t.username = #{username} and t.permission = #{permission} and d.workspace_id = #{workspaceId}
+    </select>
+
 </mapper>

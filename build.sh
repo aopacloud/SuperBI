@@ -32,7 +32,7 @@ if [ $# -gt 0 ] && [ "docker" = "$1" ]; then
   cp ${BASE_DIR}/backend/super-bi/target/super-bi.jar ${BASE_DIR}/docker/super-bi.jar
   cp -r ${BASE_DIR}/frontend/dist-production ${BASE_DIR}/docker/super-bi
   cd ${BASE_DIR}/docker
-  docker build -t superbi:1.0.0 .
+  docker build -t superbi:latest .
 fi
 
 echo "build success `date +%Y-%m-%d\ %H:%M:%S`"

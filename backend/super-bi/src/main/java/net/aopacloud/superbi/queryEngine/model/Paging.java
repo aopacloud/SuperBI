@@ -32,7 +32,7 @@ public class Paging {
     }
 
     public static Paging getDefault() {
-        return new Paging(BiConsist.MAX_QUERY_NUM);
+        return new Paging(BiConsist.DEFAULT_QUERY_NUM);
     }
 
 }

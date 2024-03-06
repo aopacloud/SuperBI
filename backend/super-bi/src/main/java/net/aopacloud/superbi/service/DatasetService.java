@@ -53,4 +53,6 @@ public interface DatasetService {
     List<DatasetDTO> findDatasetCanAuthorize(Long workspaceId, String username);
 
     List<DatasetDTO> findByDashboard(Long dashboardId);
+
+    List<DatasetDTO> findOnlineDataset(Long workspaceId);
 }

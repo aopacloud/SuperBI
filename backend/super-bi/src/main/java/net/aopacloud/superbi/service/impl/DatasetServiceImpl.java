@@ -444,4 +444,9 @@ public class DatasetServiceImpl implements DatasetService {
 
         return datasetMapper.findByDashboard(dashboardId);
     }
+
+    @Override
+    public List<DatasetDTO> findOnlineDataset(Long workspaceId) {
+        return datasetMapper.selectOnlineDataset(workspaceId);
+    }
 }

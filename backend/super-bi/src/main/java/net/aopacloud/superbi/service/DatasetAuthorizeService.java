@@ -1,10 +1,12 @@
 package net.aopacloud.superbi.service;
 
 import net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO;
+import net.aopacloud.superbi.model.query.DatasetAuthorizeBatchQuery;
 import net.aopacloud.superbi.model.query.DatasetAuthorizeQuery;
 import net.aopacloud.superbi.model.query.DatasetAuthorizeSaveVO;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Dataset Authorize
@@ -93,4 +95,8 @@ public interface DatasetAuthorizeService {
     List<DatasetAuthorizeDTO> findAuthorizeByUsername(String username);
 
     List<DatasetAuthorizeDTO> findAuthorizeByDataset(Long datasetId);
+
+    List<DatasetAuthorizeDTO> search(DatasetAuthorizeBatchQuery query);
+
+    List<DatasetAuthorizeDTO> findAuthorizeByDatasetAndUsernameAndRole(Set<Long> datasetIds, String username, Long roleId);
 }

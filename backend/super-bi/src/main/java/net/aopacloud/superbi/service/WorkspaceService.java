@@ -30,6 +30,13 @@ public interface WorkspaceService {
     List<WorkspaceDTO> listBelongMe();
 
     /**
+     * get workspace list than belong to $username
+     * @param username
+     * @return
+     */
+    List<WorkspaceDTO> listBelongMe(String username);
+
+    /**
      * create workspace
      *
      * @param workspaceDTO

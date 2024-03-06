@@ -1,8 +1,10 @@
 package net.aopacloud.superbi.service;
 
+import net.aopacloud.superbi.common.core.web.page.PageVO;
 import net.aopacloud.superbi.model.dto.DashboardDTO;
 import net.aopacloud.superbi.model.dto.ReportDTO;
 import net.aopacloud.superbi.model.query.ReportQuery;
+import net.aopacloud.superbi.model.vo.ReportVO;
 
 import java.util.List;
 
@@ -17,7 +19,7 @@ public interface ReportService {
 
     List<DashboardDTO> findDashboard(Long id);
 
-    List<ReportDTO> search(ReportQuery query);
+    PageVO<ReportVO> search(ReportQuery query);
 
     ReportDTO saveOrUpdate(ReportDTO reportDTO);
 

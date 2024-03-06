@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.aopacloud.superbi.common.core.context.LoginContextHolder;
 import net.aopacloud.superbi.common.core.exception.ObjectNotFoundException;
 import net.aopacloud.superbi.common.core.exception.ServiceException;
+import net.aopacloud.superbi.common.core.web.page.PageVO;
 import net.aopacloud.superbi.constant.BiConsist;
 import net.aopacloud.superbi.enums.PermissionEnum;
 import net.aopacloud.superbi.i18n.LocaleMessages;
@@ -19,6 +20,7 @@ import net.aopacloud.superbi.model.dto.DatasetDTO;
 import net.aopacloud.superbi.model.dto.ReportDTO;
 import net.aopacloud.superbi.model.entity.Report;
 import net.aopacloud.superbi.model.query.ReportQuery;
+import net.aopacloud.superbi.model.vo.ReportVO;
 import net.aopacloud.superbi.service.*;
 import org.assertj.core.util.Sets;
 import org.springframework.dao.DuplicateKeyException;
@@ -77,8 +79,37 @@ public class ReportServiceImpl implements ReportService {
         return dashboardDTOS;
     }
 
-    @Override
-    public List<ReportDTO> search(ReportQuery query) {
+//    @Override
+//    public List<ReportDTO> search(ReportQuery query) {
+//        Set<Long> datasetIds = Sets.newHashSet();
+//
+//        String currentUser = LoginContextHolder.getUsername();
+//        boolean isSuperAdmin = sysUserService.isSuperAdmin(currentUser);
+//        Set<String> resourceCodes = workspaceUserResourceService.getResourceCodes(query.getWorkspaceId());
+//        if (isSuperAdmin || resourceCodes.contains(BiConsist.REPORT_ALL_WORKSPACE_CODE)) {
+//            List<Long> ids = datasetService.selectIdsByWorkspaceAndCreator(query.getWorkspaceId(), null);
+//            datasetIds.addAll(ids);
+//        } else {
+//            List<DatasetAuthorizeDTO> activedAuthorize = datasetAuthorizeService.findActivedAuthorize(currentUser, query.getWorkspaceId());
+//            List<Long> ids = activedAuthorize.stream().map(DatasetAuthorizeDTO::getDatasetId).collect(Collectors.toList());
+//            datasetIds.addAll(ids);
+//        }
+//        List<Long> ids = datasetService.selectIdsByWorkspaceAndCreator(query.getWorkspaceId(), currentUser);
+//        datasetIds.addAll(ids);
+//
+//        if (!datasetIds.isEmpty()) {
+//            query.setDatasetIds(datasetIds);
+//        }
+//
+//        List<ReportDTO> reportDTOS = reportMapper.search(query);
+//
+//        reportPrivilegeService.batchFillPrivilege(reportDTOS, currentUser);
+//
+//        reportDTOS.stream().forEach(report -> report.setQueryParam(null));
+//        return reportDTOS.stream().filter(report -> report.getPermission() != PermissionEnum.NONE).collect(Collectors.toList());
+//
+//    }
+    public PageVO<ReportVO> search(ReportQuery query) {
         Set<Long> datasetIds = Sets.newHashSet();
 
         String currentUser = LoginContextHolder.getUsername();
@@ -101,13 +132,18 @@ public class ReportServiceImpl implements ReportService {
 
         List<ReportDTO> reportDTOS = reportMapper.search(query);
 
-        reportPrivilegeService.batchFillPrivilege(reportDTOS, currentUser);
+        int start = Math.min(( query.getPageNum() -1 ) * query.getPageSize(), reportDTOS.size());
+        int end = Math.min(start + query.getPageSize(), reportDTOS.size());
 
-        reportDTOS.stream().forEach(report -> report.setQueryParam(null));
-        return reportDTOS.stream().filter(report -> report.getPermission() != PermissionEnum.NONE).collect(Collectors.toList());
+        List<ReportDTO> result = reportDTOS.subList(start, end);
 
+        reportPrivilegeService.batchFillPrivilege(result, currentUser);
+
+        result.stream().forEach(report -> report.setQueryParam(null));
+
+        PageVO pageVO = new PageVO(reportConverter.toVOList(result), reportDTOS.size());
+        return pageVO;
     }
-
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)

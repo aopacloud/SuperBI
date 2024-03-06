@@ -77,7 +77,7 @@ public class QueryAnalysisModel implements AnalysisModel {
             if (!Objects.isNull(paging)) {
                 sql.append(" limit ").append(paging.getExpression());
             } else {
-                sql.append(" limit ").append(BiConsist.MAX_QUERY_NUM);
+                sql.append(" limit ").append(BiConsist.DEFAULT_QUERY_NUM);
             }
         }
         return sql.toString();

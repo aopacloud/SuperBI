@@ -3,11 +3,14 @@ package net.aopacloud.superbi.service.impl;
 import lombok.RequiredArgsConstructor;
 import net.aopacloud.superbi.common.core.context.LoginContextHolder;
 import net.aopacloud.superbi.constant.BiConsist;
-import net.aopacloud.superbi.model.dto.SysMenuDTO;
-import net.aopacloud.superbi.model.dto.SysRoleDTO;
-import net.aopacloud.superbi.model.dto.SysRoleResourceDTO;
-import net.aopacloud.superbi.model.dto.WorkspaceUserResourceDTO;
+import net.aopacloud.superbi.enums.PermissionEnum;
+import net.aopacloud.superbi.mapper.DashboardMapper;
+import net.aopacloud.superbi.mapper.DashboardShareMapper;
+import net.aopacloud.superbi.mapper.DatasetAuthorizeMapper;
+import net.aopacloud.superbi.mapper.DatasetMapper;
+import net.aopacloud.superbi.model.dto.*;
 import net.aopacloud.superbi.service.*;
+import org.apache.commons.compress.utils.Lists;
 import org.assertj.core.util.Sets;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +33,14 @@ public class WorkspaceUserResourceServiceImpl implements WorkspaceUserResourceSe
     private final SysUserService sysUserService;
 
     private final SysMenuService sysMenuService;
+
+    private final DatasetAuthorizeMapper datasetAuthorizeMapper;
+
+    private final DatasetMapper datasetMapper;
+
+    private final DashboardMapper dashboardMapper;
+
+    private final DashboardShareMapper dashboardShareMapper;
 
     @Override
     public WorkspaceUserResourceDTO get(Long workspaceId) {
@@ -83,4 +94,56 @@ public class WorkspaceUserResourceServiceImpl implements WorkspaceUserResourceSe
 
         return sysRoleResourceDTO.getResourceCode();
     }
+
+
+    @Override
+    public List<Long> getCanMangeDatasetIds(Long workspaceId, String username) {
+
+        if(sysUserService.isSuperAdmin(username) ) {
+            return datasetMapper.selectIdsByWorkspaceAndCreator(workspaceId, null);
+        }
+
+        Set<String> resourceCodes = getResourceCodes(workspaceId);
+        if (resourceCodes.contains(BiConsist.DATASET_MANAGE_ALL_WORKSPACE_CODE)) {
+            return datasetMapper.selectIdsByWorkspaceAndCreator(workspaceId, null);
+        }
+
+        Set<Long> datasetIds = Sets.newHashSet();
+        if (resourceCodes.contains(BiConsist.DATASET_MANAGE_HAS_PRIVILEGE_CODE)) {
+            List<DatasetAuthorizeDTO> datasetAuthorizeDTOS = datasetAuthorizeMapper.selectByPermission(workspaceId, username, PermissionEnum.WRITE );
+            Set<Long> ids = datasetAuthorizeDTOS.stream().map(DatasetAuthorizeDTO::getDatasetId).collect(Collectors.toSet());
+            datasetIds.addAll(ids);
+        }
+
+        datasetIds.addAll(datasetMapper.selectIdsByWorkspaceAndCreator(workspaceId, username));
+
+        return datasetIds.stream().collect(Collectors.toList());
+    }
+
+
+    @Override
+    public List<Long> getCanMangeDashboardIds(Long workspaceId, String username) {
+
+        if(sysUserService.isSuperAdmin(username) ) {
+            return dashboardMapper.selectIdByWorkspaceAndCreator(workspaceId, null );
+        }
+
+        Set<String> resourceCodes = getResourceCodes(workspaceId);
+        if (resourceCodes.contains(BiConsist.DATASET_MANAGE_ALL_WORKSPACE_CODE)) {
+            return dashboardMapper.selectIdByWorkspaceAndCreator(workspaceId, null);
+        }
+
+        Set<Long> dashboardIds = Sets.newHashSet();
+        if (resourceCodes.contains(BiConsist.DATASET_MANAGE_HAS_PRIVILEGE_CODE)) {
+            List<DashboardShareDTO> datasetAuthorizeDTOS = dashboardShareMapper.selectByPermission(workspaceId, username, PermissionEnum.WRITE );
+            Set<Long> ids = datasetAuthorizeDTOS.stream().map(DashboardShareDTO::getDashboardId).collect(Collectors.toSet());
+            dashboardIds.addAll(ids);
+        }
+
+        dashboardIds.addAll(dashboardMapper.selectIdByWorkspaceAndCreator(workspaceId, username));
+
+        return dashboardIds.stream().collect(Collectors.toList());
+    }
+
+
 }

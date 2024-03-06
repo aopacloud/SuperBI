@@ -1,6 +1,7 @@
 package net.aopacloud.superbi.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import net.aopacloud.superbi.cache.AuthorizeThreadLocalCache;
 import net.aopacloud.superbi.common.core.context.LoginContextHolder;
 import net.aopacloud.superbi.enums.AuthorizeScopeEnum;
 import net.aopacloud.superbi.enums.PermissionEnum;
@@ -11,6 +12,7 @@ import net.aopacloud.superbi.model.converter.DashboardShareConverter;
 import net.aopacloud.superbi.model.dto.DashboardDTO;
 import net.aopacloud.superbi.model.dto.DashboardShareDTO;
 import net.aopacloud.superbi.model.entity.DashboardShare;
+import net.aopacloud.superbi.model.query.DashboardShareBatchQuery;
 import net.aopacloud.superbi.model.query.DashboardShareQuery;
 import net.aopacloud.superbi.model.query.DashboardShareSaveVO;
 import net.aopacloud.superbi.service.AuthRoleService;
@@ -173,7 +175,8 @@ public class DashboardShareServiceImpl implements DashboardShareService {
             return PermissionEnum.WRITE;
         }
 
-        List<DashboardShareDTO> dashboardShareDTOS = dashboardShareMapper.selectByDashboardAndUsername(dashboardId, username);
+//        List<DashboardShareDTO> dashboardShareDTOS = dashboardShareMapper.selectByDashboardAndUsername(dashboardId, username);
+        List<DashboardShareDTO> dashboardShareDTOS = getDashboardShares(dashboardDTO, username);
 
         if (dashboardShareDTOS.isEmpty()) {
             return PermissionEnum.NONE;
@@ -192,8 +195,8 @@ public class DashboardShareServiceImpl implements DashboardShareService {
     }
 
     @Override
-    public List<DashboardShareDTO> findShareByUsername(String username) {
-        return dashboardShareMapper.selectByUsername(username);
+    public List<DashboardShareDTO> findShareByUsernameAndWorkspaceIds(String username, List<Long> workspaceIds) {
+        return dashboardShareMapper.selectByUsernameAndWorkspaceIds(username, workspaceIds);
     }
 
     @Override
@@ -204,5 +207,23 @@ public class DashboardShareServiceImpl implements DashboardShareService {
     @Override
     public List<DashboardShareDTO> findShareByDashboard(Long dashboardId) {
         return dashboardShareMapper.selectByDashboard(dashboardId);
+    }
+
+    @Override
+    public List<DashboardShareDTO> search(DashboardShareBatchQuery query) {
+       return dashboardShareMapper.search(query);
+    }
+
+    private List<DashboardShareDTO> getDashboardShares(DashboardDTO dashboard , String username) {
+
+        List<DashboardShareDTO> dashboardSharesInWorkspace = AuthorizeThreadLocalCache.getDashboardShare(dashboard.getWorkspaceId());
+
+        if(Objects.isNull(dashboardSharesInWorkspace)) {
+            dashboardSharesInWorkspace = dashboardShareMapper.selectByWorkspaceAndUsername(dashboard.getWorkspaceId(), username);
+            AuthorizeThreadLocalCache.setDashboardShare(dashboard.getWorkspaceId(), dashboardSharesInWorkspace);
+        }
+
+
+        return dashboardSharesInWorkspace.stream().filter(item -> item.getDashboardId().equals(dashboard.getId())).collect(Collectors.toList());
     }
 }

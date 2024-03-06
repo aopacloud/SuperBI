@@ -1,12 +1,15 @@
 package net.aopacloud.superbi.mapper;
 
+import net.aopacloud.superbi.enums.PermissionEnum;
 import net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO;
 import net.aopacloud.superbi.model.entity.DatasetAuthorize;
 import net.aopacloud.superbi.model.query.BaseQuery;
+import net.aopacloud.superbi.model.query.DatasetAuthorizeBatchQuery;
 import net.aopacloud.superbi.model.query.DatasetAuthorizeQuery;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Set;
 
 public interface DatasetAuthorizeMapper {
     List<DatasetAuthorizeDTO> searchUserAuthorize(BaseQuery query);
@@ -22,6 +25,8 @@ public interface DatasetAuthorizeMapper {
     DatasetAuthorize selectOneById(Long id);
 
     List<DatasetAuthorize> selectActiveByDatasetAndUsername(@Param("datasetId") Long datasetId, @Param("username") String username);
+
+    List<DatasetAuthorize> selectActiveByWorkspaceAndUsername(@Param("workspaceId") Long workspaceId, @Param("username") String username);
 
     List<DatasetAuthorize> selectByDatasetAndUsername(@Param("datasetId") Long datasetId, @Param("username") String username);
 
@@ -40,4 +45,11 @@ public interface DatasetAuthorizeMapper {
     List<DatasetAuthorizeDTO> selectAuthorizeByUsername(@Param("username") String username);
 
     List<DatasetAuthorizeDTO> selectAuthorizeByDataset(@Param("datasetId") Long datasetId);
+
+    List<DatasetAuthorizeDTO> search(DatasetAuthorizeBatchQuery query);
+
+    List<DatasetAuthorizeDTO> selectAuthorizeByDatasetsAndUsername(@Param("datasetIds") Set<Long> datasetIds, @Param("username") String username);
+    List<DatasetAuthorizeDTO> selectAuthorizeByDatasetsAndRole(@Param("datasetIds") Set<Long> datasetIds,  @Param("roleId") Long roleId);
+
+    List<DatasetAuthorizeDTO> selectByPermission(@Param("workspaceId") Long workspaceId, @Param(("username")) String username, @Param("permission") PermissionEnum write);
 }
