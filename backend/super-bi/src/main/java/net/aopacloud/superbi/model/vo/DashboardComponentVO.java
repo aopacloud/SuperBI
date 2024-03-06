@@ -19,7 +19,7 @@ public class DashboardComponentVO {
     /**
      * report id , if exists
      */
-    private Integer reportId;
+    private Long reportId;
 
     private Date createTime;
 

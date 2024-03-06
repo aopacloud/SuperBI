@@ -39,10 +39,14 @@ export default function useTable(requestApi, initParams = {}) {
 
   // 处理过来字段
   const _transformFilters = filters => {
-    if (!filters) return
+    const filterKeys = Object.keys(filters)
 
-    return Object.keys(filters).reduce((acc, key) => {
-      acc[key] = filters[key].join(',')
+    if (!filterKeys.length) return
+
+    return filterKeys.reduce((acc, key) => {
+      const value = filters[key]
+
+      acc[key] = value?.join(',')
 
       return acc
     }, {})
@@ -75,6 +79,7 @@ export default function useTable(requestApi, initParams = {}) {
       loading.value = true
 
       let payload = queryParams.value
+
       if (typeof initQueryParams === 'function') {
         payload = {
           ...payload,
@@ -118,6 +123,7 @@ export default function useTable(requestApi, initParams = {}) {
     keyword,
     pager,
     sorter,
+    filters,
     queryParams,
     list,
     onTableChange,

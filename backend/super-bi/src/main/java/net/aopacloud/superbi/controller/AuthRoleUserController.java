@@ -5,6 +5,7 @@ import net.aopacloud.superbi.auth.ApiPermission;
 import net.aopacloud.superbi.common.core.web.domain.RestApiResponse;
 import net.aopacloud.superbi.model.converter.AuthRoleUserConverter;
 import net.aopacloud.superbi.model.dto.AuthRoleUserDTO;
+import net.aopacloud.superbi.model.vo.AuthRoleUserVO;
 import net.aopacloud.superbi.service.AuthRoleUserService;
 import org.springframework.web.bind.annotation.*;
 
@@ -55,6 +56,11 @@ public class AuthRoleUserController {
     @GetMapping
     public RestApiResponse<List<String>> getRoleUser(@PathVariable Long roleId) {
         return RestApiResponse.success(authRoleUserService.getUserByRole(roleId));
+    }
+
+    @GetMapping("/detail")
+    public RestApiResponse<List<AuthRoleUserVO>> getRoleUserDetail(@PathVariable Long roleId) {
+        return RestApiResponse.success(converter.toVOList(authRoleUserService.getUserByRoleDetail(roleId)));
     }
 
 }

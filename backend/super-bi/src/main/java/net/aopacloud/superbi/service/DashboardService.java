@@ -5,6 +5,7 @@ import net.aopacloud.superbi.model.dto.DashboardDTO;
 import net.aopacloud.superbi.model.query.DashboardQuery;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * @Author shinnie
@@ -42,4 +43,9 @@ public interface DashboardService {
     void handOver(String fromUsername, String toUsername);
 
     List<DashboardDTO> findDashboardCanShare(Long workspaceId, String username);
+
+    List<DashboardDTO> findDashboardCanCopy(Long workspaceId, String username);
+
+    Set<Long> findDatasetIdsByDashboardId(Long dashboardId);
+
 }

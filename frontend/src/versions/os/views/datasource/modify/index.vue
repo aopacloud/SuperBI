@@ -37,7 +37,7 @@
 </template>
 
 <script setup>
-import { h, ref, computed, watch } from 'vue'
+import { h, ref, computed, watch, nextTick } from 'vue'
 import { message } from 'ant-design-vue'
 import { LeftOutlined } from '@ant-design/icons-vue'
 import useAppStore from '@/store/modules/app'
@@ -129,6 +129,9 @@ const fetchDetail = async id => {
 
 const toCreate = engine => {
   detail.value = { engine }
+  nextTick(() => {
+    createRef.value.reset?.()
+  })
 }
 
 const connectloading = ref(false)

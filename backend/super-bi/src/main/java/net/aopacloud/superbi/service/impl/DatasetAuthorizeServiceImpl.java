@@ -17,6 +17,7 @@ import net.aopacloud.superbi.model.dto.DatasetDTO;
 import net.aopacloud.superbi.model.dto.DatasetFieldDTO;
 import net.aopacloud.superbi.model.entity.AuthRole;
 import net.aopacloud.superbi.model.entity.DatasetAuthorize;
+import net.aopacloud.superbi.model.query.DatasetAuthorizeBatchQuery;
 import net.aopacloud.superbi.model.query.DatasetAuthorizeQuery;
 import net.aopacloud.superbi.model.query.DatasetAuthorizeSaveVO;
 import net.aopacloud.superbi.model.vo.DatasetAuthorizeVO;
@@ -32,10 +33,7 @@ import org.assertj.core.util.Strings;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -228,6 +226,27 @@ public class DatasetAuthorizeServiceImpl implements DatasetAuthorizeService {
     @Override
     public List<DatasetAuthorizeDTO> findAuthorizeByDataset(Long datasetId) {
         return datasetAuthorizeMapper.selectAuthorizeByDataset(datasetId);
+    }
+
+    @Override
+    public List<DatasetAuthorizeDTO> search(DatasetAuthorizeBatchQuery query) {
+        return datasetAuthorizeMapper.search(query);
+    }
+
+    @Override
+    public List<DatasetAuthorizeDTO> findAuthorizeByDatasetAndUsernameAndRole(Set<Long> datasetIds, String username, Long roleId) {
+        if(Objects.isNull(datasetIds) || datasetIds.isEmpty()) {
+            return Lists.newArrayList();
+        }
+
+        if(!Strings.isNullOrEmpty(username)) {
+            return datasetAuthorizeMapper.selectAuthorizeByDatasetsAndUsername(datasetIds, username);
+        } else if(Objects.nonNull(roleId)) {
+            return datasetAuthorizeMapper.selectAuthorizeByDatasetsAndRole(datasetIds, roleId);
+        } else {
+            return Lists.newArrayList();
+        }
+
     }
 
     public DatasetAuthorize create(DatasetAuthorizeSaveVO datasetAuthorizeSaveVO, AuthorizeScopeEnum scope, String username, Long roleId) {

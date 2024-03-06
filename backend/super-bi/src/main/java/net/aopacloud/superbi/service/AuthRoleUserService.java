@@ -17,4 +17,5 @@ public interface AuthRoleUserService {
 
     List<String> getUserByRole(Long roleId);
 
+    List<AuthRoleUserDTO> getUserByRoleDetail(Long roleId);
 }

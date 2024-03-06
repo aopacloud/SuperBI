@@ -51,4 +51,8 @@ public interface DashboardMapper {
     List<DashboardDTO> selectByWorkspace(Long workspaceId);
 
     List<DashboardDTO> selectByIdsAndCreator(@Param("dashboardIds") Set<Long> dashboardIds, @Param("username") String username);
+
+    List<DashboardDTO> selectOnlineDashboard(@Param("workspaceId") Long workspaceId);
+
+    List<Long> selectIdByWorkspaceAndCreator(@Param("workspaceId") Long workspaceId, @Param("username") String username);
 }

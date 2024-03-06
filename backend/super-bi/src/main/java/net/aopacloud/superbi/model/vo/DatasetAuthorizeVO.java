@@ -32,6 +32,8 @@ public class DatasetAuthorizeVO {
 
     private Long datasetId;
 
+    private String datasetName;
+
     private PrivilegeTypeEnum privilegeType;
 
     private String operator;
@@ -46,7 +48,13 @@ public class DatasetAuthorizeVO {
 
     private String rowPrivilege;
 
-//    private String rowParam;
+    private String datasetCreator;
+
+    private String datasetCreatorAlias;
+
+    private Long workspaceId;
+
+    private String workspaceName;
 
     private Rows rows;
 

@@ -5,7 +5,6 @@
       'select-layout--wrapper',
       hasTabsSlot ? 'select-layout--reverse' : '',
       bordered ? 'select-layout--borderd' : '',
-      disabled ? 'select-layout--disabled' : '',
     ]">
     <!-- 头部区域 -->
     <div class="select-layout--title" v-if="multiple || hasTitleExtraSlot">
@@ -37,13 +36,12 @@
         :disabled="disabled" />
     </div>
 
-    <!-- 无数据 -->
-    <a-empty v-if="list.length === 0" style="flex: 1; margin: 60px 0" />
-
     <!-- 面板区 -->
+    <a-spin :spinning="loading">
+      <!-- 无数据 -->
+      <a-empty v-if="list.length === 0" style="flex: 1; margin: 60px 0" />
 
-    <div class="select-layout--content" v-if="list.length">
-      <a-spin :spinning="loading">
+      <div v-else class="select-layout--content">
         <slot
           name="pane"
           v-bind="{
@@ -51,8 +49,8 @@
             value: modelValue,
             updateValue: paneSlotUpdateValue,
           }" />
-      </a-spin>
-    </div>
+      </div>
+    </a-spin>
 
     <!-- 底部区域 -->
     <div v-if="$slots.footer" class="select-layout--footer">
@@ -64,7 +62,7 @@
 <script setup>
 import { ref, watch, shallowRef, computed, useSlots, watchEffect } from 'vue'
 
-const emits = defineEmits(['update:value'])
+const emits = defineEmits(['update:value', 'change'])
 const props = defineProps({
   // 值
   value: {
@@ -108,6 +106,10 @@ const props = defineProps({
   // 自定义过滤方法
   filterOption: {
     type: Function,
+  },
+  height: {
+    stype: Number,
+    default: 500,
   },
 })
 
@@ -156,12 +158,20 @@ const enableList = computed(() => {
   return list.value.filter(t => !t.disabled)
 })
 
+// 已经选中的不可选值
+const disabledValueSelected = computed(() => {
+  return modelValue.value.filter(v =>
+    list.value.some(f => f[props.keyField] === v && f.disabled)
+  )
+})
 // 半选
 const isIndeterminate = computed(() => {
   if (!props.multiple) return false
 
   return (
-    modelValue.value.length > 0 && modelValue.value.length !== enableList.value.length
+    modelValue.value.length > 0 &&
+    modelValue.value.length !==
+      enableList.value.length + disabledValueSelected.value.length
   )
 })
 
@@ -170,14 +180,20 @@ const isAllSelected = computed(() => {
   if (!props.multiple) return false
   if (!enableList.value.length) return false
 
-  return modelValue.value.length === enableList.value.length
+  return (
+    modelValue.value.length ===
+    enableList.value.length + disabledValueSelected.value.length
+  )
 })
 const allCheckedHandler = e => {
   const checked = e.target.checked
 
-  modelValue.value = !checked ? [] : enableList.value.map(t => t[props.keyField])
+  modelValue.value = !checked
+    ? [...disabledValueSelected.value]
+    : disabledValueSelected.value.concat(enableList.value.map(t => t[props.keyField]))
 
   emits('update:value', modelValue.value)
+  emits('change', [...modelValue.value])
 }
 
 // 搜索关键字
@@ -208,17 +224,19 @@ const paneSlotUpdateValue = e => {
   modelValue.value = e
 
   emits('update:value', e)
+  emits('change', e)
 }
 </script>
 
 <style scoped lang="scss">
 .select-layout {
   position: relative;
+  flex: auto;
   display: flex;
   flex-direction: column;
   line-height: initial;
-  min-height: 410px;
-  max-height: 500px;
+  min-height: 360px;
+  max-height: 520px;
   &--disabled {
     color: rgba(0, 0, 0, 0.25);
   }
@@ -260,23 +278,23 @@ const paneSlotUpdateValue = e => {
     margin-top: 10px;
     padding: 0 12px;
   }
-  &--content {
-    flex: 1;
+  & > :deep(.ant-spin-nested-loading) {
     margin-top: 8px;
+    flex: 1;
     overflow: auto;
-
     display: flex;
-    & > :deep(.ant-spin-nested-loading) {
+    overflow: auto;
+    & > .ant-spin-container {
       flex: 1;
-      display: flex;
       overflow: auto;
-      & > .ant-spin-container {
-        flex: 1;
-        overflow: auto;
-        display: flex;
-        flex-direction: column;
-      }
     }
+  }
+
+  &--content {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
   }
   &--footer {
     display: flex;

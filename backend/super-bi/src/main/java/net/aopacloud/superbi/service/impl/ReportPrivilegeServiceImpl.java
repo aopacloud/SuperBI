@@ -8,6 +8,7 @@ import net.aopacloud.superbi.model.dto.*;
 import net.aopacloud.superbi.queryEngine.model.QueryParam;
 import net.aopacloud.superbi.service.*;
 import net.aopacloud.superbi.util.JSONUtils;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -15,6 +16,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Lazy
 public class ReportPrivilegeServiceImpl implements ReportPrivilegeService {
 
     private final DatasetPrivilegeService datasetPrivilegeService;

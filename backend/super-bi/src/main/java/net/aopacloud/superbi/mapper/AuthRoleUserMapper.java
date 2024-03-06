@@ -1,5 +1,6 @@
 package net.aopacloud.superbi.mapper;
 
+import net.aopacloud.superbi.model.dto.AuthRoleUserDTO;
 import net.aopacloud.superbi.model.entity.AuthRoleUser;
 
 import java.util.List;
@@ -15,4 +16,6 @@ public interface AuthRoleUserMapper {
     int countByRoleId(Long roleId);
 
     List<String> selectUserByRole(Long roleId);
+
+    List<AuthRoleUserDTO> selectUserDetailByRole(Long roleId);
 }

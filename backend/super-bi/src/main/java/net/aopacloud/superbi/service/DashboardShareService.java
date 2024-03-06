@@ -2,6 +2,7 @@ package net.aopacloud.superbi.service;
 
 import net.aopacloud.superbi.enums.PermissionEnum;
 import net.aopacloud.superbi.model.dto.DashboardShareDTO;
+import net.aopacloud.superbi.model.query.DashboardShareBatchQuery;
 import net.aopacloud.superbi.model.query.DashboardShareQuery;
 import net.aopacloud.superbi.model.query.DashboardShareSaveVO;
 
@@ -34,9 +35,11 @@ public interface DashboardShareService {
 
     DashboardShareDTO save(DashboardShareDTO share);
 
-    List<DashboardShareDTO> findShareByUsername(String username);
+    List<DashboardShareDTO> findShareByUsernameAndWorkspaceIds(String username, List<Long> workspaceIds);
 
     List<DashboardShareDTO> findShareByRole(Long roleId);
 
     List<DashboardShareDTO> findShareByDashboard(Long dashboardId);
+
+    List<DashboardShareDTO> search(DashboardShareBatchQuery query);
 }

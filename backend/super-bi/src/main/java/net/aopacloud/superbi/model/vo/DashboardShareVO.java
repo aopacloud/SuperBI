@@ -22,6 +22,16 @@ public class DashboardShareVO {
 
     private Long dashboardId;
 
+    private String dashboardName;
+
+    private String dashboardCreator;
+
+    private String dashboardCreatorAlias;
+
+    private Long workspaceId;
+
+    private String workspaceName;
+
     private AuthorizeScopeEnum type;
 
     private Long roleId;
@@ -32,4 +42,7 @@ public class DashboardShareVO {
 
     private Date updateTime;
 
+    private int datasetCount;
+
+    private int authorizeDatasetCount;
 }

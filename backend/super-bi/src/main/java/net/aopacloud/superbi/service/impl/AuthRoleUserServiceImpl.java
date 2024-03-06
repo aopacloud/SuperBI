@@ -58,4 +58,9 @@ public class AuthRoleUserServiceImpl implements AuthRoleUserService {
         return authRoleUserMapper.selectUserByRole(roleId);
     }
 
+    @Override
+    public List<AuthRoleUserDTO> getUserByRoleDetail(Long roleId) {
+        return authRoleUserMapper.selectUserDetailByRole(roleId);
+    }
+
 }

@@ -166,11 +166,11 @@ const init = () => {
       modelValue.value = _format2dayjs(value.filter(Boolean))
 
       extraValue.value.current = undefined
-      extraValue.value.isCurrent = undefined
+      extraValue.value.isCustom = undefined
     } else {
-      const { current, isCurrent } = extra
+      const { current, isCustom } = extra
 
-      extraValue.value.isCurrent = isCurrent
+      extraValue.value.isCustom = isCustom
 
       if (current) {
         const [tp, of = 0] = current.split('_')
@@ -192,10 +192,10 @@ const init = () => {
  * 主面板点击
  */
 const onPickerClick = () => {
-  // 清空 extra.current、isCurrent、dt
+  // 清空 extra.current、isCustom、dt
   extraValue.value.current = undefined
   extraValue.value.dt = undefined
-  extraValue.value.isCurrent = undefined
+  extraValue.value.isCustom = undefined
 }
 
 defineExpose({ init })
@@ -214,7 +214,7 @@ const onPresetClick = item => {
   const { offset, type, custom } = item
 
   extraValue.value.dt = type === 'dt'
-  extraValue.value.isCurrent = !!custom
+  extraValue.value.isCustom = !!custom
 
   if (type === 'dt') {
     modelValue.value = []
@@ -243,7 +243,7 @@ const onPresetClick = item => {
     const s = getStartDate({ type, offset }, currentUtc.value)
     const e = getEndDate({ type, offset }, currentUtc.value)
 
-    modelValue.value = _format2string([s, e])
+    modelValue.value = [s, e]
   }
 }
 

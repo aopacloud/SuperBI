@@ -6,7 +6,7 @@
 
     <groupId>net.aopacloud</groupId>
     <artifactId>super-bi-parent</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 
     <name>super-bi-parent</name>
     <description>super bi</description>
@@ -113,13 +113,6 @@
                 <artifactId>mapstruct</artifactId>
                 <version>${mapstruct.version}</version>
 <!--                <scope>provided</scope>-->
-            </dependency>
-
-            <!-- mybatis flex -->
-            <dependency>
-                <groupId>com.mybatis-flex</groupId>
-                <artifactId>mybatis-flex-spring-boot-starter</artifactId>
-                <version>${mybatis-flex.version}</version>
             </dependency>
 
             <!-- google guava -->

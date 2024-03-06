@@ -316,7 +316,7 @@
           and (creator = #{username}
             <if test="datasetIds != null and datasetIds.size() > 0">
                    or id in
-                <foreach collection="ids" item="id" separator="," open="(" close=")">
+                <foreach collection="datasetIds" item="id" separator="," open="(" close=")">
                     #{id}
                 </foreach>
             </if>
@@ -329,6 +329,9 @@
         join bi_dashboard_component c on r.id = c.report_id and c.type = 'REPORT'
         join bi_dashboard dash on c.dashboard_id = dash.id and c.version = dash.version
         where d.deleted = 0 and d.status = 'ONLINE' and dash.id = #{dashboardId}
+    </select>
+    <select id="selectOnlineDataset" resultType="net.aopacloud.superbi.model.dto.DatasetDTO">
+        select * from bi_dataset where `status` = 'ONLINE' and deleted = 0 and workspace_id = #{workspaceId}
     </select>
 
     <update id="update" parameterType="net.aopacloud.superbi.model.entity.Dataset">

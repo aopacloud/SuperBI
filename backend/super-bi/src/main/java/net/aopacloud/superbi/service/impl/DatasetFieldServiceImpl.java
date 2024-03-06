@@ -97,22 +97,25 @@ public class DatasetFieldServiceImpl implements DatasetFieldService {
             return Lists.newArrayList();
         }
 
-        List<DatasetField> intersection = null;
-
+        List<DatasetField> lastIntersection = null;
+        List<DatasetField> currentIntersection = Lists.newArrayList();
         for (Long datasetId : datasetIds) {
             Dataset dataset = datasetMapper.selectById(datasetId);
             List<DatasetField> datasetFields = datasetFieldMapper.selectByDatasetAndVersion(datasetId, dataset.getVersion());
-            if (Objects.isNull(intersection)) {
-                intersection = Lists.newArrayList();
-                intersection.addAll(datasetFields);
+            if (Objects.isNull(lastIntersection)) {
+                lastIntersection = Lists.newArrayList();
+                lastIntersection.addAll(datasetFields);
+                currentIntersection.addAll(datasetFields);
             } else {
+                currentIntersection = Lists.newArrayList();
                 for (DatasetField field : datasetFields) {
-                    if (!intersection.contains(field)) {
-                        intersection.remove(field);
+                    if (lastIntersection.contains(field)) {
+                        currentIntersection.add(field);
                     }
                 }
+                lastIntersection = currentIntersection;
             }
         }
-        return converter.entityToDTOList(intersection);
+        return converter.entityToDTOList(currentIntersection);
     }
 }

@@ -70,9 +70,7 @@ export default function createChart({
   const yFields = fields.filter(t => t.category === CATEGORY.INDEX)
 
   // 以时间字段(或者第一个字段)为x轴，
-  let x = xFields.find(
-    t => versionJs.ViewsAnalysis.isDateField(t) || t.dataType.includes('TIME')
-  )
+  let x = xFields.find(t => versionJs.ViewsAnalysis.isDateField(t))
   if (!x) x = xFields[0]
   // 初始化边界错误
   if (!x) return

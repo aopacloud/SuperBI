@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <a-sub-menu :key="menu.id" @titleClick="onSubMenuTitleClick">
     <template #title>
       <span>{{ menu.name }}</span>
@@ -16,6 +16,7 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import { appPath } from '@/settings'
+import { isHttp } from 'common/utils/validate'
 
 const router = useRouter()
 
@@ -27,13 +28,18 @@ const props = defineProps({
 })
 
 const onSubMenuTitleClick = () => {
-  const { appPath: menuPath, url, children = [] } = props.menu
+  const { appPath: menuPath, url, children = [], type } = props.menu
   if (menuPath === '/' + appPath) {
     const first = children[0]
 
     router.push(first ? first.url : url)
   } else {
-    window.open(menuPath + '#' + url, '_blank')
+    // type = 4 外链
+    if (isHttp(url) || type === 4) {
+      window.open(url, '_blank')
+    } else {
+      window.open(menuPath + '#' + url, '_blank')
+    }
   }
 }
 </script>

@@ -84,6 +84,14 @@
     <select id="selectByDashboardAndUsername" resultType="net.aopacloud.superbi.model.dto.DashboardShareDTO">
         select * from (<include refid="userAllShare" />) t where dashboard_id = #{dashboardId} and username = #{username}
     </select>
+    <select id="selectByWorkspaceAndUsername" resultType="net.aopacloud.superbi.model.dto.DashboardShareDTO">
+        select t.*
+        from
+            (<include refid="userAllShare" />) t
+        join bi_dashboard d
+        on t.dashboard_id = d.id
+        where d.deleted = 0 and d.workspace_id = #{workspaceId}  and t.username = #{username}
+    </select>
     <select id="selectWriteShare" resultType="net.aopacloud.superbi.model.dto.DashboardShareDTO">
         select t.*
         from (<include refid="userAllShare" />) t
@@ -91,8 +99,16 @@
         on d.id = t.dashboard_id
         where d.workspace_id = #{workspaceId} and t.permission = 'WRITE' and t.username = #{username} and d.status = 'ONLINE'
     </select>
-    <select id="selectByUsername" resultType="net.aopacloud.superbi.model.dto.DashboardShareDTO">
-        select t.* from bi_dashboard_share t where t.username = #{username}
+    <select id="selectByUsernameAndWorkspaceIds" resultType="net.aopacloud.superbi.model.dto.DashboardShareDTO">
+        select t.* from bi_dashboard_share t
+        join bi_dashboard d
+        on t.dashboard_id = d.id
+        where d.deleted = 0 and t.username = #{username}
+          and  d.workspace_id in
+            <foreach collection="workspaceIds" item="wid" separator="," open="(" close=")" >
+                #{wid}
+            </foreach>
+
     </select>
     <select id="selectByRole" resultType="net.aopacloud.superbi.model.dto.DashboardShareDTO">
         select t.* from bi_dashboard_share t where t.role_id = #{roleId}
@@ -100,6 +116,96 @@
     <select id="selectByDashboard" resultType="net.aopacloud.superbi.model.dto.DashboardShareDTO">
         select t.* from bi_dashboard_share t where t.dashboard_id = #{dashboardId}
     </select>
+    <select id="search" resultType="net.aopacloud.superbi.model.dto.DashboardShareDTO" parameterType="net.aopacloud.superbi.model.query.DashboardShareBatchQuery">
+        select s.*,
+            d.creator as dashboard_creator,
+            d.name as dashboard_name,
+            w.name as workspace_name,
+            auth.name as role_name
+        from bi_dashboard_share s
+        join bi_dashboard d
+        on s.dashboard_id = d.id
+        join bi_workspace w on d.workspace_id = w.id
+        left join bi_auth_role auth on s.role_id = auth.id
+        <where>
+            <if test="creators != null and creators.length > 0">
+                and d.creator in
+                <foreach collection="creators" item="creator" open="(" close=")" separator=",">
+                    #{creator}
+                </foreach>
+            </if>
+            <if test="types != null and types.length > 0">
+                and s.`type` in
+                <foreach collection="types" item="scope" open="(" close=")" separator=",">
+                    #{scope}
+                </foreach>
+            </if>
+
+            <if test="workspaceIds != null and workspaceIds.length > 0">
+                and d.workspace_id in
+                <foreach collection="workspaceIds" item="workspaceId" open="(" close=")" separator=",">
+                    #{workspaceId}
+                </foreach>
+            </if>
+            <if test="usernames != null and usernames.length > 0 ">
+                and s.username in
+                <foreach collection="usernames" item="username" open="(" close=")" separator=",">
+                    #{username}
+                </foreach>
+            </if>
+            <if test="roleIds != null and roleIds.length > 0">
+                and s.role_id in
+                <foreach collection="roleIds" item="roleId" open="(" close=")" separator=",">
+                    #{roleId}
+                </foreach>
+            </if>
+
+            <if test="dashboardIds != null">
+                and s.dashboard_id in
+                <foreach collection="dashboardIds" item="dashboardId" open="(" close=")" separator=",">
+                    #{dashboardId}
+                </foreach>
+            </if>
+
+            <if test="userAndRoles != null and userAndRoles.length > 0">
+                and (
+                s.username in
+                <foreach collection="userAndRoles" item="item" separator="," open="(" close=")">
+                    #{item}
+                </foreach>
+                or s.role_id in
+                <foreach collection="userAndRoles" item="item" separator="," open="(" close=")">
+                    #{item}
+                </foreach>
+                )
+            </if>
+
+            <if test="keyword != null and keyword != ''" >
+                and d.name like concat('%', #{keyword}, '%')
+            </if>
+        </where>
+        <choose>
+            <when test="sortField == 'user_and_roles'">
+                order by s.username ${sortType} , s.role_id ${sortType}
+            </when>
+            <when test="sortField != null and sortField != ''">
+                order by ${sortField} ${sortType}
+            </when>
+
+            <otherwise>
+                order by s.update_time desc
+            </otherwise>
+        </choose>
+    </select>
+    <select id="selectByPermission" resultType="net.aopacloud.superbi.model.dto.DashboardShareDTO">
+        select t.*
+        from
+            (<include refid="userAllShare" />) t
+        join bi_dashboard d
+        on t.dashboard_id = d.id and d.deleted = 0
+        where t.username = #{username} and t.permission = #{permission} and d.workspace_id = #{workspaceId}
+    </select>
+
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id"
             parameterType="net.aopacloud.superbi.model.entity.DashboardShare">

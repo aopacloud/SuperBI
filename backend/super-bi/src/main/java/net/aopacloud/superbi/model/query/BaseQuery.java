@@ -38,6 +38,10 @@ public class BaseQuery {
      */
     private List<String> searchUsers;
 
+    private Integer pageNum;
+
+    private Integer pageSize;
+
     public String getSortField() {
         return sortField == null ? "" : FieldUtils.toUnderline(sortField);
     }

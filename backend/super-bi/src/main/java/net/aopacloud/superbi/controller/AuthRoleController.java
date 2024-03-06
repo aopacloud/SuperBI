@@ -38,14 +38,23 @@ public class AuthRoleController {
      * @return
      */
     @GetMapping
-    public RestApiResponse<PageVO<AuthRoleVO>> listAll(BaseQuery query) {
+    public RestApiResponse<PageVO<AuthRoleVO>> search(BaseQuery query) {
         PageUtils.startPage();
-        List<AuthRoleDTO> authRoleDTOS = authRoleService.listAll(query.getWorkspaceId(), query.getKeyword());
+        List<AuthRoleDTO> authRoleDTOS = authRoleService.search(query.getWorkspaceId(), query.getKeyword());
 
         PageInfo pageInfo = new PageInfo(authRoleDTOS);
         PageVO page = new PageVO(authRoleConverter.toVOList(authRoleDTOS), pageInfo.getTotal());
         return RestApiResponse.success(page);
     }
+
+    @GetMapping("/all")
+    public RestApiResponse<List<AuthRoleVO>> listAll() {
+
+        List<AuthRoleDTO> authRoleDTOS = authRoleService.listAll();
+
+        return RestApiResponse.success(authRoleConverter.toVOList(authRoleDTOS));
+    }
+
 
     /**
      * add role

@@ -41,6 +41,10 @@
         </p>
       </a-collapse-panel>
 
+      <a-collapse-panel header="汇总行">
+        <a-checkbox v-model:checked="modelValue.showSummary">显示</a-checkbox>
+      </a-collapse-panel>
+
       <a-collapse-panel
         header="同环比"
         key="compare"

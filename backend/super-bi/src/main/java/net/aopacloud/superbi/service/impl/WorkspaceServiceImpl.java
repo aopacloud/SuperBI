@@ -126,12 +126,17 @@ public class WorkspaceServiceImpl implements WorkspaceService {
 
     @Override
     public List<WorkspaceDTO> listBelongMe() {
-        String me = LoginContextHolder.getUsername();
+       return listBelongMe(LoginContextHolder.getUsername());
+    }
+
+    @Override
+    public List<WorkspaceDTO> listBelongMe(String username) {
+
         List<Workspace> belongMeWorkspace = Lists.newArrayList();
-        if (sysAdminService.isSuperAdmin(me)) {
+        if (sysAdminService.isSuperAdmin(username)) {
             belongMeWorkspace = workspaceMapper.selectAll();
         } else {
-            belongMeWorkspace = workspaceMapper.selectAllBelongMe(me);
+            belongMeWorkspace = workspaceMapper.selectAllBelongMe(username);
         }
 
         return belongMeWorkspace.stream().map(workspace -> {

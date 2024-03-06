@@ -1,7 +1,12 @@
 ﻿import { VS_FIELD_SUFFIX } from '@/components/Chart/utils'
 
-// 字段与聚合方式连接符
+// 字段与聚合方式连接符(后端返回的拼接规则)
 export const AGGREGATOR_SPLIT = '@'
+
+// 获取拼接了聚合方式的字段名
+export const getNameByJoinAggregator = ({ name, aggregator }) => {
+  return name + '.' + aggregator
+}
 
 /**
  * 去重指标(名称相同，聚合方式相同)

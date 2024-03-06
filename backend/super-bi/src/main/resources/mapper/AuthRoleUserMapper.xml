@@ -44,6 +44,9 @@
     <select id="selectUserByRole" resultType="java.lang.String">
         select username from bi_auth_role_user where role_id = #{roleId}
     </select>
+    <select id="selectUserDetailByRole" resultType="net.aopacloud.superbi.model.dto.AuthRoleUserDTO">
+      select <include refid="Base_Column_List"/> from bi_auth_role_user where role_id = #{roleId}
+    </select>
 
     <insert id="batchInsert">
     insert into bi_auth_role_user (role_id, username)

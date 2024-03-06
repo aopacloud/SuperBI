@@ -13,17 +13,20 @@ import net.aopacloud.superbi.i18n.MessageConsist;
 import net.aopacloud.superbi.mapper.DashboardComponentMapper;
 import net.aopacloud.superbi.mapper.DashboardFilterMapper;
 import net.aopacloud.superbi.mapper.DashboardMapper;
+import net.aopacloud.superbi.mapper.ReportMapper;
 import net.aopacloud.superbi.model.converter.DashboardComponentConverter;
 import net.aopacloud.superbi.model.converter.DashboardConverter;
 import net.aopacloud.superbi.model.dto.*;
 import net.aopacloud.superbi.model.entity.Dashboard;
 import net.aopacloud.superbi.model.entity.DashboardComponent;
 import net.aopacloud.superbi.model.entity.DashboardFilter;
+import net.aopacloud.superbi.model.entity.Report;
 import net.aopacloud.superbi.model.query.ConditionQuery;
 import net.aopacloud.superbi.model.query.DashboardQuery;
 import net.aopacloud.superbi.model.vo.FolderNode;
 import net.aopacloud.superbi.service.*;
 import org.apache.commons.compress.utils.Lists;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,6 +65,7 @@ public class DashboardServiceImpl implements DashboardService {
 
     private final DashboardComponentConverter dashboardComponentConverter;
 
+    private final ReportMapper reportMapper;
     @Override
     public List<DashboardDTO> search(DashboardQuery dashboardQuery) {
 
@@ -330,5 +334,20 @@ public class DashboardServiceImpl implements DashboardService {
         Set<Long> dashboardIds = dashboardShareDTOS.stream().map(DashboardShareDTO::getDashboardId).collect(Collectors.toSet());
 
         return dashboardMapper.selectByIdsAndCreator(dashboardIds, username);
+    }
+
+    @Override
+    public List<DashboardDTO> findDashboardCanCopy(Long workspaceId, String username) {
+        return dashboardMapper.selectOnlineDashboard(workspaceId);
+    }
+
+    @Override
+    public Set<Long> findDatasetIdsByDashboardId(Long dashboardId) {
+        DashboardDTO dashboard = findOne(dashboardId);
+
+        Set<Long> reportIds = dashboard.getDashboardComponents().stream().filter(item -> ComponentTypeEnum.REPORT.name().equals(item.getType())).map(DashboardComponentDTO::getReportId).collect(Collectors.toSet());
+
+        Set<Long> datasetIds = reportIds.stream().map(reportMapper::selectById).map(Report::getDatasetId).collect(Collectors.toSet());
+        return datasetIds;
     }
 }

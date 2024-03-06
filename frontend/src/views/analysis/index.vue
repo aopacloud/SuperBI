@@ -74,12 +74,6 @@ import {
   watch,
 } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import {
-  LeftOutlined,
-  MoreOutlined,
-  DoubleRightOutlined,
-  DoubleLeftOutlined,
-} from '@ant-design/icons-vue'
 import { Splitpanes, Pane } from 'splitpanes'
 import 'splitpanes/dist/splitpanes.css'
 import LayoutTitle from './LayoutTitle.vue'
@@ -92,6 +86,7 @@ import { getDetailById as getReportDetail } from '@/apis/report'
 import { CATEGORY } from '@/CONST.dict.js'
 import {
   defaultRenderType,
+  defaultQueryTotal,
   defaultCompareOptions,
   defaultTableOptions,
   defaultChartOptions,
@@ -102,6 +97,7 @@ import { storagePrefix } from '@/settings'
 import { DASHBORD_TO_REPORT_NAME } from '@/views/dashboard/modify/config'
 import useAppStore from '@/store/modules/app'
 import { versionJs } from '@/versions'
+import { getNameByJoinAggregator } from './utils'
 
 const route = useRoute()
 const router = useRouter()
@@ -425,8 +421,8 @@ const resetChoosed = () => {
 
 // topN
 const topN = reactive({
-  sortType: 'desc',
   sortField: undefined,
+  sortType: 'desc',
   limit: 50,
 })
 const setTopN = ({ sortField, limit = 50 } = {}) => {
@@ -438,6 +434,18 @@ const setTopN = ({ sortField, limit = 50 } = {}) => {
 const compare = ref()
 const setCompare = e => {
   compare.value = e
+}
+
+// 查询分页
+const paging = ref({
+  limit: defaultQueryTotal,
+})
+const setPaging = (val = { limit: defaultQueryTotal }, key) => {
+  if (typeof key === 'undefined') {
+    paging.value = val
+  } else {
+    paging.value[key] = val
+  }
 }
 
 // 拖拽的字段
@@ -468,7 +476,8 @@ const setOptions = (key, value) => {
 }
 
 // 选中字段更新配置项
-const updateByChoosedIndex = list => {
+const updateByChoosedIndex = (list = []) => {
+  updateTopN(list)
   updateAxisOptions(list)
   updataComparOptions(list)
 }
@@ -487,6 +496,18 @@ const updateDefaultSorter = list => {
     const first = list[0]
     sorter.field = first.name + '.' + first.aggregator
     sorter.order = topN.sortType
+  }
+}
+
+const updateTopN = list => {
+  const { sortField } = topN
+
+  if (typeof sortField === 'undefined') return
+  if (list.some(item => getNameByJoinAggregator(item) === sortField)) return
+
+  const item = list.find(item => getNameByJoinAggregator(item) === sortField)
+  if (!item) {
+    topN.sortField = undefined
   }
 }
 
@@ -536,7 +557,14 @@ const setRecovert = paylaod => {
   if (typeof paylaod === 'undefined') return
 
   const params = typeof paylaod === 'string' ? JSON.parse(paylaod) : paylaod
-  const { dimensions = [], measures = [], filters = [], sorts = [], compare } = params
+  const {
+    dimensions = [],
+    measures = [],
+    filters = [],
+    sorts = [],
+    compare,
+    paging,
+  } = params
 
   updateChoosedFromChart({ dimensions, measures, filters })
 
@@ -544,6 +572,7 @@ const setRecovert = paylaod => {
   // setChoosed(CATEGORY.INDEX, measures)
   // setChoosed(CATEGORY.FILTER, filters)
   setCompare(compare ?? undefined)
+  setPaging(paging)
   setTopN(sorts[0])
 }
 
@@ -650,6 +679,12 @@ provide('index', {
   compare: {
     get: () => compare.value,
     set: setCompare,
+  },
+  paging: {
+    get: key => {
+      return typeof key === 'undefined' ? paging.value : paging.value[key]
+    },
+    set: (key, value) => setPaging(value, key),
   },
   // 配置
   options: {

@@ -119,3 +119,10 @@ export const ratioOptions = [
   { label: '月同比', value: 'MONTH_ON_MONTH' }, // 3
   { label: '年同比', value: 'YEAR_ON_YEAR' }, // 4
 ]
+
+// 查询展示前条数
+export const queryTotalOptions = [
+  { label: 10000, value: 10000 },
+  { label: 50000, value: 50000 },
+  { label: 100000, value: 100000 },
+]

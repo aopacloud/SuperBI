@@ -21,4 +21,6 @@ public interface AuthRoleMapper {
     void deleteById(Long id);
 
     Integer countByWorkspace(Long workspaceId);
+
+    List<AuthRoleDTO> search(@Param("keyword") String keyword);
 }

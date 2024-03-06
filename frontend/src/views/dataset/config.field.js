@@ -77,6 +77,15 @@ export const propertyNumberSummaryOptions = [
   { label: '最小值', value: 'MIN' },
 ]
 
+// 排除
+export const NOT_IN = 'NOT_IN'
+// 选中
+export const IN = 'IN'
+// 无值
+export const IS_NOT_NULL = 'IS_NOT_NULL'
+// 有值
+export const IS_NULL = 'IS_NULL'
+
 // 条件过滤操作符
 export const operatorMap = {
   TEXT: {

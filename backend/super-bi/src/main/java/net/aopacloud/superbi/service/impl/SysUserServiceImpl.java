@@ -5,6 +5,7 @@ import com.google.common.base.Strings;
 import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import net.aopacloud.superbi.cache.AuthorizeThreadLocalCache;
 import net.aopacloud.superbi.common.core.context.LoginContextHolder;
 import net.aopacloud.superbi.common.core.utils.PageUtils;
 import net.aopacloud.superbi.common.core.utils.PasswordUtils;
@@ -41,10 +42,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * @author: hudong
@@ -226,7 +224,12 @@ public class SysUserServiceImpl implements SysUserService {
 
     @Override
     public boolean isSuperAdmin(String username) {
-        return sysAdminService.isSuperAdmin(username);
+        Boolean superAdmin = AuthorizeThreadLocalCache.getSuperAdmin();
+        if(Objects.isNull(superAdmin)) {
+            superAdmin = sysAdminService.isSuperAdmin(username);
+            AuthorizeThreadLocalCache.setSuperAdmin(superAdmin);
+        }
+        return superAdmin;
     }
 
     @Override

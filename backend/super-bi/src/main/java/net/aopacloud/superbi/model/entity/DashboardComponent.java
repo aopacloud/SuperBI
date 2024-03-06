@@ -14,7 +14,7 @@ public class DashboardComponent {
 
     private String type;
 
-    private Integer reportId;
+    private Long reportId;
 
     private Date createTime;
 

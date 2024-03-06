@@ -15,10 +15,12 @@ public class BiConsist {
     public static final String YYYY_MM_DD_HH_MM_SS = "yyyy-MM-dd HH:mm:ss";
     public static final Long MAX_DOWNLOAD_NUM = 100000L;
 
+    public static final Long MAX_QUERY_NUM = 100000L;
+
     /**
-     * max query num
+     * default query num
      */
-    public static final Long MAX_QUERY_NUM = 1000L;
+    public static final Long DEFAULT_QUERY_NUM = 10000L;
 
     public static final DateTimeFormatter YYYY_MM_DD_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
@@ -50,6 +52,10 @@ public class BiConsist {
 
     public final static String REPORT_ALL_WORKSPACE_CODE = "REPORT:READ:ALL:WORKSPACE";
     public final static String DASHBOARD_ALL_WORKSPACE_CODE = "DASHBOARD:MANAGE:ALL:WORKSPACE";
+
+    public final static String DATASET_MANAGE_ALL_WORKSPACE_CODE = "DATASET:MANAGE:ALL:WORKSPACE";
+
+    public final static String DATASET_MANAGE_HAS_PRIVILEGE_CODE = "DATASET:MANAGE:HAS:PRIVILEGE";
 
     public final static String FIELD_AGGREGATOR_SEPARATOR = "@";
 

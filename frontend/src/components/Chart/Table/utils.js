@@ -1,4 +1,8 @@
-﻿/**
+﻿import { COMPARE } from '@/CONST.dict'
+import { toPercent } from 'common/utils/number'
+import { formatFieldDisplay } from '@/components/Chart/utils/index.js'
+
+/**
  * 根据分页截取数据
  * @param {array<T>} data
  * @param {{ current: number, size: number }} param
@@ -51,6 +55,29 @@ export function createSortByOrder(isUp = false, prop) {
       }
     } else {
       return isUp ? aV - bV : bV - aV
+    }
+  }
+}
+
+/**
+ * 显示对比值
+ * @param {number} origin 原值
+ * @param {number} target 当前值
+ * @param {number} mode 显示模式 0 原值 1 差值 2 差值百分比
+ * @returns { (field: T, fields: Array<T>) => string}  (field, fields) => string
+ */
+export const getCompareDisplay = (origin, target, mode = 0) => {
+  return function (field = {}, fields = []) {
+    if (mode === COMPARE.MODE.DIFF_PERSENT) {
+      const v = toPercent((target - origin) / origin, 2)
+
+      return parseInt(v) > 0 ? '+' + v : v
+    } else if (mode === COMPARE.MODE.DIFF) {
+      const v = formatFieldDisplay(target - origin, field, fields)
+
+      return parseInt(v) > 0 ? '+' + v : v
+    } else {
+      return formatFieldDisplay(origin, field, fields)
     }
   }
 }

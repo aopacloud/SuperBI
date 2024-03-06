@@ -49,11 +49,7 @@
 import { ref, computed, watch, watchEffect, nextTick, inject } from 'vue'
 import RowItem from './RowItem.vue'
 import { getRandomKey } from 'common/utils/help'
-
-const RELATION = {
-  AND: 'ADN',
-  OR: 'OR',
-}
+import { RELATION } from '@/CONST.dict'
 
 const getRowItem = () => {
   return {

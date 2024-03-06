@@ -114,7 +114,7 @@ const startDisabled = current => {
 const endDisabled = current => {
   if (!start.value) return startDisabled(current)
 
-  return current < start.value.subtract(1, 'day').endOf('day') || startDisabled(current)
+  return current < start.value.subtract(1, 'day').endOf('day')
 }
 
 const onStartchange = e => {

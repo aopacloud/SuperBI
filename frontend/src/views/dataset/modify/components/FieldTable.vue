@@ -112,7 +112,7 @@
                 v-if="row.id !== PropertyField.id && row.id !== IndexField.id"
                 class="w-100p"
                 :options="categoryOptions"
-                :disabled="versionJs.ViewsDatasetModify.canotChange(row.name)"
+                :disabled="versionJs.ViewsDatasetModify.isDt(row)"
                 v-model:value="row.category"
                 @change="e => onCategoryChange(e, row)">
               </a-select>
@@ -341,8 +341,7 @@ const getFieldDataTypeOptions = field => {
   return dataTypeOptions.map(t => {
     return {
       ...t,
-      disabled:
-        versionJs.ViewsDatasetModify.canotChange(field.name) && t.value !== 'TIME',
+      disabled: versionJs.ViewsDatasetModify.isDt(field) && t.value !== 'TIME',
     }
   })
 }

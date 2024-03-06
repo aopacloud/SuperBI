@@ -77,12 +77,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { RELATION } from '@/CONST.dict'
 import { filterTypeOptions, filterMethodsOptions } from '../config'
 import EnumResource from './EnumResource.vue'
 import FilterRender from '../../components/FilterRender.vue'
 
-const defaultValueItem = { operator: 'EQUAL', value: '' }
+const defaultValueItem = { operator: RELATION.EQUAL, value: '' }
 
 const emits = defineEmits(['update:item'])
 const props = defineProps({
@@ -90,20 +91,6 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
-})
-
-const _formState = reactive({
-  name: '', // 筛选项名称
-  chartIntellect: true, // 智能选入
-  filterType: 'TEXT', // 筛选类型
-  required: false, // 必填
-  single: false, // 单选
-  filterMethod: 'EQUAL', // 筛选方式
-  enumResourceType: 'AUTO', // 枚举值来源
-  enumList: [], // 枚举列表
-  enumList_input: [], // 枚举列表输入
-  setDefault: false, // 是否设置默认值
-  value: [{ operator: 'EQUAL', value: '111' }], // 默认值
 })
 
 // 表单数据
@@ -245,7 +232,7 @@ const setTextNumberValue = reset => {
     ? { ...value[0] }
     : { ...defaultValueItem }
 
-  if (filterMethod === 'OR' || filterMethod === 'AND') {
+  if (filterMethod === RELATION.OR || filterMethod === RELATION.AND) {
     formState.value.value = [first, { ...defaultValueItem }]
   } else {
     formState.value.value = [first]

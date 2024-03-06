@@ -302,4 +302,13 @@
         </if>
         )
     </select>
+    <select id="selectOnlineDashboard" resultType="net.aopacloud.superbi.model.dto.DashboardDTO">
+        select <include refid="Base_Column_List" /> from bi_dashboard where `status` = 'ONLINE' and deleted = 0 and workspace_id = #{workspaceId}
+    </select>
+    <select id="selectIdByWorkspaceAndCreator" resultType="java.lang.Long">
+        select id from bi_dashboard where deleted = 0 and workspace_id = #{workspaceId}
+        <if test="username != null and username != ''" >
+            and creator = #{username}
+        </if>
+    </select>
 </mapper>

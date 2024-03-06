@@ -25,3 +25,10 @@ export const CATEGORY = {
   INDEX: 'MEASURE', //'INDEX',
   FILTER: 'FILTER',
 }
+
+// 单、或、且 关系
+export const RELATION = {
+  EQUAL: 'EQUAL',
+  OR: 'OR',
+  AND: 'AND',
+}

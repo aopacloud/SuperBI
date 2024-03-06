@@ -38,10 +38,14 @@
         select
         <include refid="Base_Column_List"/>
         from bi_auth_role
-        where workspace_id = #{workspaceId}
+        <where>
+        <if test="workspaceId != null" >
+            workspace_id = #{workspaceId}
+        </if>
         <if test="keyword != null and keyword != ''" >
             and (`name` like CONCAT('%',#{keyword},'%')  or description like CONCAT('%',#{keyword},'%'))
         </if>
+        </where>
         order by create_time desc
     </select>
 
@@ -58,6 +62,9 @@
   </select>
     <select id="selectOneById" resultType="net.aopacloud.superbi.model.entity.AuthRole">
         select <include refid="Base_Column_List" /> from bi_auth_role where id = #{id}
+    </select>
+    <select id="search" resultType="net.aopacloud.superbi.model.dto.AuthRoleDTO">
+        select <include refid="Base_Column_List" /> from bi_auth_role where `name` like CONCAT('%',#{keyword},'%') or description like CONCAT('%',#{keyword},'%')
     </select>
 
 </mapper>

@@ -11,7 +11,7 @@ import java.util.List;
  */
 public interface AuthRoleService {
 
-    List<AuthRoleDTO> listAll(Long workspaceId, String keyword);
+    List<AuthRoleDTO> search(Long workspaceId, String keyword);
 
     AuthRoleDTO save(AuthRoleDTO authRoleDTO);
 
@@ -22,4 +22,7 @@ public interface AuthRoleService {
     AuthRoleDTO findOne(Long id);
 
     Integer countByWorkspace(Long workspaceId);
+
+    List<AuthRoleDTO> search(String keyword);
+    List<AuthRoleDTO> listAll();
 }

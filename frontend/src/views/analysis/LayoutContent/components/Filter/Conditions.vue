@@ -3,34 +3,29 @@
     <div class="list-wrapper" :class="{ 'only-one': conditions.length === 1 }">
       <span
         class="relation"
-        :class="{ active: relation === 'AND' }"
+        :class="{ active: relation === RELATION.AND }"
         @click="handleRelationToggle"
         >{{ relationLabel }}</span
       >
       <div class="list">
         <div class="item" v-for="(item, index) in conditions">
-          <!-- 多层级递归 -->
-          <!-- <FilterConditions
-            v-if="item.children"
-            v-model:relation="item.relation"
-            :conditions="item.children" /> -->
-
           <a-input-group compact>
             <a-select
               :style="{
                 width:
-                  item.operator !== 'IS_NOT_NULL' && item.operator !== 'IS_NULL'
+                  item.operator !== IS_NOT_NULL && item.operator !== IS_NULL
                     ? '85px'
                     : '270px',
               }"
               :get-popup-container="node => node.parentNode"
-              v-model:value="item.operator">
+              v-model:value="item.operator"
+              @change="e => onOperatorChange(e, item)">
               <a-select-option v-for="(label, key) in operators" :key="key" :value="key">
                 {{ label }}
               </a-select-option>
             </a-select>
             <a-input
-              v-show="item.operator !== 'IS_NOT_NULL' && item.operator !== 'IS_NULL'"
+              v-show="item.operator !== IS_NOT_NULL && item.operator !== IS_NULL"
               style="width: 60%"
               placeholder="字符或值"
               v-model:value="item.value" />
@@ -59,8 +54,8 @@
 <script setup>
 import { h, computed } from 'vue'
 import { MinusCircleOutlined, PlusSquareOutlined } from '@ant-design/icons-vue'
-import FilterConditions from './Conditions.vue'
-import { operatorMap } from '@/views/dataset/config.field'
+import { RELATION } from '@/CONST.dict'
+import { operatorMap, IS_NOT_NULL, IS_NULL } from '@/views/dataset/config.field'
 import { getRandomKey } from 'common/utils/help'
 
 const emits = defineEmits(['update:conditions', 'update:relation'])
@@ -71,7 +66,7 @@ const props = defineProps({
   },
   relation: {
     type: String,
-    default: 'OR',
+    default: RELATION.OR,
   },
   conditions: {
     type: Array,
@@ -87,11 +82,26 @@ const operators = computed(() => {
   return operatorMap[props.dataType]
 })
 const relationLabel = computed(() => {
-  return props.relation === 'OR' ? '或' : props.relation === 'AND' ? '且' : '-'
+  return props.relation === RELATION.OR
+    ? '或'
+    : props.relation === RELATION.AND
+    ? '且'
+    : '-'
 })
 
 const handleRelationToggle = () => {
-  emits('update:relation', props.relation === 'OR' ? 'AND' : 'OR')
+  emits('update:relation', props.relation === RELATION.OR ? RELATION.AND : RELATION.OR)
+}
+
+/**
+ * 条件操作符
+ * @param {string} e 操作符的值
+ * @param {any} item 筛选条件项
+ */
+const onOperatorChange = (e, item) => {
+  if (e === IS_NOT_NULL || e === IS_NULL) {
+    item.value = ''
+  }
 }
 
 const handleAdd = () => {
@@ -99,7 +109,7 @@ const handleAdd = () => {
 
   props.conditions.push({
     _id: getRandomKey(),
-    operator: 'EQUAL',
+    operator: RELATION.EQUAL,
     value: undefined,
   })
 }

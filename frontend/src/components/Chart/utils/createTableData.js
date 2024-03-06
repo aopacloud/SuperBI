@@ -1,7 +1,36 @@
 ﻿import { COMPARE, CATEGORY } from '@/CONST.dict'
 import { getWordWidth } from 'common/utils/help'
 import { is_vs, transformFieldsByVs, formatFieldDisplay } from './index.js'
-import { toPercent } from 'common/utils/number'
+import { getCompareDisplay } from '../Table/utils.js'
+
+/**
+ *  求和
+ * @param {array} list
+ * @param {string} key
+ * @returns
+ */
+const getSum = (list = [], key = '') =>
+  list.reduce((a, b) => {
+    a += b[key]
+
+    return a
+  }, 0)
+
+/**
+ * 获取汇总行数据
+ * @param {{keys: array<string>, column: array<Column>, list: array<any>}} param0
+ * @returns
+ */
+export const getSummary = ({ keys = [], columns = [], list = [] }) => {
+  return keys.reduce((acc, key, i) => {
+    const { field } = columns[i].params
+    if (field.category !== CATEGORY.INDEX) return acc
+
+    acc[key] = getSum(list, key)
+
+    return acc
+  }, {})
+}
 
 // 表头填充宽度 paddingLeft + paddingRight + sortIcon
 export const CELL_HEADER_PADDING = 10 + 30 + 20
@@ -56,7 +85,7 @@ export default function createTableData({
     compareOption: config.compare,
   })
 
-  let columns = fields.map(field => {
+  let columns = fields.map((field, i) => {
     const { displayName, category, renderName, dataType, _isVs } = field
     // 默认插槽
     const slotDefault = dataType.includes('TIME') ? 'date' : _isVs ? 'vs' : category //'default'
@@ -73,6 +102,7 @@ export default function createTableData({
       slots: {
         header: 'header',
         default: slotDefault,
+        footer: i === 0 ? 'footer.summary' : 'footer.' + category,
       },
     }
   })
@@ -100,38 +130,16 @@ export default function createTableData({
         const maxContentWidth = Math.max(
           ...originData
             .map(t => {
-              const curValue = t[i - 1] // 前一个值为当前值
-              const prevValue = t[i] // '当前值' 为对比值
+              const targetValue = t[i - 1] // 前一个值为当前值
+              const originValue = t[i] // '当前值' 为对比值
 
-              let prevValueStr = '',
-                nextValueStr = ''
+              const prevStr = formatFieldDisplay(targetValue, field, datasetFields)
+              const nextStr =
+                ' ( ' +
+                getCompareDisplay(originValue, targetValue, mode)(field, datasetFields) +
+                ' ) '
 
-              // 指标需要格式化
-              const isIndex = CATEGORY.INDEX
-
-              prevValueStr = isIndex
-                ? formatFieldDisplay(curValue, field, datasetFields)
-                : curValue
-
-              if (mode === COMPARE.MODE.DIFF_PERSENT) {
-                const nextV = toPercent((curValue - prevValue) / prevValue, 2)
-
-                nextValueStr = parseInt(nextV) > 0 ? '+' + nextV : nextV
-              } else if (mode === COMPARE.MODE.DIFF) {
-                const nextV = isIndex
-                  ? formatFieldDisplay(curValue - prevValue, field, datasetFields)
-                  : curValue - prevValue
-
-                nextValueStr = parseInt(nextV) > 0 ? '+' + nextV : nextV
-              } else {
-                nextValueStr = isIndex
-                  ? formatFieldDisplay(prevValue, field, datasetFields)
-                  : prevValue
-              }
-
-              nextValueStr = '(' + nextValueStr + ')'
-
-              return getWordWidth(prevValueStr) + getWordWidth(nextValueStr)
+              return getWordWidth(prevStr) + getWordWidth(nextStr)
             })
             .flat()
         )
