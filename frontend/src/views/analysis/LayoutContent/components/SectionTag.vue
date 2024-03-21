@@ -109,8 +109,8 @@ const handleDateFilterConditions = (conditions = []) => {
       const [tp, of = 0] = t._this.split('_')
       const s = getStartDate({ type: tp.toLowerCase(), offset: +of }, timeOffset.value)
       const e = getEndDate({ type: tp.toLowerCase(), offset: +of }, timeOffset.value)
-      const sDiff = dayjs().diff(s, 'day')
-      const eDiff = dayjs().diff(e, 'day')
+      const sDiff = dayjs().startOf('day').diff(s, 'day')
+      const eDiff = dayjs().endOf('day').diff(e, 'day')
 
       return {
         ...t,

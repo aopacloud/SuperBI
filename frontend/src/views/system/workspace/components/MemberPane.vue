@@ -186,7 +186,7 @@ const init = () => {
 
 defineExpose({ init, insert })
 
-watch(() => props.workspaceId, fetchList)
+watch(() => props.workspaceId, fetchList, { immediate: true })
 
 onMounted(() => {
   fetchSysUsers()

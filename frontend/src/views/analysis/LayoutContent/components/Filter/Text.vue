@@ -197,7 +197,7 @@ const fetchEnumList = async () => {
 
     const { rows } = await postAnalysisQuery(paylaod)
 
-    enumList.value = rows.map(t => t[0]).filter(Boolean)
+    enumList.value = rows.map(t => t[0]).filter(t => t !== '')
   } catch (error) {
     console.error('获取枚举值错误', error)
   } finally {

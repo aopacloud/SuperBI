@@ -3,6 +3,9 @@
 // 字段与聚合方式连接符(后端返回的拼接规则)
 export const AGGREGATOR_SPLIT = '@'
 
+//
+export const VS_SPLIT = '#'
+
 // 获取拼接了聚合方式的字段名
 export const getNameByJoinAggregator = ({ name, aggregator }) => {
   return name + '.' + aggregator
@@ -41,11 +44,13 @@ export const transformColumns = ({ fields = [], fieldNames = [] } = {}) => {
     let fullName = '' // 拼接指标汇总方式 和 vs 的全部名
 
     if (fieldName.endsWith === AGGREGATOR_SPLIT) {
+      // 维度字段
       fullName = originName = fieldName.slice(0, -1)
     } else {
-      if (fieldName.endsWith(VS_FIELD_SUFFIX)) {
-        fieldName = fieldName.replace(VS_FIELD_SUFFIX, '')
-        vs = VS_FIELD_SUFFIX
+      const [pre, ...res] = fieldName.split(VS_SPLIT)
+      if (res.length) {
+        fieldName = pre
+        vs = VS_FIELD_SUFFIX + res.join('.')
       }
 
       const [oName, oAggregator] = fieldName.split(AGGREGATOR_SPLIT)

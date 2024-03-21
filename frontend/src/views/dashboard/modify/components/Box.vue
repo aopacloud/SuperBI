@@ -26,11 +26,10 @@
             type="text"
             size="small"
             :icon="h(ReloadOutlined)"
-            @click="reload"></a-button>
+            @click="reload" />
 
           <a-dropdown trigger="click">
-            <a-button type="text" size="small" :icon="h(MoreOutlined)"></a-button>
-
+            <a-button type="text" size="small" :icon="h(MoreOutlined)" />
             <template #overlay>
               <a-menu @click="onMoreMenuClick">
                 <a-menu-item key="sql">查看SQL</a-menu-item>
@@ -50,7 +49,8 @@
         <!-- 数据集无权限 -->
         <BoxUnaccess
           v-else-if="
-            report.dataset.permission !== 'WRITE' && report.dataset.permission !== 'READ'
+            report.dataset.permission !== 'WRITE' &&
+            report.dataset.permission !== 'READ'
           "
           :dataset="report.dataset"
           @apply="emits('dataset-apply', report.dataset)" />
@@ -63,7 +63,9 @@
 
         <!-- 无数据 -->
         <div
-          v-else-if="requestResponse.layout.renderType !== 'table' && !dataSource.length"
+          v-else-if="
+            requestResponse.layout.renderType !== 'table' && !dataSource.length
+          "
           style="text-align: center">
           <img src="@/assets/svg/chartBox_empty.svg" style="width: 200px" />
           <p style="color: #999">当前查询条件下暂无数据</p>
@@ -86,7 +88,11 @@
 <script setup>
 import { h, ref, reactive, computed, watch, shallowRef, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { FieldTimeOutlined, MoreOutlined, ReloadOutlined } from '@ant-design/icons-vue'
+import {
+  FieldTimeOutlined,
+  MoreOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons-vue'
 import Chart from '@/components/Chart/index.vue'
 import { postAnalysisQuery } from '@/apis/analysis'
 import { getDetailById } from '@/apis/report'
@@ -103,7 +109,7 @@ import dayjs from 'dayjs'
 
 const router = useRouter()
 
-const emits = defineEmits(['sql', 'download', 'dataset-apply', 'loaded'])
+const emits = defineEmits(['sql', 'download', 'dataset-apply', 'loaded', 'reload'])
 const props = defineProps({
   detail: {
     type: Object,
@@ -201,7 +207,8 @@ const isInit = computed(() => {
 const _n = category => category.toLowerCase() + 's'
 // 从数据集字段中恢复category
 const _addCategoryFromDatasetFields = (t, category) => {
-  const item = (report.value.dataset?.fields || []).find(f => f.name === t.name) || {}
+  const item =
+    (report.value.dataset?.fields || []).find(f => f.name === t.name) || {}
 
   // t.displayName !== item.displayName 兼容旧数据的重命名
   const displayName =
@@ -243,7 +250,10 @@ const filterFields = item => {
 // 字段列
 const columns = computed(() => {
   // 使用查询成功的请求字段
-  const fields = [...choosed.value[CATEGORY.PROPERTY], ...choosed.value[CATEGORY.INDEX]]
+  const fields = [
+    ...choosed.value[CATEGORY.PROPERTY],
+    ...choosed.value[CATEGORY.INDEX],
+  ]
 
   return transformColumns({
     fields,
@@ -264,12 +274,21 @@ const subTitle = computed(() => {
 const report = ref({})
 const fetchReportDetail = async () => {
   try {
-    const { layout, queryParam = '{}', ...rest } = await getDetailById(props.reportId)
+    const {
+      layout,
+      queryParam = '{}',
+      ...rest
+    } = await getDetailById(props.reportId)
 
     report.value = { ...rest }
-    requestResponse.request = { ...JSON.parse(queryParam), fromSource: 'dashboard' }
+    requestResponse.request = {
+      ...JSON.parse(queryParam),
+      fromSource: 'dashboard',
+    }
     requestResponse.layout = JSON.parse(layout)
     props.item.report = { ...rest }
+
+    emits('reload', rest)
   } catch (error) {
     console.error('获取数据集错误', error)
   }
@@ -348,10 +367,13 @@ const updateFilterItem = filter => {
     // 相对时间的当月在查询时重新计算
     if (timeType === 'RELATIVE' && _this) {
       const [tp, of = 0] = _this.split('_')
-      const s = getStartDate({ type: tp.toLowerCase(), offset: +of }, props.timeOffset)
+      const s = getStartDate(
+        { type: tp.toLowerCase(), offset: +of },
+        props.timeOffset
+      )
       const e = getEndDate({ type: tp.toLowerCase(), offset: +of }, props.timeOffset)
-      const sDiff = dayjs().diff(s, 'day')
-      const eDiff = dayjs().diff(e, 'day')
+      const sDiff = dayjs().startOf('day').diff(s, 'day')
+      const eDiff = dayjs().endOf('day').diff(e, 'day')
 
       return {
         ...filter,

@@ -10,7 +10,6 @@
           placement="bottomRight"
           class="date-picker-trigger"
           popup-class-name="date-picker-dropdown small"
-          :disabled-date="startDisabled"
           :bordered="false"
           :getPopupContainer="e => onGetPopupContainer(e, startPanel)"
           v-model:value="start"
@@ -19,7 +18,8 @@
             <div
               class="ant-picker-cell-inner"
               :class="{ [rangeCls]: isInRange(current) }"
-              :data-date="current.date()">
+              :data-date="current.date()"
+              @click="emits('click')">
               {{ current.date() }}
             </div>
           </template>
@@ -39,13 +39,13 @@
           :bordered="false"
           :getPopupContainer="e => onGetPopupContainer(e, endPanel)"
           :disabled-date="endDisabled"
-          v-model:value="end"
-          @change="onEndChange">
+          v-model:value="end">
           <template #dateRender="{ current }">
             <div
               class="ant-picker-cell-inner"
               :class="{ [rangeCls]: isInRange(current) }"
-              :data-date="current.date()">
+              :data-date="current.date()"
+              @click="emits('click')">
               {{ current.date() }}
             </div>
           </template>
@@ -107,14 +107,14 @@ watchEffect(() => {
 
 // 开始日期不可选
 const startDisabled = current => {
-  return current && current >= getUtcDate(props.utcOffset).endOf('day')
+  return current && current > getUtcDate(props.utcOffset).endOf('day')
 }
 
 // 结束日期不可选
 const endDisabled = current => {
-  if (!start.value) return startDisabled(current)
+  if (!start.value) return true //startDisabled(current)
 
-  return current < start.value.subtract(1, 'day').endOf('day')
+  return current <= start.value.subtract(1, 'day').endOf('day')
 }
 
 const onStartchange = e => {
@@ -122,11 +122,6 @@ const onStartchange = e => {
   if (!end.value) end.value = e
   // 开始时间大于结束时间时，结束时间等于开始时间
   if (e?.isAfter(end.value)) end.value = e
-
-  emits('click')
-}
-const onEndChange = e => {
-  emits('click')
 }
 
 const startPanel = ref(null)
@@ -187,37 +182,47 @@ const onGetPopupContainer = (e, panel) => {
     }
   }
 
-  .ant-picker-cell:not(.ant-picker-cell-selected) {
+  .ant-picker-cell {
     .ant-picker-cell-inner {
       position: static !important;
     }
-    .ant-picker-cell-in-range {
-      &::before {
-        content: '';
-        position: absolute;
-        left: -12px;
-        right: -12px;
-        inset-inline-start: 0;
-        inset-inline-end: 0;
-        height: 24px;
-        background-color: #e6f4ff;
-        transform: translateY(2px);
-        transition: none;
-        z-index: -1;
+    &:not(.ant-picker-cell-today) {
+      .ant-picker-cell-inner {
+        &::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100% !important;
+          z-index: 9;
+        }
       }
-      &::after {
-        content: attr(data-date);
-        position: absolute;
-        left: -12px;
-        right: -12px;
-        top: 50%;
-        inset-inline-start: 0;
-        inset-inline-end: 0;
-        height: 24px;
-        background-color: #e6f4ff;
-        transform: translateY(-50%);
-        transition: all 0.3s;
-        z-index: 1;
+    }
+
+    &:not(.ant-picker-cell-selected) {
+      .ant-picker-cell-in-range {
+        &::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          right: 0;
+          height: 24px;
+          background-color: #e6f4ff;
+          transition: none;
+          z-index: -1;
+        }
+        &::after {
+          content: attr(data-date);
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 50%;
+          height: 24px;
+          background-color: #e6f4ff;
+          transform: translateY(-50%);
+          transition: all 0.3s;
+          z-index: 1;
+        }
       }
     }
   }

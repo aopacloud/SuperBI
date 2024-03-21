@@ -8,7 +8,10 @@ export default function () {
   this.interceptors.request.use(config => {
     const { params = {}, data = {} } = config
 
-    if (!hasKey(params, WORKSPACEID) && !hasKey(data, WORKSPACEID)) {
+    if (
+      typeof data !== 'object' ||
+      (!hasKey(params, WORKSPACEID) && !hasKey(data, WORKSPACEID))
+    ) {
       params[WORKSPACEID] = useAppStore().workspaceId
 
       config.params = params

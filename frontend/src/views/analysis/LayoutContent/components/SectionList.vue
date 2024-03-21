@@ -52,6 +52,7 @@ import draggable from 'vuedraggable'
 import MultipleSelectedPopover from '@/views/analysis/components/MultipleSelectedPopover.vue'
 import SectionTag from './SectionTag.vue'
 import { categoryMap } from '@/views/dataset/config.field'
+import { getSectionListLabel } from '@/views/analysis/config'
 import { CATEGORY } from '@/CONST.dict'
 import { getRandomKey } from 'common/utils/help'
 import { versionJs } from '@/versions'
@@ -113,21 +114,9 @@ const datasetFields = computed(() => {
 })
 
 const label = computed(() => {
-  const type = renderType.value
+  const typeMap = getSectionListLabel(renderType.value)
 
-  return props.category === CATEGORY.PROPERTY
-    ? type === 'table' || type === 'statistic'
-      ? '分组'
-      : type === 'pie'
-      ? '扇形数量/分组'
-      : '横轴/分组'
-    : props.category === CATEGORY.INDEX
-    ? type === 'table' || type === 'statistic'
-      ? '指标'
-      : type === 'pie'
-      ? '扇形占比/指标'
-      : '纵轴/值'
-    : '筛选条件'
+  return typeMap(props.category)
 })
 
 const tagColor = computed(() => {
@@ -231,8 +220,12 @@ const onMultipleOk = value => {
   position: relative;
   display: flex;
   align-items: center;
+  margin-bottom: 8px;
   background-color: #f9f9f9;
   border-radius: 4px;
+  &:last-child {
+    margin-bottom: 0;
+  }
 
   // unsupported below safari 15.3
   &:has(.list-item):hover {

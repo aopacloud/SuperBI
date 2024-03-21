@@ -6,21 +6,25 @@
     </div>
 
     <div v-show="settingOpen" class="setting" :class="{ disabled: !hasDatasetAnalysis }">
-      <SettingTypeSection v-model:type="renderType" @change="onRenderTypeChange" />
+      <SettingTypeSection
+        v-model:type="options.renderType"
+        @change="onRenderTypeChange" />
 
       <Divider style="margin: 10px 0" />
 
-      <template v-if="renderType !== 'statistic'">
+      <template v-if="options.renderType !== 'statistic'">
         <keep-alive>
           <SettingTableSection
-            v-if="renderType === 'table'"
-            v-model:options="tableOption"
-            v-model:compare="compareOption" />
+            v-if="
+              ['table', 'groupTable', 'intersectionTable'].includes(options.renderType)
+            "
+            v-model:options="options.table"
+            v-model:compare="options.compare" />
           <SettingChartSection
             v-else
-            :type="renderType"
-            v-model:options="chartOption"
-            v-model:compare="compareOption" />
+            :type="options.renderType"
+            v-model:options="options.chart"
+            v-model:compare="options.compare" />
         </keep-alive>
       </template>
     </div>
@@ -34,13 +38,6 @@ import { DoubleRightOutlined, DoubleLeftOutlined } from '@ant-design/icons-vue'
 import SettingTypeSection from './components/SettingTypeSection.vue'
 import SettingTableSection from './components/SettingTableSection.vue'
 import SettingChartSection from './components/SettingChartSection.vue'
-import {
-  defaultRenderType,
-  defaultTableOptions,
-  defaultQueryTotal,
-  defaultChartOptions,
-  defaultCompareOptions,
-} from '../defaultOptions.js'
 
 const emits = defineEmits(['update:options'])
 const props = defineProps({
@@ -54,53 +51,19 @@ const props = defineProps({
 // 设置侧边栏显示
 const settingOpen = ref(true)
 const handleSettingCollapse = () => {
-  const oepn = settingOpen.value
-
-  settingOpen.value = !oepn
+  settingOpen.value = !settingOpen.value
 }
 
 // 展示类型
 const renderType = ref('table')
-// 表格配置
-const tableOption = ref({})
-// 图表配置
-const chartOption = ref({})
-// 同环比配置
-const compareOption = ref({})
-
-watchEffect(() => {
-  const {
-    renderType: type = defaultRenderType,
-    table = defaultTableOptions,
-    chart = defaultChartOptions,
-    compare = defaultCompareOptions,
-  } = props.options
-
-  renderType.value = type
-  compareOption.value = compare
-  tableOption.value = table
-  chartOption.value = chart
-})
 
 const onRenderTypeChange = e => {
   if (e === 'bar' || e === 'line') {
-    ;(chartOption.value.axis || []).forEach(item => {
+    ;(props.options.chart.axis || []).forEach(item => {
       item.chartType = e
     })
   }
 }
-
-watch(
-  [renderType, compareOption, tableOption, chartOption],
-  ([type, compare, table, chart]) => {
-    emits('update:options', {
-      renderType: type,
-      compare,
-      table,
-      chart,
-    })
-  }
-)
 </script>
 
 <style lang="scss" scoped>

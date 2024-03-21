@@ -1,6 +1,14 @@
-﻿import { COMPARE } from '@/CONST.dict'
+﻿import { CATEGORY, COMPARE } from '@/CONST.dict'
 import { toPercent } from 'common/utils/number'
-import { formatFieldDisplay } from '@/components/Chart/utils/index.js'
+import { upcaseFirst } from 'common/utils/string'
+import { getRandomKey, getWordWidth } from 'common/utils/help'
+import { is_vs, formatFieldDisplay } from '@/components/Chart/utils/index.js'
+import {
+  TREE_GROUP_NAME,
+  TREE_ROW_KEY,
+  TREE_ROW_PARENT_KEY,
+} from '@/components/Chart/utils/createGroupTable.js'
+import { CELL_HEADER_PADDING, CELL_BODY_PADDING, CELL_MIN_WIDTH } from './config'
 
 /**
  * 根据分页截取数据
@@ -36,29 +44,6 @@ export const getFixedPlace = (colIndex, allCols, fixedColumnSpan = []) => {
   }
 }
 
-export function createSortByOrder(isUp = false, prop) {
-  const isDate = e => isNaN(e) && !isNaN(Date.parse(e))
-
-  return function (a, b) {
-    const aV = typeof prop !== 'undefined' ? a[prop] : a
-    const bV = typeof prop !== 'undefined' ? b[prop] : b
-
-    if (typeof aV === 'string') {
-      if (isDate(aV)) {
-        return isUp
-          ? new Date(aV).getTime() - new Date(bV).getTime()
-          : new Date(bV).getTime() - new Date(aV).getTime()
-      } else {
-        let aa = aV || '',
-          bb = bV || ''
-        return isUp ? aa.localeCompare(bb) : bb.localeCompare(aa)
-      }
-    } else {
-      return isUp ? aV - bV : bV - aV
-    }
-  }
-}
-
 /**
  * 显示对比值
  * @param {number} origin 原值
@@ -80,4 +65,246 @@ export const getCompareDisplay = (origin, target, mode = 0) => {
       return formatFieldDisplay(origin, field, fields)
     }
   }
+}
+
+/**
+ *  求和
+ * @param {array} list
+ * @param {string} key
+ * @returns
+ */
+const getSum = (list = [], key = '') =>
+  list.reduce((a, b) => {
+    a = a + +(b[key] ?? 0)
+
+    return a
+  }, 0)
+
+/**
+ * 获取汇总行数据
+ * @param {{keys: array<string>, column: array<Column>, list: array<any>}} param0
+ * @returns
+ */
+export const getSummary = ({ keys = [], columns = [], list = [] }) => {
+  return keys.reduce((acc, key, i) => {
+    const { field } = columns[i].params
+    if (field.category !== CATEGORY.INDEX) return acc
+
+    acc[key] = getSum(list, key)
+
+    return acc
+  }, {})
+}
+
+// 树汇总
+export const summaryTree = (tree = [], columns = []) => {
+  const indexColumns = columns.filter(
+    t => t.params.field.category === CATEGORY.INDEX
+  )
+  const keys = indexColumns.map(t => t.field)
+
+  return tree.map(node => {
+    if (node.children) {
+      const children = summaryTree(node.children, indexColumns)
+      const summaries = getSummary({
+        keys,
+        list: children,
+        columns: indexColumns,
+      })
+
+      return {
+        ...node,
+        ...summaries,
+        children,
+      }
+    } else {
+      return {
+        ...node,
+      }
+    }
+  })
+}
+
+/**
+ * 将字段信息转换为列信息
+ * @param {Field} field 数据集字段
+ * @param {number} i 索引
+ * @returns
+ */
+export function transformFieldToColumn(field, i) {
+  const {
+    align,
+    _isGroup,
+    treeNode,
+    displayName,
+    category,
+    renderName,
+    dataType,
+    _isVs,
+    fields,
+  } = field
+
+  // 默认插槽
+  const slotDefault = _isGroup
+    ? 'groupName'
+    : dataType.includes('TIME')
+    ? 'date'
+    : _isVs
+    ? 'vs'
+    : category
+
+  return {
+    treeNode,
+    title: displayName,
+    field: renderName,
+    sortable: true,
+    params: { field, fields },
+    align,
+    slots: {
+      header: 'header',
+      default: slotDefault,
+      footer: i === 0 ? 'footerSummary' : 'footer' + upcaseFirst(category),
+    },
+  }
+}
+
+/**
+ * 同环比配置更新列
+ * @param {{ columns: [T], originData: array, datasetFields: array, compare: {} }}
+ * @returns {[T]} 返回新的列
+ */
+export function updateColumnsWithCompare({
+  columns = [],
+  originData = [],
+  datasetFields = [],
+  compare = {},
+}) {
+  let hasDelOriginField = false
+
+  return columns.slice().reduce((acc, cur, i) => {
+    if (!is_vs(cur.field)) {
+      hasDelOriginField = false
+      acc.push(cur)
+    } else {
+      if (!hasDelOriginField) {
+        acc.pop()
+
+        hasDelOriginField = true
+      }
+
+      const { field } = cur.params
+      const titleWidth = getWordWidth(cur.title) + CELL_HEADER_PADDING
+      const maxContentWidth = Math.max(
+        ...originData
+          .map(t => {
+            const targetValue = t[i - 1] // 前一个值为当前值
+            const originValue = t[i] // '当前值' 为对比值
+
+            const prevStr = formatFieldDisplay(targetValue, field, datasetFields)
+            const nextStr =
+              ' ( ' +
+              getCompareDisplay(
+                originValue,
+                targetValue,
+                compare.mode
+              )(field, datasetFields) +
+              ' ) '
+
+            return getWordWidth(prevStr) + getWordWidth(nextStr)
+          })
+          .flat()
+      )
+
+      acc.push({
+        ...cur,
+        _width: Math.max(
+          Math.max(titleWidth, maxContentWidth + CELL_BODY_PADDING),
+          CELL_MIN_WIDTH
+        ),
+      })
+    }
+
+    return acc
+  }, [])
+}
+
+/**
+ * 将列表数据转换为树形结构。
+ * @param {Array} list 列表数据。
+ * @param {Array} keys 键数组，用于指定列表数据中哪些键作为树结构的层级划分依据。
+ * @returns {Array} 转换后的树形结构数据。
+ */
+export function listDataToTreeByKeys(list = [], keys = []) {
+  // 创建树节点的函数
+  const createTreeNode = ({ key, parentId, children = new Map(), _level_ = 0 }) => {
+    // 返回一个构造好的树节点对象
+    return {
+      // 树节点的唯一标识
+      [TREE_GROUP_NAME]: key,
+      // 为每个树节点生成一个唯一的行键
+      [TREE_ROW_KEY]: getRandomKey(6),
+      // 父节点的键
+      [TREE_ROW_PARENT_KEY]: parentId,
+      // 树节点的层级
+      _level_,
+      // 子节点列表
+      children,
+    }
+  }
+
+  // 创建根节点
+  const root = createTreeNode({ key: 'root', _level_: -1 })
+
+  // 遍历输入的列表数据
+  for (let data of list) {
+    // 当前处理的节点
+    let node = root
+
+    // 遍历键数组，以确定数据在树中的位置
+    keys.forEach((key, i) => {
+      // 判断当前键是否为最后一级的键
+      const isLastGroup = i === keys.length - 1
+      // 获取当前键的值
+      const keyValue = data[key]
+
+      // 在当前节点的子节点中查找是否存在对应键值的节点
+      let child = node.children.get(keyValue)
+
+      // 如果不存在，则创建该节点
+      if (!child) {
+        // 创建子节点
+        child = createTreeNode({
+          key: keyValue,
+          parentId: i === 0 ? undefined : node[TREE_ROW_KEY],
+          _level_: node._level_ + 1,
+        })
+        // 如果是最后一级，则将当前数据合并到子节点中，否则只保留子节点
+        if (isLastGroup) {
+          delete child.children
+          child = { ...child, ...data }
+        }
+        // 将新创建的子节点添加到当前节点的子节点列表中
+        node.children.set(keyValue, child)
+      }
+      // 更新当前节点为找到或新创建的子节点，以便下一轮循环
+      node = child
+    })
+  }
+
+  const getValueFromMap = item => {
+    const [, value] = item
+    if (value.children) {
+      return {
+        ...value,
+        children: [...value.children].map(getValueFromMap),
+      }
+    } else {
+      return value
+    }
+  }
+
+  const result = [...root.children].map(getValueFromMap)
+
+  // 返回根节点的子节点，即为转换后的树形结构
+  return result
 }
