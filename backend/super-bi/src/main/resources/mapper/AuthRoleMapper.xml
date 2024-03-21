@@ -66,5 +66,14 @@
     <select id="search" resultType="net.aopacloud.superbi.model.dto.AuthRoleDTO">
         select <include refid="Base_Column_List" /> from bi_auth_role where `name` like CONCAT('%',#{keyword},'%') or description like CONCAT('%',#{keyword},'%')
     </select>
+    <select id="searchByUsername" resultType="net.aopacloud.superbi.model.dto.AuthRoleDTO">
+        select r.*
+        from bi_auth_role r
+        join bi_auth_role_user u on r.id = u.role_id
+        where u.username in
+            <foreach collection="usernames" item="usr" separator="," open="(" close=")">
+                #{usr}
+            </foreach>
+    </select>
 
 </mapper>

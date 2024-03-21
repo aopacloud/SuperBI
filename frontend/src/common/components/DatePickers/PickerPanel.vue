@@ -133,8 +133,9 @@ const getOffsets = (dates = []) => {
     return []
   } else {
     const [s, e] = dates
-    const sDiff = getUtcDate(currentUtc.value).diff(s, 'day')
-    const eDiff = getUtcDate(currentUtc.value).diff(e, 'day')
+
+    const sDiff = getUtcDate(currentUtc.value).endOf('day').diff(s.endOf('day'), 'day')
+    const eDiff = getUtcDate(currentUtc.value).endOf('day').diff(e.endOf('day'), 'day')
 
     return [sDiff, eDiff]
   }
@@ -143,8 +144,8 @@ const getOffsets = (dates = []) => {
 // 根据偏移量获取默认日期
 const getByOffset = (offsets = []) => {
   const [s = 0, e = 0] = offsets
-  const start = getUtcDate(currentUtc.value).subtract(s, 'day') //.format('YYYY-MM-DD')
-  const end = getUtcDate(currentUtc.value).subtract(e, 'day') //.format('YYYY-MM-DD')
+  const start = getUtcDate(currentUtc.value).endOf('day').subtract(s, 'day')
+  const end = getUtcDate(currentUtc.value).endOf('day').subtract(e, 'day')
 
   return [start, end]
 }

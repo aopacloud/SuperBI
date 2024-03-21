@@ -1,41 +1,68 @@
 ﻿<template>
-  <a-modal title="同环比设置" :open="open" :width="500" @cancel="cancel">
-    <a-form :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }">
+  <a-modal title="同环比设置" :open="open" :width="700" @cancel="cancel">
+    <a-form :label-col="{ span: 4 }" :wrapper-col="{ span: 20 }">
       <a-form-item label="对比日期" style="margin-bottom: 5px">
         {{ target.name || '-' }}
       </a-form-item>
       <a-form-item label="对比字段" v-bind="validateInfos.fields">
-        <a-select
-          mode="multiple"
-          allow-clear
-          placeholder="请选择对比字段"
-          v-model:value="formState.fields"
-          @change="onFieldsChange">
-          <a-select-option v-for="t in fieldList" :key="t.name">
-            {{ t.displayName }}
-          </a-select-option>
-        </a-select>
-      </a-form-item>
+        <a-button
+          v-if="!formState.fields.length"
+          block
+          type="dashed"
+          style="height: 30px; padding: 0"
+          :icon="h(PlusOutlined)"
+          @click="insert()" />
 
-      <a-form-item v-show="choiceList.length" label=" " :colon="false">
-        <div class="fields-setting" style="max-height: 500px">
+        <div
+          v-else
+          class="fields-setting"
+          style="max-height: 500px; margin-right: 70px">
           <div class="field-title field-item">
-            <div class="name">字段名</div>
-            <div class="val">对比类型</div>
-            <div></div>
+            <div class="cell name">字段名</div>
+            <div class="cell val">对比类型</div>
           </div>
-          <div class="field-item" v-for="(d, i) in choiceList" :key="d.name">
-            <span class="name" :title="d.label">{{ d.displayName }}</span>
-            <div class="val custom-select small">
-              <select v-model="compareType">
-                <option v-for="o in options" :key="o.value" :value="o.value">
-                  {{ o.label }}
-                </option>
-              </select>
+          <div
+            class="field-item"
+            v-for="(item, i) in formState.fields"
+            :key="item._id">
+            <span class="cell name" :title="item.label">
+              <a-select
+                placeholder="请选择字段"
+                v-model:value="item.name"
+                @change="e => onFieldNameChange(e, item)">
+                <a-select-option v-for="f in fields" :key="f.name">
+                  {{ f.displayName }}
+                </a-select-option>
+              </a-select>
+            </span>
+            <div class="cell val">
+              <a-space-compact block>
+                <a-select style="width: 90px" v-model:value="item.ratioType">
+                  <a-select-option v-for="t in options" :key="t.value">
+                    {{ t.label }}
+                  </a-select-option>
+                </a-select>
+
+                <a-select style="flex: 1" v-model:value="item.period">
+                  <a-select-option v-for="t in getOptions2(item)" :key="t.value">
+                    {{ t.label }}
+                  </a-select-option>
+                </a-select>
+              </a-space-compact>
             </div>
-            <div class="action" style="text-align: center">
-              <MinusCircleOutlined @click="handleDel(i)" />
-            </div>
+            <a-space class="action" style="margin: 4px 0 0 10px">
+              <a-button
+                type="text"
+                size="small"
+                :icon="h(PlusOutlined)"
+                @click="insert(i)" />
+
+              <a-button
+                type="text"
+                size="small"
+                :icon="h(MinusOutlined)"
+                @click="del(i)" />
+            </a-space>
           </div>
         </div>
       </a-form-item>
@@ -50,15 +77,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, computed } from 'vue'
+import { h, ref, reactive, watch, computed, toRaw } from 'vue'
 import { Form } from 'ant-design-vue'
-import { MinusCircleOutlined } from '@ant-design/icons-vue'
-import { dateGroupTypeMap } from './config'
+import { MinusOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import {
   ratioOptions,
-  DEFAULT_DATEGROUP,
-  DEAULT_RATIO_TYPE,
+  dateGroupTypeMap,
+  DEFAULT_DATE_GROUP,
+  DEFAULT_RATIO_TYPE,
+  COMPARE_RATIO_PERIOD,
 } from '@/views/analysis/config'
+import { getRandomKey, deepClone, getByInlcudesKeys } from 'common/utils/help'
 
 const useForm = Form.useForm
 const emits = defineEmits(['update:open', 'update:value', 'ok', 'close'])
@@ -80,9 +109,14 @@ const props = defineProps({
   // 同环比类型
   type: {
     type: String,
-    default: DEAULT_RATIO_TYPE,
+    default: DEFAULT_RATIO_TYPE,
     validator: s =>
-      [DEAULT_RATIO_TYPE, 'WEEK_ON_WEEK', 'MONTH_ON_MONTH', 'YEAR_ON_YEAR'].includes(s),
+      [
+        DEFAULT_RATIO_TYPE,
+        'WEEK_ON_WEEK',
+        'MONTH_ON_MONTH',
+        'YEAR_ON_YEAR',
+      ].includes(s),
   },
   value: {
     type: Array,
@@ -91,7 +125,7 @@ const props = defineProps({
 })
 
 // 可对比的字段
-const fieldList = computed(() =>
+const fields = computed(() =>
   props.dataSource.filter(item => {
     if (
       (item.dataType === 'TEXT' || item.type === 'TIME') &&
@@ -107,24 +141,36 @@ const fieldList = computed(() =>
 const compareType = ref('')
 
 // 选中的列表
-const choiceList = ref([])
+const list = ref([])
 
 // 根据对比日期的聚合方式筛选对比类型
 const options = computed(() => {
-  const optionKeys = dateGroupTypeMap[props.target.dateTrunc || DEFAULT_DATEGROUP]
+  const optionKeys = Object.keys(
+    dateGroupTypeMap[props.target.dateTrunc || DEFAULT_DATE_GROUP]
+  )
 
   return ratioOptions.filter(o => optionKeys.includes(o.value))
 })
 
+const getOptions2 = field => {
+  const { ratioType = DEFAULT_RATIO_TYPE } = field
+  const dateTrunc = props.target.dateTrunc || DEFAULT_DATE_GROUP
+
+  return dateGroupTypeMap[dateTrunc][ratioType]
+}
+
 const init = () => {
-  compareType.value = props.type
+  const oldCompareType = props.type || DEFAULT_RATIO_TYPE
 
-  const fileds = fieldList.value
-    .filter(t => props.value.some(v => v.name === t.name))
-    .map(t => t.name)
-
-  formState.fields = fileds
-  onFieldsChange(fileds)
+  formState.type = oldCompareType
+  formState.target = props.target
+  formState.fields = props.value.map(t => {
+    return {
+      ...t,
+      ratioType: t.ratioType || oldCompareType,
+      period: t.period || COMPARE_RATIO_PERIOD.DEFAULT,
+    }
+  })
 }
 
 watch(
@@ -134,35 +180,96 @@ watch(
   }
 )
 
+const onFieldNameChange = (name, field) => {
+  const item = fields.value.find(t => t.name === name)
+
+  field.aggregator = item.aggregator
+}
+
 const formState = reactive({
+  type: props.type,
+  target: props.target,
   fields: [],
 })
+
+const getUniqueByKey = (list = [], key) => {
+  return [...new Set(list.map(t => t[key]))]
+}
+
 const formRules = reactive({
-  fields: [{ required: true, message: '对比字段不能为空' }],
+  fields: [
+    {
+      required: true,
+      message: '对比字段不能为空',
+      validator: (rule, value) => {
+        if (!value?.length) {
+          return Promise.reject(rule.message)
+        } else {
+          if (value.every(t => !t.name)) {
+            return Promise.reject(rule.message)
+          } else {
+            return Promise.resolve()
+          }
+        }
+      },
+    },
+    {
+      message: '对比配置重复',
+      validator: (rule, value) => {
+        console.log('0', 0)
+        if (!value.length) return Promise.resolve()
+
+        const strArr = value
+          .filter(v => !!v.name)
+          .map(val => {
+            const { name, ratioType, period } = val
+
+            return name + '.' + ratioType + '.' + period
+          })
+        const uniqueArr = [...new Set(strArr)]
+
+        if (strArr.length !== uniqueArr.length) {
+          return Promise.reject(rule.message)
+        } else {
+          return Promise.resolve()
+        }
+      },
+    },
+  ],
 })
 const { resetFields, validate, validateInfos } = useForm(formState, formRules)
 
-const onFieldsChange = (values = []) => {
-  choiceList.value = values
-    .map(v => fieldList.value.find(f => f.name === v))
-    .filter(Boolean)
+const insert = i => {
+  if (typeof i === 'undefined') {
+    formState.fields.push({
+      ...fields.value[0],
+      name: undefined,
+      ratioType: DEFAULT_RATIO_TYPE,
+      period: COMPARE_RATIO_PERIOD.DEFAULT,
+      _id: getRandomKey(6),
+    })
+  } else {
+    const item = formState.fields[i]
+
+    formState.fields.splice(i + 1, 0, { ...item, _id: getRandomKey(6) })
+  }
 }
 
-const handleDel = i => {
+const del = i => {
   formState.fields.splice(i, 1)
-  choiceList.value.splice(i, 1)
 }
 
 const ok = () => {
   validate()
     .then(() => {
-      const payload = {
-        target: props.target,
-        fields: choiceList.value,
-        type: compareType.value,
-      }
+      const fields = formState.fields
+        .filter(t => !!t.name)
+        .map(t =>
+          getByInlcudesKeys(t, ['name', 'aggregator', 'ratioType', 'period'])
+        )
+      console.log('fields', fields)
 
-      emits('ok', { ...payload })
+      emits('ok', { ...toRaw(formState), fields })
       cancel()
     })
     .catch(error => {
@@ -188,28 +295,32 @@ $table-color: #e8e8e8;
   border-radius: 2px;
 }
 .field-item {
-  display: table;
+  position: relative;
+  display: flex;
   width: 100%;
 
-  .name,
-  .val,
-  .action {
-    display: table-cell;
-    padding: 4px 6px;
+  .cell {
+    flex: 1;
+    padding: 6px 12px;
   }
 
   .name {
-    width: 180px;
-    max-width: 180px;
-    border-right: 1px solid $table-color;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
   }
 
   .val {
-    width: 120px;
+    border-left: 1px solid $table-color;
   }
+
+  .action {
+    position: absolute;
+    top: 50%;
+    left: 100%;
+    transform: translateY(-50%);
+  }
+
   &:not(:last-child) {
     border-bottom: 1px solid $table-color;
   }

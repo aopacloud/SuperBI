@@ -302,7 +302,9 @@ const validateField = async () => {
       .map(t => {
         return {
           ...t,
-          dataType: Array.isArray(t.dataType) ? t.dataType.join('_') : t.dataType,
+          dataType: Array.isArray(t.dataType)
+            ? t.dataType.filter(Boolean).join('_')
+            : t.dataType,
         }
       })
 

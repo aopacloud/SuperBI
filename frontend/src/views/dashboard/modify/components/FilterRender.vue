@@ -14,7 +14,7 @@
 
     <DatePicker
       v-if="type === 'TIME'"
-      :modeOnly="1"
+      :modeOnly="from === 'setting' ? undefined : 1"
       :utcOffset="timeOffset"
       :options="{ dt: false }"
       v-model:moda="modelValue.mode"

@@ -121,6 +121,20 @@ const hasDatasetAnalysisPermission = computed(() => {
   }
 })
 
+// 数据集管理权限
+const hasDatasetManagePermission = computed(() => {
+  if (userStore.hasPermission('DATASET:MANAGE:ALL:WORKSPACE')) {
+    return true
+  } else if (userStore.hasPermission('DATASET:MANAGE:HAS:PRIVILEGE')) {
+    return (
+      datasetDetail.value.permission === 'READ' ||
+      datasetDetail.value.permission === 'WRITE'
+    )
+  } else {
+    return false
+  }
+})
+
 // 图表查看权限
 const hasReadPermission = computed(() => {
   if (userStore.hasPermission('REPORT:READ:ALL:WORKSPACE')) {
@@ -639,6 +653,7 @@ provide('index', {
   permissions: {
     dataset: {
       hasAnalysis: () => hasDatasetAnalysisPermission.value,
+      hasManage: () => hasDatasetManagePermission.value,
     },
     chart: {
       hasRead: () => hasReadPermission.value,

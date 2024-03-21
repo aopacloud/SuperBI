@@ -13,6 +13,8 @@ import net.aopacloud.superbi.model.dto.DatasetDTO;
 import net.aopacloud.superbi.model.dto.DatasetFieldDTO;
 import net.aopacloud.superbi.model.dto.TablePartition;
 import net.aopacloud.superbi.queryEngine.enums.DateTruncEnum;
+import net.aopacloud.superbi.queryEngine.enums.RatioPeriodEnum;
+import net.aopacloud.superbi.queryEngine.enums.RatioTypeEnum;
 import net.aopacloud.superbi.queryEngine.enums.TimeTypeEnum;
 import net.aopacloud.superbi.queryEngine.model.*;
 import net.aopacloud.superbi.queryEngine.sql.analytic.*;
@@ -101,8 +103,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
 
             case RATIO:
                 Compare compare = queryParam.getCompare();
-                Segment joinOnField = parseJoinOnField(compare, dimensions);
-                Segment ratioTimeRange = parseRatioTimeRange(compare, queryParam);
+                List<RatioPart> ratioParts = parseRatioPart(compare, queryParam, dimensions);
 
                 return new RatioQueryAnalysisModel().setDimension(dimensions)
                         .setMeasures(measures)
@@ -112,9 +113,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
                         .setTable(queryContext.getTable())
                         .setOrderBy(orderBy)
                         .setPaging(paging)
-                        .setJoinOnField(joinOnField)
-                        .setRatioTimeRange(ratioTimeRange)
-                        .setRatioMeasures(compare.getMeasures());
+                        .setRatioParts(ratioParts);
 
             case PREVIEW:
                 List<Segment> dimSegments = queryParam.getDataset().getFields().stream()
@@ -151,6 +150,8 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
                 throw new IllegalArgumentException("not support query type");
         }
     }
+
+
 
     private List<Segment> parseRowPrivilege(Set<String> rowPrivileges) {
 
@@ -330,8 +331,46 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
         }
         return new Segment(limit.toString());
     }
+    private List<RatioPart> parseRatioPart(Compare compare, QueryParam queryParam, List<Segment> dimensionSegments) {
 
-    public Segment parseRatioTimeRange(Compare compare, QueryParam queryParam) {
+        String timeField = compare.getTimeField();
+
+        Optional<Dimension> timeDimension = queryParam.getDimensions().stream().filter(dim -> dim.getName().equals(timeField)).findFirst();
+        DateTruncEnum dateTrunc = Strings.isNullOrEmpty(timeDimension.get().getDateTrunc()) ? DateTruncEnum.ORIGIN : DateTruncEnum.valueOf(timeDimension.get().getDateTrunc());
+
+        Segment timeDimSegment = dimensionSegments.stream().filter(dim -> dim.getName().equals(timeField)).findFirst().get();
+
+        List<RatioMeasure> measures = compare.getMeasures();
+        // compatible old version
+        for(RatioMeasure ratioMeasure : measures) {
+            if(Objects.isNull(ratioMeasure.getRatioType())) {
+                ratioMeasure.setRatioType(compare.getType());
+            }
+            if(Objects.isNull(ratioMeasure.getPeriod())) {
+                ratioMeasure.setPeriod(RatioPeriodEnum.SAME);
+            }
+        }
+
+        Map<RatioMeasure.RatioPair, List<RatioMeasure>> groupingMeasures = measures.stream().collect(Collectors.groupingBy(RatioMeasure::getRatioPari));
+
+        return groupingMeasures.entrySet().stream().map( entry -> {
+            RatioMeasure.RatioPair ratioPair = entry.getKey();
+            Segment joinOnField = parseJoinOnField(ratioPair.getType(), dateTrunc, timeDimSegment);
+
+            Segment ratioTimeRange = parseRatioTimeRange(compare, queryParam, ratioPair.getType(), ratioPair.getPeriod());
+
+            return  RatioPart.builder()
+                    .type(ratioPair.getType())
+                    .period(ratioPair.getPeriod())
+                    .ratioMeasures(entry.getValue())
+                    .joinOnSegment(joinOnField)
+                    .timeRange(ratioTimeRange)
+                    .build();
+            }
+        ).collect(Collectors.toList());
+    }
+
+    public Segment parseRatioTimeRange(Compare compare, QueryParam queryParam, RatioTypeEnum ratioType, RatioPeriodEnum ratioPeriod) {
 
         String timeField = compare.getTimeField();
         Optional<Filter> filterOptional = queryParam.getFilters().stream().filter(filter -> filter.getName().equals(timeField)).findFirst();
@@ -350,9 +389,9 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
                 }
             }
             DatasetFieldDTO field = queryContext.getFieldMap().get(timeField);
-            List<String> rationTimeRange = compare.getType().transformTime(timeRange, dataTrunc)
+            List<String> rationTimeRange = ratioType.transformTime(timeRange, dataTrunc, ratioPeriod)
                     .stream()
-                    .map(time -> field.getDataType() == DataTypeEnum.TIME_YYYYMMDD_HHMMSS ? time.format(BiConsist.YYYY_MM_DD_HH_MM_SS_FORMATTER) : time.format(BiConsist.YYYY_MM_DD_FORMATTER))
+                    .map(time -> field.getDataType() == DataTypeEnum.TIME_YYYYMMDD_HHMMSS ?  time.format(BiConsist.YYYY_MM_DD_HH_MM_SS_FORMATTER) : time.format(BiConsist.YYYY_MM_DD_FORMATTER))
                     .collect(Collectors.toList());
             String expression = getFieldExpression(queryContext.getFieldMap().get(timeField));
             OperatorParam param = new OperatorParam(rationTimeRange, expression, field);
@@ -366,20 +405,13 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
         return null;
     }
 
-    public Segment parseJoinOnField(Compare compare, List<Segment> dimensions) {
-        String name = compare.getTimeField();
-        Optional<Segment> dimSegment = dimensions.stream().filter(dim -> dim.getName().equals(name)).findFirst();
-        if (!dimSegment.isPresent()) {
-            return null;
-        }
-        Optional<Dimension> dimParam = queryContext.getQueryParam().getDimensions().stream().filter(dim -> dim.getName().equals(name)).findFirst();
-        if (!dimParam.isPresent()) {
-            return null;
-        }
-        DateTruncEnum dateTrunc = org.assertj.core.util.Strings.isNullOrEmpty(dimParam.get().getDateTrunc()) ? DateTruncEnum.ORIGIN : DateTruncEnum.valueOf(dimParam.get().getDateTrunc());
+    public Segment parseJoinOnField(RatioTypeEnum ratioType, DateTruncEnum dateTrunc, Segment timeSegment) {
 
-        String expression = compare.getType().transformDimension(dimSegment.get().getExpression(), dateTrunc, typeConverter);
-        return new Segment(name, expression);
+        if(Objects.isNull(timeSegment)) {
+            return null;
+        }
+        String expression = ratioType.transformDimension(timeSegment.getExpression(), dateTrunc, typeConverter);
+        return new Segment(timeSegment.getName(), expression);
     }
 
     private boolean isHavingFilter(Filter filter) {

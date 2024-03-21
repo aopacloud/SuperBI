@@ -3,10 +3,10 @@
     "target": "ES6",
     "baseUrl": "./",
     "paths": {
-      "components/*": ["src/components/*"],
       "~/*": ["./"],
       "@/*": ["./src/*"],
-      "common": ["./src/common"]
+      "common/*": ["./src/common/*"],
+      "components/*": ["src/components/*"]
     }
   },
   "exclude": ["node_modules", "dist"],

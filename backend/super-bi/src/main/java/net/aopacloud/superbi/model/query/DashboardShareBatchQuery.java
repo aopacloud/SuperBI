@@ -8,19 +8,15 @@ import java.util.List;
 @Data
 public class DashboardShareBatchQuery extends BaseQuery{
 
-    private String creatorKeyword;
-
     private String[] creators;
 
     private AuthorizeScopeEnum[] types;
 
-    private String userAndRoleKeyword;
-
     private String userAndRoles[];
 
-    private String[] usernames;
+    private List<String> usernames;
 
-    private Long[] roleIds;
+    private List<Long> roleIds;
 
     private Long[] workspaceIds;
 

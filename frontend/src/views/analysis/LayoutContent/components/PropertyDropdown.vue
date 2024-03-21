@@ -75,14 +75,14 @@ import { CheckOutlined, DownOutlined, RightOutlined } from '@ant-design/icons-vu
 import {
   dateGroupOptions,
   dateDisplayOptions,
+  dateGroupTypeMap,
   WEEK,
   DEFAULT_WEEK_DISPLAY,
   DAY,
   DEFAULT_DAY_DISPLAY,
   toContrastFiled,
-  DEAULT_RATIO_TYPE,
+  DEFAULT_RATIO_TYPE,
 } from '@/views/analysis/config'
-import { dateGroupTypeMap } from '@/views/analysis/components/config'
 import { CATEGORY } from '@/CONST.dict.js'
 
 const weekIndex = dateGroupOptions.findIndex(item => item.value === WEEK)
@@ -127,12 +127,12 @@ const dateDisplayValues = computed(() => curDateDisplayOptions.value.map(t => t.
 // 更新同环比
 const updateCompare = e => {
   const compare = indexCompare.get()
-  const valuesList = dateGroupTypeMap[e]
+  const valuesList = Object.keys(dateGroupTypeMap[e])
 
   if (!compare) return
 
   if (!valuesList.includes(compare.type)) {
-    compare.type = DEAULT_RATIO_TYPE
+    compare.type = DEFAULT_RATIO_TYPE
   }
 
   indexCompare.set(compare)

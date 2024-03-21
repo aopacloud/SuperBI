@@ -1,5 +1,6 @@
 package net.aopacloud.superbi.service.impl;
 
+import com.google.common.collect.Lists;
 import net.aopacloud.superbi.common.core.context.LoginContextHolder;
 import net.aopacloud.superbi.common.core.exception.ServiceException;
 import net.aopacloud.superbi.i18n.LocaleMessages;
@@ -15,6 +16,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @Author shinnie
@@ -93,6 +95,14 @@ public class AuthRoleServiceImpl implements AuthRoleService {
     @Override
     public List<AuthRoleDTO> search(String keyword) {
         return authRoleMapper.search(keyword);
+    }
+
+    @Override
+    public List<AuthRoleDTO> searchByUsernames(List<String> usernames) {
+        if(Objects.isNull(usernames) || usernames.isEmpty()) {
+            return Lists.newArrayList();
+        }
+        return authRoleMapper.searchByUsername(usernames);
     }
 
     @Override

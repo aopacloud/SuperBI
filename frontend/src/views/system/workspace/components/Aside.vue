@@ -49,6 +49,10 @@ import { h, onMounted, ref, shallowRef } from 'vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import draggable from 'vuedraggable'
 import { getManagableWorkspaceList, updateWorkspaceList } from '@/apis/workspace'
+import { useRoute } from 'vue-router'
+import { clearQuerys } from '@/common/utils/window'
+
+const route = useRoute()
 
 const emits = defineEmits(['updateAll', 'create', 'select'])
 
@@ -63,7 +67,8 @@ const oKeywordnSearch = e => {
   }
 }
 
-const activeId = ref(-1)
+const activeId = ref(+route.query.id)
+clearQuerys('id')
 
 const itemClick = row => {
   emits('select', { ...row })
@@ -90,9 +95,12 @@ const fetchData = async () => {
       emits('select', {})
     } else {
       const activeIndex = res.findIndex(o => o.id === activeId.value)
+
       if (activeIndex < 0) {
         activeId.value = res[0].id
         emits('select', res[0])
+      } else {
+        emits('select', res[activeIndex])
       }
     }
   } catch (error) {

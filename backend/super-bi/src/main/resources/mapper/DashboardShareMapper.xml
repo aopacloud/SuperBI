@@ -147,18 +147,6 @@
                     #{workspaceId}
                 </foreach>
             </if>
-            <if test="usernames != null and usernames.length > 0 ">
-                and s.username in
-                <foreach collection="usernames" item="username" open="(" close=")" separator=",">
-                    #{username}
-                </foreach>
-            </if>
-            <if test="roleIds != null and roleIds.length > 0">
-                and s.role_id in
-                <foreach collection="roleIds" item="roleId" open="(" close=")" separator=",">
-                    #{roleId}
-                </foreach>
-            </if>
 
             <if test="dashboardIds != null">
                 and s.dashboard_id in
@@ -181,7 +169,20 @@
             </if>
 
             <if test="keyword != null and keyword != ''" >
-                and d.name like concat('%', #{keyword}, '%')
+                and (d.name like concat('%', #{keyword}, '%')
+                <if test="usernames != null and usernames.size() > 0" >
+                    or s.username in
+                    <foreach collection="usernames" item="usr" separator="," open="(" close=")">
+                        #{usr}
+                    </foreach>
+                </if>
+                <if test="roleIds != null and roleIds.size() > 0" >
+                    or s.role_id in
+                    <foreach collection="roleIds" item="rid" separator="," open="(" close=")">
+                        #{rid}
+                    </foreach>
+                </if>
+                )
             </if>
         </where>
         <choose>

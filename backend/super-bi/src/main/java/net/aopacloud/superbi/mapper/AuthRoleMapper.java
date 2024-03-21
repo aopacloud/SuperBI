@@ -23,4 +23,6 @@ public interface AuthRoleMapper {
     Integer countByWorkspace(Long workspaceId);
 
     List<AuthRoleDTO> search(@Param("keyword") String keyword);
+
+    List<AuthRoleDTO> searchByUsername(@Param("usernames") List<String> usernames);
 }

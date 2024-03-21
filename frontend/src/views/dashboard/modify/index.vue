@@ -106,7 +106,8 @@
                 @loaded="onChartTaskSuccess"
                 @sql="e => onSqlPreview(e, item)"
                 @download="e => onDownload(e, item)"
-                @dataset-apply="e => onDatasetApply(e, item)" />
+                @dataset-apply="e => onDatasetApply(e, item)"
+                @reload="e => onBoxReload(e, item)" />
             </grid-item>
           </grid-layout>
         </a-spin>
@@ -121,7 +122,10 @@
     @ok="onRemarkOk" />
 
   <!-- 看板管理 -->
-  <ManageDrawer v-model:open="manageDrawerOpen" :data-source="layout" @ok="onManageOk" />
+  <ManageDrawer
+    v-model:open="manageDrawerOpen"
+    :data-source="layout"
+    @ok="onManageOk" />
 
   <!-- 过滤器管理 -->
   <FilterManageDrawer
@@ -557,7 +561,10 @@ const onSqlPreview = (response, item) => {
 // 下载
 const downloadOpen = ref(false)
 const onDownload = (request, item) => {
-  currentLayoutItem.value = { ...item, request: { ...request, fromSource: 'dashboard' } }
+  currentLayoutItem.value = {
+    ...item,
+    request: { ...request, fromSource: 'dashboard' },
+  }
   downloadOpen.value = true
 }
 
@@ -570,6 +577,12 @@ const onDatasetApply = e => {
 }
 const onApplyOk = e => {
   emittor.emit('dataset-applying', e)
+}
+
+// 看板项刷新
+const onBoxReload = (e, item) => {
+  // 更新看板项名称的显示
+  item.content.name = e.name
 }
 
 watch(

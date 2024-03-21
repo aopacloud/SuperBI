@@ -53,7 +53,8 @@
     </update>
 
     <select id="searchUserAuthorize" resultType="net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO" parameterType="net.aopacloud.superbi.model.query.DatasetAuthorizeQuery">
-        select <include refid="baseFields"/>
+        select <include refid="baseFields"/>,
+            if(expire_duration =0, '2099-12-30 00:00:00' , from_unixtime(UNIX_TIMESTAMP(start_time) + expire_duration) ) expire_time
         from bi_dataset_authorize
         <where>
             deleted = 0 and `scope` = 'USER'
@@ -87,7 +88,8 @@
                auth.deleted,
                auth.create_time,
                auth.update_time,
-            r.name as role_name
+               if(auth.expire_duration =0, '2099-12-30 00:00:00' , from_unixtime(UNIX_TIMESTAMP(auth.start_time) + auth.expire_duration) ) expire_time,
+               r.name as role_name
         from bi_dataset_authorize auth
         left join bi_auth_role r
         on auth.role_id = r.id
@@ -223,7 +225,21 @@
             </if>
 
             <if test="keyword != null and keyword != ''" >
-                and d.name like concat('%', #{keyword}, '%')
+                and (d.name like concat('%', #{keyword}, '%')
+                    <if test="usernames != null and usernames.size() > 0" >
+                        or auth.username in
+                        <foreach collection="usernames" item="usr" separator="," open="(" close=")">
+                            #{usr}
+                        </foreach>
+                    </if>
+                    <if test="roleIds != null and roleIds.size() > 0" >
+                        or auth.role_id in
+                        <foreach collection="roleIds" item="rid" separator="," open="(" close=")">
+                            #{rid}
+                        </foreach>
+                    </if>
+
+                )
             </if>
         </where>
         <choose>

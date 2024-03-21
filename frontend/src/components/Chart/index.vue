@@ -2,7 +2,9 @@
   <div class="chart-view" style="flex: 1; overflow: auto">
     <keep-alive>
       <RTable
-        v-if="options.renderType === 'table'"
+        v-if="
+          ['table', 'groupTable', 'intersectionTable'].includes(options.renderType)
+        "
         ref="tableRef"
         :columns="renderColumns"
         :data-source="list"
@@ -23,10 +25,12 @@ import { ref, reactive, computed, nextTick, watch, onBeforeUnmount } from 'vue'
 import RTable from './Table/index.vue'
 import RChart from 'common/components/Charts/index.vue'
 import Statistic from 'common/components/Charts/Statistic.vue'
-import createTableData from './utils/createTableData'
+import createTable from './utils/createTable'
 import createChart from './utils/createChart'
 import createPieChart from './utils/createPieChart'
 import createStatistic from './utils/createStatistic'
+import createGroupTable from './utils/createGroupTable'
+import { CATEGORY } from '@/CONST.dict'
 
 const props = defineProps({
   loading: {
@@ -77,26 +81,32 @@ const chartRef = ref(null)
 const renderType = computed(() => props.options.renderType)
 // 表格配置
 const tableConfig = computed(() => {
-  const { table, compare } = props.options
+  const { renderType, table, compare } = props.options
 
-  return { ...table, dataset: props.dataset, compare }
+  return {
+    ...table,
+    dataset: props.dataset,
+    compare,
+    isGroupTable:
+      renderType === 'groupTable' &&
+      props.columns.filter(t => t.category === CATEGORY.PROPERTY).length > 1,
+  }
 })
 // 图表配置
 const chartConfig = computed(() => {
-  const { chart = {}, compare } = props.options
-
-  return { ...chart, dataset: props.dataset, compare: { ...compare, merge: false } }
+  return {
+    ...props.options.chart,
+    dataset: props.dataset,
+    compare: { ...props.options.compare, merge: false },
+  }
 })
 
 // 渲染
 const render = () => {
   console.log('--------  Components/Chart init  --------')
+  const t = renderType.value
 
-  if (renderType.value === 'table') {
-    initTable()
-  } else if (renderType.value === 'statistic') {
-    initStatistic()
-  } else {
+  if (['bar', 'line', 'pie'].includes(t)) {
     if (!ChartInstance.value) {
       ChartInstance.value = chartRef.value?.getInstance()
     }
@@ -104,6 +114,10 @@ const render = () => {
     setTimeout(() => {
       initChart()
     })
+  } else if (t === 'statistic') {
+    initStatistic()
+  } else {
+    initTable()
   }
 }
 
@@ -134,8 +148,10 @@ watch(renderType, (type, oldType) => {
 
 // 图表配置改变
 watch(
-  chartConfig,
+  () => props.options.chart,
   () => {
+    if (!['bar', 'line', 'pie'].includes(props.options.renderType)) return
+
     if (!ChartInstance.value) return
 
     initChart()
@@ -145,9 +161,9 @@ watch(
 
 // 同环比配置变化需要更新列, 重新渲染表格
 watch(
-  () => props.options.compare,
-  () => {
-    if (!tableRef.value) return
+  () => props.options.compare.merge,
+  (n, o) => {
+    if (!tableRef.value || n === o) return
 
     initTable()
   },
@@ -167,7 +183,11 @@ const statisticOption = reactive({})
 // 生成表格
 const initTable = () => {
   const { dataSource, columns: originColumns } = props
-  const { columns, list: tList } = createTableData({
+
+  // 分组表格且分组字段列长度为1时，渲染为普通表格
+  const createFn = tableConfig.value.isGroupTable ? createGroupTable : createTable
+
+  const { columns, list: tList } = createFn({
     originData: dataSource,
     originFields: originColumns,
     compare: props.compare,
@@ -179,6 +199,7 @@ const initTable = () => {
   renderColumns.value = columns
   list.value = tList
 }
+
 // 生成指标卡
 const initStatistic = () => {
   const { field, value } = createStatistic({

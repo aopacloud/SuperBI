@@ -36,6 +36,8 @@ public class BiConsist {
 
     public static final String RATIO_FIELD_SUFFIX = "_VS";
 
+    public static final String RATIO_FIELD_SEPARATOR = "#";
+
     public static final String SYSTEM_USER = "system";
 
     public static final String WORKSPACE_ID_PARAM = "workspaceId";
@@ -60,5 +62,9 @@ public class BiConsist {
     public final static String FIELD_AGGREGATOR_SEPARATOR = "@";
 
     public final static String DEFAULT_PARTITION_NAME = "dt";
+
+    public final static Integer DEFAULT_PAGE_NUM = 1;
+
+    public final static Integer DEFAULT_PAGE_SIZE = 10;
 
 }

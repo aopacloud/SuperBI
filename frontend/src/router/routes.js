@@ -73,9 +73,10 @@ export default [
     meta: { title: '我的申请' },
   },
   {
-    path: '/authority/manage',
-    name: 'AuthorityManage',
-    component: () => import('@/views/authority/manage/index.vue'),
+    path: '/authority/applyManage',
+    alias: '/authority/manage',
+    name: 'AuthorityApplyManage',
+    component: () => import('@/views/authority/applyManage/index.vue'),
     meta: { title: '申请管理' },
   },
   {

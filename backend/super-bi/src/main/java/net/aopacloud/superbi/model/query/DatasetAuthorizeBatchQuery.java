@@ -10,19 +10,15 @@ import java.util.List;
 @Data
 public class DatasetAuthorizeBatchQuery extends BaseQuery {
 
-    private String creatorKeyword;
-
     private String[] creators;
 
     private AuthorizeScopeEnum[] scopes;
 
-    private String userAndRoleKeyword;
-
     private String userAndRoles[];
 
-    private String[] usernames;
+    private List<String> usernames;
 
-    private Long[] roleIds;
+    private List<Long> roleIds;
 
     private PermissionEnum[] permissions;
 

@@ -21,7 +21,7 @@ import {
   generateYAxis,
   generateSeries,
 } from './utils'
-import { VS_FIELD_SUFFIX, transformFieldsByVs, formatDtWithOption } from './index.js'
+import { transformFieldsByVs, formatDtWithOption } from './index.js'
 import { versionJs } from '@/versions'
 
 /**
@@ -40,7 +40,6 @@ export default function createChart({
   originFields = [],
   originData = [],
   datasetFields = [],
-  choosed = {},
   compare,
   config = {},
   extraChartOptions = {},
@@ -54,14 +53,8 @@ export default function createChart({
   })
 
   // 处理对比字段
-  const fields = transformFieldsByVs({
-    fields: fieldsSorted,
-    compare,
-    compareOption,
-  }).map((t, i) => {
-    const { name, _isVs } = t
-
-    return { ...t, name: _isVs ? name + VS_FIELD_SUFFIX : name, yAxisIndex: i }
+  const fields = transformFieldsByVs({ fields: fieldsSorted, compare }).map((t, i) => {
+    return { ...t, yAxisIndex: i }
   })
 
   // 维度字段
@@ -76,7 +69,7 @@ export default function createChart({
   if (!x) return
 
   // x轴字段的索引
-  const xIndex = fields.findIndex(t => t.name === x.name)
+  const xIndex = fields.findIndex(t => t.renderName === x.renderName)
   // xFields转Y轴的索引
   const groupFields = xFields.filter((t, i) => i !== xIndex)
 
