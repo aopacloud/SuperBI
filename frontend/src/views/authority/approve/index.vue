@@ -120,7 +120,6 @@
   <!-- 授权 -->
   <AuthorDrawer
     v-model:open="authorDrawerOpen"
-    :workspaceId="rowInfo.workspaceId"
     :selectable="false"
     :initData="rowInfo"
     :beforeSubmit="pass"
@@ -139,7 +138,7 @@ import {
 } from '../config'
 import { myApproveList, pass as postPass } from '@/apis/apply'
 import DetailDrawer from '../components/DetailDrawer.vue'
-import AuthorDrawer from '@/components/Authorize/AuthorDrawer/index.vue'
+import AuthorDrawer from '@/components/Authorize/AuthorDrawer.vue'
 import RejectModal from '@/components/RejectModal/index.vue'
 
 const tabActiveKey = ref('underway')
