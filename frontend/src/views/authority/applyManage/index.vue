@@ -103,9 +103,8 @@
   <!-- 授权 -->
   <AuthorDrawer
     v-model:open="authorDrawerOpen"
-    :workspaceId="rowInfo.workspaceId"
     :selectable="false"
-    :datasetIds="[rowInfo.datasetId]"
+    :datasetId="rowInfo.datasetId"
     :initData="rowInfo"
     @success="applyList" />
 
@@ -127,7 +126,7 @@ import {
 } from '../config'
 import { applyManageList } from '@/apis/apply'
 import DetailDrawer from '../components/DetailDrawer.vue'
-import AuthorDrawer from '@/components/Authorize/AuthorDrawer/index.vue'
+import AuthorDrawer from '@/components/Authorize/AuthorDrawer.vue'
 import RejectModal from '@/components/RejectModal/index.vue'
 
 const tabActiveKey = ref('finished')
@@ -239,9 +238,9 @@ const reject = row => {
 // 授权
 const authorDrawerOpen = ref(false)
 const authorize = row => {
-  const { authorized, datasetId, username, datasetName } = row
+  const { authorized, datasetId, username } = row
 
-  rowInfo.value = { authorized, datasetId, username, name: datasetName }
+  rowInfo.value = { authorized, datasetId, username }
   authorDrawerOpen.value = true
 }
 
