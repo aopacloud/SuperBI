@@ -1,7 +1,13 @@
-﻿import { findBy } from 'common/utils/help'
+import { findBy } from 'common/utils/help'
 import * as numberUtils from 'common/utils/number'
 import { formatterOptions } from '@/views/dataset/config.field'
-import { ratioOptions } from '@/views/analysis/config'
+import {
+  ratioOptions,
+  dateGroupTypeMap,
+  DEFAULT_DATE_GROUP,
+  DEFAULT_RATIO_TYPE,
+  COMPARE_RATIO_PERIOD,
+} from '@/views/analysis/config'
 import dayjs from 'dayjs'
 import quarterOfYear from 'dayjs/plugin/quarterOfYear'
 import weekday from 'dayjs/plugin/weekday'
@@ -9,11 +15,10 @@ dayjs.extend(quarterOfYear)
 dayjs.extend(weekday)
 
 // 对比字段
-export const VS_FIELD_SUFFIX = '_VS'
-// 对比字段正则
-export const VS_FIELD_PATTERN = new RegExp(VS_FIELD_SUFFIX + '$')
+export const VS_FIELD_SUFFIX = ':VS:'
+
 // 是否为对比字段
-export const is_vs = (key = '') => VS_FIELD_PATTERN.test(key)
+export const is_vs = (key = '') => key.includes(VS_FIELD_SUFFIX)
 
 /**
  * 获取对比值
@@ -53,10 +58,7 @@ export function formatFieldDisplay(value = 0, field, datasetFields) {
   }
 
   // 获取原始字段
-  const originField = findBy(
-    datasetFields,
-    t => t.name === field.name.replace(VS_FIELD_SUFFIX, '')
-  )
+  const originField = datasetFields.find(t => t.name === field.name)
 
   if (!originField) {
     console.warn(`找不到${field}的原始字段`)
@@ -86,9 +88,7 @@ export function createSortByOrder(isUp = false, prop) {
 
     if (typeof aV === 'string') {
       if (isDate(aV)) {
-        return isUp
-          ? new Date(aV).getTime() - new Date(bV).getTime()
-          : new Date(bV).getTime() - new Date(aV).getTime()
+        return isUp ? new Date(aV).getTime() - new Date(bV).getTime() : new Date(bV).getTime() - new Date(aV).getTime()
       } else {
         let aa = aV || '',
           bb = bV || ''
@@ -107,32 +107,46 @@ export function createSortByOrder(isUp = false, prop) {
  * @returns
  */
 export const transformFieldsByVs = ({ fields = [], compare = {} }) => {
-  const { type, measures = [] } = compare
+  const { type, timeField, measures = [] } = compare
+  const tField = fields.find(f => f.name === timeField)
 
+  // 将同环比配置字段进行处理
   const measuresFields = measures.map(t => {
+    const {
+      aggregator,
+      ratioType = type || DEFAULT_RATIO_TYPE, // 兼容历史及兜底
+      period = COMPARE_RATIO_PERIOD.DEFAULT,
+    } = t
+
     return {
       ...t,
-      value: t.name + '.' + t.aggregator + VS_FIELD_SUFFIX,
+      ratioType,
+      period,
+      renderValue: t.name + '.' + aggregator + VS_FIELD_SUFFIX + ratioType + '.' + period,
     }
   })
 
   return fields.map(item => {
     const { displayName, renderName } = item
-    const measureIndex = measuresFields.findIndex(t => t.value === renderName)
-    const measure = measuresFields[measureIndex]
-
     let newDisplayName = displayName
 
-    if (measure) {
-      const opt = ratioOptions.find(o => o.value === type) // 获取对比类型
+    // 配置了同环比的字段
+    const mField = measuresFields.find(t => t.renderValue === renderName)
+    if (mField) {
+      // 同环比配置项
+      const optItem = ratioOptions.find(o => o.value === mField.ratioType)
+      // 对比周期配置
+      const periodOption = dateGroupTypeMap[tField.dateTrunc || DEFAULT_DATE_GROUP][mField.ratioType]
+      // 对比周期
+      const periodItem = periodOption?.find(p => p.value === mField.period)
 
-      newDisplayName += '-' + opt.label
+      newDisplayName = newDisplayName + '-' + optItem.label + (periodItem ? '(' + periodItem.label + ')' : '')
     }
 
     return {
       ...item,
       displayName: newDisplayName,
-      _isVs: !!measure,
+      _isVs: !!mField,
     }
   })
 }

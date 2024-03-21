@@ -1,4 +1,5 @@
-﻿import {
+﻿import { h } from 'vue'
+import Icon, {
   TableOutlined,
   BarChartOutlined,
   LineChartOutlined,
@@ -7,6 +8,7 @@
   TrademarkCircleOutlined,
   RadarChartOutlined,
 } from '@ant-design/icons-vue'
+import GroupTableIcon from './icon/GroupTableIcon.vue'
 
 // 字段类型
 export const fieldTypeMap = {
@@ -55,6 +57,22 @@ export const chartTypeMap = {
     color: '#666666',
     icon: TableOutlined,
   },
+  groupTable: {
+    label: '分组表格',
+    color: '#666666',
+    icon: () => h(GroupTableIcon),
+  },
+  // intersectionTable: {
+  //   label: '交叉表格',
+  //   color: '#666666',
+  //   icon: () =>
+  //     h(
+  //       <img
+  //         style='width: 22px; height: 22px;vertical-align: -5px;'
+  //         src={intersectionTableImg}
+  //       />
+  //     ),
+  // },
   bar: {
     label: '柱状图',
     color: '#666666',

@@ -504,3 +504,25 @@ export const sortTree = (treeList = [], sortKey = 'sort') => {
     })
     .sort((a, b) => a[sortKey] - b[sortKey])
 }
+
+/**
+ * 函数柯里化
+ * @param {*} fn
+ * @param  {...any} args
+ * @returns
+ */
+export function curry(fn) {
+  const arity = fn.length
+  return function curried(...args) {
+    if (args.length >= arity) {
+      return fn.apply(this, args)
+    } else {
+      return function (...rest) {
+        return curried.apply(this, args.concat(rest))
+      }
+    }
+  }
+}
+export const curried = function (fn, ...args) {
+  return fn.length <= args.length ? fn(...args) : curry.bind(null, fn, ...args)
+}

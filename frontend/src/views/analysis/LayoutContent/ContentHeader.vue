@@ -7,16 +7,10 @@
       :data-source="dimensions" />
 
     <!-- 指标 -->
-    <SectionList
-      style="margin-top: 8px"
-      :category="CATEGORY.INDEX"
-      :data-source="indexes" />
+    <SectionList :category="CATEGORY.INDEX" :data-source="indexes" />
 
     <!-- 筛选 -->
-    <SectionList
-      style="margin-top: 8px"
-      :category="CATEGORY.FILTER"
-      :data-source="filters" />
+    <SectionList :category="CATEGORY.FILTER" :data-source="filters" />
   </div>
 
   <!-- 重命名 -->

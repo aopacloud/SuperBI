@@ -61,7 +61,7 @@
 import { computed, watch, inject } from 'vue'
 import SettingSectionLayout from './SettingSectionLayout.vue'
 import BasisRatio from './BasisRatio.vue'
-import { tableLayoutOptions, tableAlignOptions } from '../config.js'
+import { tableLayoutOptions, tableAlignOptions } from '../config'
 import { useVModel } from 'common/hooks/useVModel'
 
 const props = defineProps({

@@ -9,7 +9,7 @@ dayjs.extend(weekday)
  * @returns
  */
 export const getUtcDate = (utcOffset = 8, date) => {
-  return dayjs(dayjs(date).utcOffset(utcOffset).format('YYYY-MM-DD HH:mm:ss'))
+  return dayjs(date).utcOffset(utcOffset)
 }
 
 /**
@@ -23,9 +23,8 @@ export const getUtcDate = (utcOffset = 8, date) => {
  */
 export const getStartDate = ({ type, offset = 0 }, utcOffset = 8) => {
   // ?? 这里是否需要用到 getUtcDate
-  utcOffset = typeof utcOffset === 'number' ? utcOffset : +utcOffset
 
-  return dayjs().utcOffset(utcOffset).add(offset, type).startOf(type)
+  return dayjs().utcOffset(+utcOffset).add(offset, type).startOf(type)
 }
 
 /**
@@ -37,32 +36,11 @@ export const getStartDate = ({ type, offset = 0 }, utcOffset = 8) => {
  */
 export const getEndDate = ({ type, offset = 0 }, utcOffset = 8) => {
   // ?? 这里是否需要用到 getUtcDate
-  utcOffset = typeof utcOffset === 'number' ? utcOffset : +utcOffset
 
-  const map = {
-    day: () =>
-      dayjs()
-        .utcOffset(utcOffset)
-        .subtract(offset === 0 ? 0 : 1, 'day'),
-    week: () => {
-      // 本周到今天， 上n周到上周的最后一天
-      if (offset === 0) {
-        return dayjs().utcOffset(utcOffset).endOf('day')
-      } else {
-        return dayjs().utcOffset(utcOffset).subtract(1, 'week').endOf('week') // .endOf('week').endOf('day')
-      }
-    },
-    month: () => {
-      // 本月到今天， 上n月到上一个月的最后一天
-      if (offset === 0) {
-        return dayjs().utcOffset(utcOffset).endOf('day')
-      } else {
-        return dayjs().utcOffset(utcOffset).subtract(1, 'month').endOf('month')
-      }
-    },
-  }
-
-  return map[type]()
+  return dayjs()
+    .utcOffset(+utcOffset)
+    .subtract(offset ? 1 : 0, type)
+    .endOf(offset ? type : 'day')
 }
 
 /**
@@ -80,17 +58,19 @@ export const displayDateFormat = ({
 } = {}) => {
   if (extra.dt) return ['有数的一天']
 
+  const utcOffset = +timeOffset
+
   if (mode === 0) {
     const crt = extra.current
     if (crt) {
       const [tp, of = 0] = crt.split('_')
-      const s = getStartDate({ type: tp.toLowerCase(), offset: +of }, timeOffset)
-      const e = getEndDate({ type: tp.toLowerCase(), offset: +of }, timeOffset)
+      const s = getStartDate({ type: tp.toLowerCase(), offset: +of }, utcOffset)
+      const e = getEndDate({ type: tp.toLowerCase(), offset: +of }, utcOffset)
 
       return [s, e].map(t => dayjs(t).format(format))
     }
 
-    return offset.map(t => dayjs().subtract(t, 'day').format(format))
+    return offset.map(t => getUtcDate(utcOffset).subtract(t, 'day').format(format))
   } else {
     return date.map(t => dayjs(t).format(format))
   }

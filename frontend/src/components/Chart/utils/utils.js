@@ -1,14 +1,9 @@
 ﻿import { CATEGORY } from '@/CONST.dict.js'
-import { findBy, createIsEqualFromKey } from 'common/utils/help'
+import { createIsEqualFromKey } from 'common/utils/help'
 import { lightenColor } from 'common/utils/color'
 import { toDigit, toThousand, toPercent } from 'common/utils/number'
 import { colors, CHART_GRID_HEIGHT } from 'common/components/Charts/utils/default.js'
-import {
-  VS_FIELD_SUFFIX,
-  formatDtWithOption,
-  formatFieldDisplay,
-  createSortByOrder,
-} from './index.js'
+import { VS_FIELD_SUFFIX, formatDtWithOption, formatFieldDisplay, createSortByOrder } from './index.js'
 import { versionJs } from '@/versions'
 
 // 连接分组的字符(唯一，需要做分割)
@@ -83,9 +78,7 @@ export function getChartSize(chart) {
  * @returns {{fields: array<T>, data: array<K>}}
  */
 export const transformOriginBySort = ({ originFields = [], originData = [] }) => {
-  const xIndex = originFields.findIndex(
-    t => t.category === CATEGORY.PROPERTY && versionJs.ViewsAnalysis.isDateField(t)
-  )
+  const xIndex = originFields.findIndex(t => t.category === CATEGORY.PROPERTY && versionJs.ViewsAnalysis.isDateField(t))
   const fields = originFields.slice()
 
   // 维度排序换位到首位
@@ -121,12 +114,7 @@ export const transformOriginBySort = ({ originFields = [], originData = [] }) =>
  * @param {array} group 分组
  * @returns {{dataMap: any, xData: array}}
  */
-export const generateDataMap = ({
-  originFields = [],
-  yFields = [],
-  data = [],
-  group = [],
-}) => {
+export const generateDataMap = ({ originFields = [], yFields = [], data = [], group = [] }) => {
   const xData = [
     ...new Set(
       data.map(row => {
@@ -138,8 +126,8 @@ export const generateDataMap = ({
   // 获取非分组数据
   const getData = () => {
     const resMap = yFields.reduce((acc, cur) => {
-      if (typeof acc[cur.name] === 'undefined') {
-        acc[cur.name] = {
+      if (typeof acc[cur.renderName] === 'undefined') {
+        acc[cur.renderName] = {
           field: cur,
           data: Array(data.length).fill(),
           max: 0,
@@ -156,8 +144,8 @@ export const generateDataMap = ({
         const field = yFields[j]
         if (!field) return
 
-        resMap[field.name]['data'][i] = t
-        resMap[field.name]['max'] = Math.max(t, resMap[field.name]['max'])
+        resMap[field.renderName]['data'][i] = t
+        resMap[field.renderName]['max'] = Math.max(t, resMap[field.renderName]['max'])
       })
     })
 
@@ -190,7 +178,7 @@ export const generateDataMap = ({
 
       // 遍历指标字段
       yFields.forEach(t => {
-        const mapKey = groupName + t.name
+        const mapKey = groupName + t.renderName
 
         if (typeof resMap[mapKey] === 'undefined') {
           resMap[mapKey] = {
@@ -210,8 +198,8 @@ export const generateDataMap = ({
             const field = yFields[j] // 获取指标值对应的指标字段
 
             if (!field) return // 避免数据请求延迟，上一次渲染数据异常
-            // const groupName = groupName + GROUP_SPLIT + field.name
-            const mapKey = groupName + field.name
+            // const groupName = groupName + GROUP_SPLIT + field.renderName
+            const mapKey = groupName + field.renderName
 
             resMap[mapKey]['data'][i] = t
             resMap[mapKey]['max'] = Math.max(resMap[mapKey]['max'], t)
@@ -312,8 +300,8 @@ export const generateYAxis = ({
   // 拆分显示，直接根据每个字段生成y轴
   if (splited) {
     return yFields.map((field, i) => {
-      const axisItem = axis.find(a => a.name === field.name.replace(VS_FIELD_SUFFIX, ''))
-      const max = Math.max(...dataGrouped[field.name].map(t => t.max || 0))
+      const axisItem = axis.find(a => a.renderName === field.renderName)
+      const max = Math.max(...dataGrouped[field.renderName].map(t => t.max || 0))
       const maxFormat = formatFieldDisplay(max, field, datasetFields)
 
       return {
@@ -348,22 +336,20 @@ export const generateYAxis = ({
   // 拼接一个左轴一个右轴
   return yFields.reduce(
     (acc, cur) => {
-      const axisItem = axis.find(a => a.name === cur.name.replace(VS_FIELD_SUFFIX, ''))
+      const axisItem = axis.find(a => a.name === cur.name)
 
       const genYAxis = () => {
         const axisFields = axisItem?.yAxisPosition === 'right' ? rightAxis : leftAxis
 
-        const max = Math.max(...(dataGrouped[cur.name] || []).map(t => t.max || 0))
+        const max = Math.max(...(dataGrouped[cur.renderName] || []).map(t => t.max || 0))
 
         // const max = Math.max(
-        //   ...(axisFields.map(field => dataMap[field.name]?.['max']) || 0)
+        //   ...(axisFields.map(field => dataMap[field.renderName]?.['max']) || 0)
         // )
         const isFormatSamed = isSameFieldFormat(
-          axisFields.map(t => datasetFields.find(d => d.name === t.name))
+          axisFields.map(t => datasetFields.find(d => d.renderName === t.renderName))
         )
-        const maxFormat = isFormatSamed
-          ? formatFieldDisplay(max, axisFields[0], datasetFields)
-          : toDigit(max, 2)
+        const maxFormat = isFormatSamed ? formatFieldDisplay(max, axisFields[0], datasetFields) : toDigit(max, 2)
 
         return {
           ...yAxis,
@@ -376,9 +362,7 @@ export const generateYAxis = ({
             formatter: v => {
               if (v === 0) return 0
 
-              return isFormatSamed
-                ? formatFieldDisplay(v, axisFields[0], datasetFields)
-                : toDigit(v, 2)
+              return isFormatSamed ? formatFieldDisplay(v, axisFields[0], datasetFields) : toDigit(v, 2)
             },
           },
         }
@@ -450,9 +434,7 @@ export const generateSeries = ({
       formatter(series) {
         const { seriesName, value } = series
 
-        const ySourceFieldName = group.length
-          ? seriesName.split(GROUP_SPLIT).slice(group.length).join('')
-          : seriesName
+        const ySourceFieldName = group.length ? seriesName.split(GROUP_SPLIT).slice(group.length).join('') : seriesName
         const field = yFields.find(t => t.displayName === ySourceFieldName)
 
         return formatFieldDisplay(value, field, datasetFields)
@@ -462,9 +444,7 @@ export const generateSeries = ({
   // 获取 name
   const getCommonSeriesName = (name, field) => {
     return group.length
-      ? name.split(GROUP_SPLIT).slice(0, -1).join(GROUP_SPLIT) +
-          GROUP_SPLIT +
-          field.displayName
+      ? name.split(GROUP_SPLIT).slice(0, -1).join(GROUP_SPLIT) + GROUP_SPLIT + field.displayName
       : field.displayName
   }
 
@@ -473,9 +453,9 @@ export const generateSeries = ({
 
     return Object.keys(dataMap).reduce((acc, mapKey) => {
       const { field, data } = dataMap[mapKey]
-      const fieldIndex = yFields.findIndex(t => t.name === field.name)
+      const fieldIndex = yFields.findIndex(t => t.renderName === field.renderName)
       const color = getSeriesColor(fieldIndex)
-      const axisItem = axis.find(t => t.name === field.name.replace(VS_FIELD_SUFFIX, ''))
+      const axisItem = axis.find(t => t.renderName === field.renderName)
 
       const seriesItem = {
         _y: field,
@@ -508,13 +488,7 @@ export const generateSeries = ({
  * @param {String} compareMode 对比类型 0 原值，1 差值，2 差值百分比
  * @returns
  */
-export function tooltipFormat({
-  series = [],
-  yFields = [],
-  datasetFields = [],
-  compareMode = 0,
-  group = [],
-}) {
+export function tooltipFormat({ series = [], yFields = [], datasetFields = [], compareMode = 0, group = [] }) {
   const list = Array.isArray(series)
     ? series
     : [series]
@@ -525,27 +499,24 @@ export function tooltipFormat({
   const listMap = list.reduce((acc, pre, i) => {
     const { seriesName, axisIndex } = pre
     const yName = seriesName.split(GROUP_SPLIT).slice(group.length).join(YNAME_SPLIT)
-    // 当前指标字段
-    // const field = yFields[axisIndex];
-    const field = yFields.find(t => t.displayName === yName)
     // 原始字段
-    const originField = yFields.find(
-      t => t.displayName === field.displayName.replace(VS_FIELD_SUFFIX, '')
-    )
-    // 原始字段名称
-    const originYName = originField.name
-    if (typeof acc[originYName] === 'undefined') {
-      acc[originYName] = {
+    const originField = yFields.find(t => t.displayName === yName)
+    // 原始字段渲染名
+    const originRenderName = originField.renderName
+
+    if (typeof acc[originRenderName] === 'undefined') {
+      acc[originRenderName] = {
         originField,
         data: [],
       }
     }
+
     // 对比字段
-    const vsField = findBy(yFields, t => t.name === originField.name + VS_FIELD_SUFFIX)
+    const vsField = yFields.find(t => t.renderName === originRenderName)
 
     // 将当前指标或对比指标分为一组
     if (yName === originField.displayName || yName === vsField?.displayName) {
-      acc[originYName]['data'].push(pre)
+      acc[originRenderName]['data'].push(pre)
     }
 
     return acc
@@ -579,20 +550,17 @@ export function tooltipFormat({
         : // .replace(YNAME_SPLIT + originField.displayName, '')
           seriesName
 
-      let displayValue =
-        typeof value === 'undefined'
-          ? '-'
-          : formatFieldDisplay(value, originField, datasetFields)
+      let displayValue = typeof value === 'undefined' ? '-' : formatFieldDisplay(value, originField, datasetFields)
       let preValue = value
 
       // 是否对比字段
       const isVs = originField._isVs
 
       if (isVs) {
-        const preName = originField.name.replace(VS_FIELD_SUFFIX, '')
-        const presData = listMap[preName]['data']
+        // 字段的原始name
+        const [fieldOriginRenderName] = originField.renderName.split(VS_FIELD_SUFFIX)
 
-        preValue = presData[0].value
+        preValue = listMap[fieldOriginRenderName]['data'][0].value
       }
 
       const getStyle = (origin, target) => {

@@ -30,6 +30,7 @@ const props = defineProps({
 
 // 类型列表
 const chartListMap = shallowReactive(chartTypeMap)
+
 // 当前类型
 const cType = ref('table')
 const handleClick = type => {
@@ -46,7 +47,7 @@ watch(cType, t => {
 })
 </script>
 <style lang="scss" scoped>
-$item-size: 28px;
+$item-size: 32px;
 
 .chart-list {
   display: flex;
@@ -55,9 +56,12 @@ $item-size: 28px;
 }
 
 .chart-item {
-  flex-basis: $item-size;
-  line-height: $item-size;
-  margin-right: 10px;
+  display: inline-flex;
+  width: $item-size;
+  height: $item-size;
+  align-items: center;
+  justify-content: center;
+  margin: 6px;
   border-radius: 4px;
   text-align: center;
   font-size: 18px;

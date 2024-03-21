@@ -15,7 +15,8 @@
               v-if="multiple"
               style="margin-right: 6px"
               :disabled="item.disabled"
-              :checked="isItemActive(item)" />
+              :checked="isItemActive(item)"
+              @click.prevent />
             <div class="pane-item-label">
               {{ item[labelField] }}
             </div>

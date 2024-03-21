@@ -26,14 +26,17 @@
 
     <p-a-space style="font-size: 14px">
       <div class="query-info">
-        耗时 <b>{{ responseInfo.elapsed }}</b> S; 查询 <b>{{ responseInfo.total }}</b> 行;
-        展示前
+        耗时 <b>{{ responseInfo.elapsed }}</b> S; 查询
+        <b>{{ responseInfo.total }}</b> 行; 展示前
         <div class="custom-select small">
           <select
             style="width: 80px; margin: 0 2px; padding-left: 4px; text-align: center"
             v-model="queryTotal"
             @change="onQueryTotalChange">
-            <option v-for="opt in queryTotalOptions" :key="opt.value" :value="opt.value">
+            <option
+              v-for="opt in queryTotalOptions"
+              :key="opt.value"
+              :value="opt.value">
               {{ opt.label }}
             </option>
           </select>
@@ -215,6 +218,8 @@ const mergeDashbaordFilters = choosedMap => {
 const run = async from => {
   if (!hasDatasetAnalysis.value) return
 
+  if (runLoading.value) return
+
   try {
     toggleHistory(false)
 
@@ -320,7 +325,8 @@ const validateChoosed = (choosed = {}) => {
   }
 
   // 表格只需有维度、指标中的一个就行
-  if (type === 'table') return true
+  if (type === 'table' || type === 'groupTable' || type === 'intersectionTable')
+    return true
 
   // 指标卡和饼图值支持一个指标
   if (type === 'statistic' || type === 'pie') {
@@ -361,7 +367,10 @@ const validateFilter = (filters = []) => {
       !item.conditions.length ||
       item.conditions?.some(t => {
         // 有值、无值 跳过校验
-        if (t.functionalOperator === IS_NOT_NULL || t.functionalOperator === IS_NULL) {
+        if (
+          t.functionalOperator === IS_NOT_NULL ||
+          t.functionalOperator === IS_NULL
+        ) {
           return false
         } else {
           return !t.args.length && !t.useLatestPartitionValue

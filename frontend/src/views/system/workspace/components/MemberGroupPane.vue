@@ -86,7 +86,6 @@ const hasCurrentGruopAdd = computed(() => {
 
 const { loading, pager, list, fetchList, onTableChange } = useTable(getRoleList, {
   keyword: props.keyword,
-  sorter: null,
   initQueryParams: () => ({
     workspaceId: props.workspaceId,
     keyword: props.keyword,
@@ -202,7 +201,15 @@ const init = () => {
 
 defineExpose({ insert, init })
 
-watch(() => props.workspaceId, fetchList, { immediate: true })
+watch(
+  () => props.workspaceId,
+  id => {
+    if (!id) return
+
+    fetchList()
+  },
+  { immediate: true }
+)
 </script>
 
 <style lang="scss">

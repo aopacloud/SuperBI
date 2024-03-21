@@ -1,28 +1,49 @@
 ﻿<template>
-  <section class="section" v-resize="updateSize">
+  <section class="section">
     <main class="main">
       <vxe-grid
         ref="vTableRef"
         class="chart-table"
         min-height="0"
         max-height="100%"
+        show-header-overflow="title"
         show-overflow="title"
+        show-footer-overflow="title"
+        footer-row-class-name="summary-row"
         :size="size"
         :border="tableConfig.bordered ?? true"
         :align="tableConfig.align"
-        :columns="rColumns"
-        :data="list"
+        :loading="listLoading"
         :column-config="vColumnConfig"
         :sort-config="vSortConfig"
-        :scroll-y="{ enabled: true, gt: 20 }"
+        :scroll-x="{ enabled: true, gt: 10 }"
+        :scroll-y="{ enabled: true, gt: 10 }"
         :show-footer="showSummary"
         :footer-method="renderFooter"
-        footer-row-class-name="summary-row"
+        :tree-config="treeConfig"
+        @toggle-tree-expand="onToggleTreeExpand"
         @sort-change="onSortChange">
         <template></template>
+
         <!-- 表头 -->
         <template #header="{ column }">
-          {{ column.title }}
+          <template v-if="column.treeNode">
+            <a-button
+              size="small"
+              type="text"
+              v-if="isTreeExpandAll"
+              :icon="h(CaretDownOutlined)"
+              @click.stop="toggleTreeExpandAll(false)" />
+            <a-button
+              size="small"
+              type="text"
+              v-else
+              :icon="h(CaretRightOutlined)"
+              @click.stop="toggleTreeExpandAll(true)" />
+
+            {{ column.title }}
+          </template>
+          <template v-else>{{ column.title }}</template>
 
           <!-- 避免过多的组件实例???  https://cn.vuejs.org/guide/best-practices/performance.html#avoid-unnecessary-component-abstractions -->
           <SettingDropdown
@@ -37,8 +58,12 @@
           </SettingDropdown>
         </template>
 
+        <template #groupName="{ column, row }">
+          {{ displayGroupName(row, column) }}
+        </template>
+
         <template #date="{ column, row }">
-          {{ formatDtDisplay(row[column.field], column) }}
+          {{ formatDtWithOption(row[column.field], column.params.field) }}
         </template>
 
         <!-- 维度插槽 -->
@@ -48,8 +73,7 @@
 
         <!-- 指标插槽 -->
         <template #[CATEGORY.INDEX]="{ column, row }">
-          <span v-if="row._summary">{{ summaryMap[column.field] }}</span>
-          <span v-else>{{ formatIndexDisplay(row[column.field], column) }}</span>
+          {{ formatIndexDisplay(row[column.field], column) }}
         </template>
 
         <!-- 同环比插槽 -->
@@ -63,7 +87,7 @@
         </template>
 
         <!-- 表尾汇总 -->
-        <template #footer.summary>
+        <template #footerSummary>
           <div class="summary-text">
             <b style="margin-right: 4px">汇总:</b>
             <span
@@ -79,7 +103,7 @@
             </span>
           </div>
         </template>
-        <template #[footerSummarySlot]="{ column }">
+        <template #[footerIndexSummarySlot]="{ column }">
           <!-- 同环比汇总 -->
           <CompareDisplay
             v-if="column.params.field._isVs"
@@ -92,12 +116,13 @@
             {{ formatIndexDisplay(summaryMap[column.field], column) }}
           </span>
         </template>
+
+        <template #[footerPropertySummarySlot]></template>
       </vxe-grid>
     </main>
 
     <a-pagination
       v-if="showPager"
-      ref="pagerRef"
       class="footer"
       show-size-changer
       show-quick-jumper
@@ -120,33 +145,47 @@
   </teleport>
 </template>
 <script setup lang="jsx">
-import { ref, reactive, shallowRef, computed, watchEffect, watch, nextTick } from 'vue'
-import { SettingOutlined } from '@ant-design/icons-vue'
+import {
+  h,
+  ref,
+  reactive,
+  shallowRef,
+  computed,
+  watchEffect,
+  watch,
+  nextTick,
+} from 'vue'
+import {
+  CaretDownOutlined,
+  CaretRightOutlined,
+  SettingOutlined,
+} from '@ant-design/icons-vue'
 import SettingDropdown from './components/SettingDropdown.vue'
 import NumberCustomFormatter from '@/components/CustomFormatter/index.vue'
+import CompareDisplay from './components/CompareDisplay.vue'
 import { CATEGORY } from '@/CONST.dict'
-import { PAGER_SIZES, SORT_PREFFIX } from './components/config'
 import {
   FORMAT_DEFAULT_CODE,
   FORMAT_CUSTOM_CODE,
   formatterOptions,
 } from '@/views/dataset/config.field'
-import { getByPager, createSortByOrder, getCompareDisplay } from './utils'
+import { PAGER_SIZES, SORT_PREFFIX } from './components/config'
+import { getByPager, getCompareDisplay, getFixedPlace, getSummary } from './utils'
 import {
-  getFixedPlace,
   CELL_HEADER_PADDING,
   CELL_BODY_PADDING,
   CELL_BUFFER_WIDTH,
   CELL_MIN_WIDTH,
-  getSummary,
-} from '@/components/Chart/utils/createTableData'
+} from './config'
 import {
   VS_FIELD_SUFFIX,
-  is_vs,
+  createSortByOrder,
   formatDtWithOption,
-} from '@/components/Chart/utils/index.js'
-import CompareDisplay from './components/CompareDisplay.vue'
-import { getWordWidth } from '@/common/utils/help'
+} from '../utils/index'
+import { getWordWidth, deepClone, debounce } from '@/common/utils/help'
+import { upcaseFirst } from 'common/utils/string'
+import { flat } from '@/common/utils/array'
+import { TREE_ROW_KEY, TREE_ROW_PARENT_KEY } from '../utils/createGroupTable'
 
 const props = defineProps({
   size: {
@@ -171,16 +210,6 @@ const props = defineProps({
 })
 
 const vTableRef = ref(null)
-// 表格高度
-const vTableHeight = ref(10)
-
-// 分页引用
-const pagerRef = ref(null)
-
-const updateSize = () => {
-  const parent = vTableRef.value.$el.parentElement
-  vTableHeight.value = parent.offsetHeight - pagerRef.value?.$el?.clientHeight
-}
 
 // 当前配置
 const config = reactive({
@@ -261,13 +290,8 @@ watch(
       originSortedList.value = props.dataSource.slice()
     }
 
-    list.value = showPager.value
-      ? getByPager(originSortedList.value, {
-          current: pager.current,
-          size: pager.size,
-        })
-      : originSortedList.value
-
+    // 排序需要重置展开行
+    initList().then(resetExpandRowKeys)
     updateColumnWidth()
   },
   { deep: true }
@@ -304,10 +328,10 @@ const getSummaryColumnWidth = (column, summaryMap, field) => {
     // 原值的格式化
     const origin =
       ' ( ' +
-      getCompareDisplay(getVsTarget(column.field, summaryMap), summaryMap[column.field])(
-        field,
-        dataset.value.fields
-      ) +
+      getCompareDisplay(
+        getVsTarget(column.field, summaryMap),
+        summaryMap[column.field]
+      )(field, dataset.value.fields) +
       ' ) '
 
     return getWordWidth(target) + getWordWidth(origin)
@@ -336,15 +360,16 @@ const updateColumnWidth = () => {
 
       // 当前字段的所有数据(当前页)
       const data = list.value.map(t => t[col.field])
+
       // 计算数据格式化后的最大宽度
       const contentMaxWidth =
         Math.max(
           ...data.map(t => {
-            if (originField.category === CATEGORY.INDEX) {
+            if (originField?.category === CATEGORY.INDEX) {
               return getWordWidth(formatIndexDisplay(t, col))
             } else {
-              if (originField.dataType.includes('TIME')) {
-                return getWordWidth(formatDtDisplay(t, col))
+              if (originField?.dataType?.includes('TIME')) {
+                return getWordWidth(formatDtWithOption(t, col.params.field))
               } else {
                 return getWordWidth(t)
               }
@@ -353,8 +378,11 @@ const updateColumnWidth = () => {
           showSummary.value && i === 0 ? 105 : 0
         ) + CELL_BODY_PADDING
 
+      // 分组表格折叠icon宽
+      const treeExpandIconWith = isGroupTable.value && i === 0 ? 24 : 0
       // 表头宽度
-      const titleWidth = getWordWidth(col.title) + CELL_HEADER_PADDING
+      const titleWidth =
+        getWordWidth(col.title) + CELL_HEADER_PADDING + treeExpandIconWith
 
       return {
         ...col,
@@ -377,7 +405,7 @@ const updateColumnWidth = () => {
               return getWordWidth(formatIndexDisplay(t, col))
             } else {
               if (originField.dataType.includes('TIME')) {
-                return getWordWidth(formatDtDisplay(t, col))
+                return getWordWidth(formatDtWithOption(t, col.params.field))
               } else {
                 return getWordWidth(t)
               }
@@ -385,9 +413,11 @@ const updateColumnWidth = () => {
           }),
           showSummary.value && i === 0 ? 105 : 0
         ) + CELL_BODY_PADDING
-
+      // 分组表格折叠icon宽
+      const treeExpandIconWith = isGroupTable.value && i === 0 ? 24 : 0
       // 表头宽度
-      const titleWidth = getWordWidth(col.title) + CELL_HEADER_PADDING
+      const titleWidth =
+        getWordWidth(col.title) + CELL_HEADER_PADDING + treeExpandIconWith
       const summaryWidth = getSummaryColumnWidth(col, summaryMap.value, originField)
 
       return Math.max(titleWidth, contentMaxWidth, summaryWidth, col._width ?? 0)
@@ -403,7 +433,7 @@ const updateColumnWidth = () => {
 
   setTimeout(() => {
     vTableRef.value?.sort(config.sorter)
-  })
+  }, 40)
 }
 
 // 监听列冻结
@@ -436,10 +466,7 @@ const pager = reactive({
 watch(
   [() => pager.current, () => pager.size],
   ([current, size]) => {
-    list.value = showPager.value
-      ? getByPager(originSortedList.value, { current: current, size: size })
-      : originSortedList.value
-
+    initList().then(initExpandRowKeys)
     updateColumnWidth()
   },
   { deep: true }
@@ -465,6 +492,57 @@ const onPagerShowSizeChange = (_, pageSize) => {
 const originSortedList = shallowRef([])
 // 渲染数据
 const list = ref([])
+// 列缓存 - list 会处理为扁平，无法计算分组表格的汇总
+const listBak = ref([])
+// 初始化list
+const initList = async () => {
+  const l = showPager.value
+    ? getByPager(originSortedList.value, {
+        current: pager.current,
+        size: pager.size,
+      })
+    : originSortedList.value
+
+  listBak.value = l
+  list.value = !isGroupTable.value ? l : flat(l)
+
+  return shouldExpandRowKeys.value
+}
+
+// 表头渲染
+const columnsLoading = ref(false)
+const renderColumns = cols => {
+  // 不使用防抖不用判断列的渲染状态
+  // || columnsLoading.value
+  if (!vTableRef.value) return
+
+  columnsLoading.value = true
+  vTableRef.value.reloadColumn(cols).then(r => {
+    setTimeout(() => {
+      columnsLoading.value = false
+    })
+  })
+}
+// 数据加载时会计算列宽，重新渲染列，使用防抖会在表格间切换瞬间表头撕裂
+// const renderColumnsDebounced = debounce(renderColumns, 1000, false)
+watch(rColumns, renderColumns)
+
+// 数据渲染
+const listLoading = ref(false)
+const renderList = ls => {
+  if (!vTableRef.value) return
+
+  if (isGroupTable.value) listLoading.value = true
+
+  vTableRef.value.reloadData(ls).then(r => {
+    setTimeout(() => {
+      listLoading.value = false
+    })
+  })
+}
+const renderListDebounce = debounce(renderList, 10, false)
+watch(list, renderListDebounce)
+
 // 初始化
 const init = () => {
   console.log('--------  Components/Chart/Table init  --------')
@@ -478,25 +556,18 @@ const init = () => {
   pager.current = 1
   pager.total = dataSource.length
 
-  list.value = showPager.value
-    ? getByPager(originSortedList.value, {
-        current: 1,
-        size: pager.size,
-      })
-    : originSortedList.value
-
   rColumns.value = columns
 
+  initList().then(initExpandRowKeys)
   setColumnFixed()
-  nextTick(() => {
-    updateColumnWidth()
-  })
+  updateColumnWidth()
 }
+
 // 排序数据
 const sortedList = (arr = []) => {
   const { field, order } = config.sorter
 
-  return arr.sort(createSortByOrder(order === 'asc', field))
+  return !order ? arr.slice() : arr.sort(createSortByOrder(order === 'asc', field))
 }
 // 监听数据源
 watch([() => props.dataSource, () => props.columns], init)
@@ -511,8 +582,102 @@ const isColumnSettingActive = column => {
     formatterConfig.value.find(t => t.field === column.field) || {}
 
   return (
-    (field === sField && !!order) || (field === fField && code !== FORMAT_DEFAULT_CODE)
+    (field === sField && !!order) ||
+    (field === fField && code !== FORMAT_DEFAULT_CODE)
   )
+}
+
+// 是否分组表格
+const isGroupTable = computed(() => {
+  return props.options.isGroupTable
+})
+
+// 树配置
+const treeConfig = computed(() => {
+  if (!isGroupTable.value) return
+
+  return {
+    transform: true,
+    rowField: TREE_ROW_KEY,
+    parentField: TREE_ROW_PARENT_KEY,
+  }
+})
+// 是否是第一层父节点
+const isFirstLevelParent = t => typeof t[TREE_ROW_PARENT_KEY] === 'undefined'
+// 获取第一层父节点id
+const getFirstLevelParentId = t => t[TREE_ROW_KEY]
+// 分组表格展开行(一级)需要的rowKeys
+const shouldExpandRowKeys = computed(() => {
+  if (!isGroupTable.value) return []
+
+  return list.value.filter(isFirstLevelParent).map(getFirstLevelParentId)
+})
+// 收起、展开树节点
+const expandTreeRow = (keys = []) => {
+  if (!isGroupTable.value) return
+
+  const $table = vTableRef.value
+  if (!$table) return
+
+  if (!keys.length) {
+    $table.clearTreeExpand()
+
+    return
+  }
+
+  const rows = list.value.filter(isFirstLevelParent)
+
+  for (const key of keys) {
+    const row = rows.find(t => t[TREE_ROW_KEY] === key)
+    if (!row) return
+
+    nextTick(() => {
+      $table.setTreeExpand(row, true)
+    })
+  }
+}
+// 展开行的RowId
+const expandRowKeys = ref([])
+// 重置树的展开行
+const resetExpandRowKeys = () => {
+  expandTreeRow(shouldExpandRowKeys.value)
+}
+// 初始化树的展开行
+const initExpandRowKeys = (shouldExpandKeys = []) => {
+  if (!isGroupTable.value) {
+    expandRowKeys.value = []
+  } else {
+    if (expandRowKeys.value.length) {
+      const oldRowKeys = expandRowKeys.value.filter(t =>
+        shouldExpandKeys.includes(t)
+      )
+
+      expandRowKeys.value = !oldRowKeys.length ? shouldExpandKeys : oldRowKeys
+    } else {
+      expandRowKeys.value = shouldExpandKeys
+    }
+
+    isTreeExpandAll.value = expandRowKeys.value.length > 0
+    expandTreeRow(expandRowKeys.value)
+  }
+}
+// 切换树节点
+const onToggleTreeExpand = e => {
+  const $table = vTableRef.value
+  const expandRows = $table.getTreeExpandRecords()
+
+  expandRowKeys.value = expandRows.map(t => t[TREE_ROW_KEY])
+}
+// 树节点全部展开
+const isTreeExpandAll = ref(false)
+const toggleTreeExpandAll = e => {
+  if (e) {
+    expandTreeRow(shouldExpandRowKeys.value)
+  } else {
+    vTableRef.value.clearTreeExpand()
+    vTableRef.value.clearScroll()
+  }
+  isTreeExpandAll.value = e
 }
 
 // 自定义格式显示
@@ -556,12 +721,14 @@ const onSettingDropdownMenuClick = ({ key }, column) => {
     vTableRef.value.sort({ field, order })
   } else {
     if (val === FORMAT_CUSTOM_CODE) {
-      const { code, config } = formatterConfig.value.find(t => t.field === field) || {}
+      const { code, config } =
+        formatterConfig.value.find(t => t.field === field) || {}
 
       formatterCustomVisible.value = true
       customFormatterField.value = { field, code, config }
 
-      const { right, top, height } = settingDropdownTriggerCell.getBoundingClientRect()
+      const { right, top, height } =
+        settingDropdownTriggerCell.getBoundingClientRect()
       const x = `calc(-100% + ${right}px)`,
         y = `${top + height}px`
 
@@ -597,8 +764,20 @@ const onCustomFormatterOk = payload => {
   })
 }
 
-const formatDtDisplay = (value, { params }) => {
-  return formatDtWithOption(value, params.field)
+const displayGroupName = (row, column) => {
+  const { treeNode, field: renderName, params } = column
+  const value = row[renderName]
+
+  if (!isGroupTable.value || !treeNode) return value
+
+  const groupField = params.fields[row._level_]
+  const dataType = groupField.dataType
+
+  if (dataType.includes('TIME')) {
+    return formatDtWithOption(value, groupField)
+  } else {
+    return value
+  }
 }
 
 // 格式化显示
@@ -608,7 +787,9 @@ const formatIndexDisplay = (value, column) => {
 
   if (originField.category !== CATEGORY.INDEX) return value
 
-  const originDatasetField = dataset.value.fields.find(t => t.name === originField.name)
+  const originDatasetField = dataset.value.fields.find(
+    t => t.name === originField.name
+  )
   if (!originDatasetField) return value
 
   // 当前配置的格式化
@@ -631,23 +812,31 @@ const formatIndexDisplay = (value, column) => {
 
 // 获取原始字段值
 const getVsTarget = (fieldName, row) => {
-  return row[fieldName.replace(VS_FIELD_SUFFIX, '')]
+  const [pre, ...res] = fieldName.split(VS_FIELD_SUFFIX)
+
+  return row[pre]
 }
 
 // 显示汇总行
-// const showSummary = ref(true)
 const showSummary = computed(() => {
-  return (
-    tableConfig.value.showSummary &&
-    props.columns.some(t => t.params.field.category === CATEGORY.INDEX)
-  )
+  return tableConfig.value.showSummary
+})
+watch(showSummary, () => {
+  nextTick(() => {
+    vTableRef.value?.updateFooter?.()
+  })
 })
 
 // 表尾渲染
 const renderFooter = () => {
   return [{}]
 }
-const footerSummarySlot = computed(() => 'footer.' + CATEGORY.INDEX)
+
+const footerIndexSummarySlot = shallowRef('footer' + upcaseFirst(CATEGORY.INDEX))
+
+const footerPropertySummarySlot = shallowRef(
+  'footer' + upcaseFirst(CATEGORY.PROPERTY)
+)
 
 /**
  * 汇总范围
@@ -666,10 +855,15 @@ const summaryMap = computed(() => {
     .filter(t => t.params.field.category === CATEGORY.INDEX)
     .reduce((acc, col) => {
       if (config.compare.merge && col.params.field._isVs) {
-        acc.push({
-          ...col,
-          field: col.field.replace(VS_FIELD_SUFFIX, ''),
-        })
+        // 同环比字段时pop了原字段所属的列，此处需要先push进来计算同环比原字段的汇总
+        const [targetField] = col.field.split(VS_FIELD_SUFFIX)
+
+        if (acc.every(t => t.field !== targetField)) {
+          acc.push({
+            ...col,
+            field: targetField,
+          })
+        }
       }
 
       acc.push(col)
@@ -680,13 +874,14 @@ const summaryMap = computed(() => {
   const keys = summaryColumns.map(t => t.field)
 
   // 汇总的数据范围
-  const summaryList = summaryScope.value === 'ALL' ? originSortedList.value : list.value
+  const summaryList =
+    summaryScope.value === 'ALL' ? originSortedList.value : listBak.value
 
   return {
     ...getSummary({
       keys,
       columns: summaryColumns,
-      list: summaryList.filter(t => !t._summary),
+      list: summaryList,
     }),
   }
 })

@@ -85,6 +85,7 @@
 import { h, ref, reactive, watch, shallowRef, nextTick } from 'vue'
 import { message } from 'ant-design-vue'
 import { SaveOutlined } from '@ant-design/icons-vue'
+import { useRoute } from 'vue-router'
 import useUserStore from '@/store/modules/user'
 import MemberPane from './MemberPane.vue'
 import MemberGroupPane from './MemberGroupPane.vue'
@@ -94,8 +95,11 @@ import {
   getPermissionByWorkspaceId,
 } from '@/apis/workspace'
 import { versionVue, versionJs } from '@/versions'
+import { clearQuerys } from '@/common/utils/window'
 
 const { SystemWorkspaceSetting } = versionVue
+
+const route = useRoute()
 
 const userStore = useUserStore()
 
@@ -154,10 +158,10 @@ const fetchDetailPermission = async id => {
 
 watch(
   () => props.info.id,
-  id => {
+  (id, oId) => {
     if (!id) return
 
-    keyword.value = ''
+    if (oId) keyword.value = ''
 
     fetchDetailPermission(id)
     fetchDetail(id)
@@ -171,7 +175,11 @@ defineExpose({
 })
 
 // tabs
-const activeKey = ref('member')
+const activeKey = ref(
+  ['member', 'role', 'setting'].includes(route.query.tab) ? route.query.tab : 'member'
+)
+clearQuerys('tab')
+
 const onActiveKeyChange = e => {
   keyword.value = ''
 }
@@ -184,7 +192,9 @@ const memberGroupPaneRef = ref()
 const settingPaneRef = ref()
 
 // 关键字
-const keyword = ref('')
+
+const keyword = ref(route.query.keyword)
+clearQuerys('keyword')
 const onKeywordSearch = () => {
   if (activeKey.value === 'setting') return
 

@@ -33,7 +33,7 @@
           {{ chart.id ? '更新图表' : '保存图表' }}
         </a-button>
 
-        <a-dropdown v-if="chartPermission.hasManage()">
+        <a-dropdown v-if="datasetPermission.hasManage()">
           <a-button :icon="h(MoreOutlined)"></a-button>
           <template #overlay>
             <a-menu @click="onMenuClick">
@@ -84,7 +84,7 @@ import { versionVue } from '@/versions'
 const { ComponentsTimeoffsetPreview } = versionVue
 
 const { requestResponse, permissions, timeOffset } = inject('index', {})
-const { chart: chartPermission } = permissions
+const { dataset: datasetPermission, chart: chartPermission } = permissions
 const queryResponse = computed(() => requestResponse.get().response || {})
 
 const emits = defineEmits(['update-chart', 'update-dataset', 'timeoffset-change'])
