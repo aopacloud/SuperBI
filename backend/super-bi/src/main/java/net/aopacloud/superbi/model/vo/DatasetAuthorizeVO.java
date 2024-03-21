@@ -66,6 +66,8 @@ public class DatasetAuthorizeVO {
 
     private Date updateTime;
 
+    private Date expireTime;
+
     @Data
     public static class Row {
         private String relation;

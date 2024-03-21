@@ -2,8 +2,12 @@ package net.aopacloud.superbi.cache;
 
 import com.alibaba.ttl.TransmittableThreadLocal;
 import com.google.common.collect.Maps;
+import net.aopacloud.superbi.common.core.text.Convert;
+import net.aopacloud.superbi.common.core.utils.StringUtils;
 import net.aopacloud.superbi.model.dto.DashboardShareDTO;
+import net.aopacloud.superbi.model.entity.DashboardShare;
 import net.aopacloud.superbi.model.entity.DatasetAuthorize;
+import org.apache.commons.compress.utils.Lists;
 
 import java.util.List;
 import java.util.Map;

@@ -15,9 +15,13 @@ import java.util.List;
 @Data
 public class Compare {
 
+    /**
+     * deprecated since 1.1.0
+     */
+    @Deprecated
     private RatioTypeEnum type;
 
     private String timeField;
 
-    private List<Measure> measures;
+    private List<RatioMeasure> measures;
 }

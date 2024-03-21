@@ -63,6 +63,8 @@ public class DatasetAuthorizeDTO {
 
     private String workspaceName;
 
+    private Date expireTime;
+
     public boolean isExpire() {
         if (expireDuration == null || expireDuration == 0) {
             return Boolean.FALSE;

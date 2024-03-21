@@ -1,6 +1,7 @@
 package net.aopacloud.superbi.service;
 
 import net.aopacloud.superbi.model.dto.AuthRoleDTO;
+import net.aopacloud.superbi.model.entity.AuthRole;
 
 import java.util.List;
 
@@ -24,5 +25,7 @@ public interface AuthRoleService {
     Integer countByWorkspace(Long workspaceId);
 
     List<AuthRoleDTO> search(String keyword);
+
+    List<AuthRoleDTO> searchByUsernames(List<String> usernames);
     List<AuthRoleDTO> listAll();
 }

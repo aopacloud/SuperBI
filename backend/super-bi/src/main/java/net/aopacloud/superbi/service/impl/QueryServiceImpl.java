@@ -217,11 +217,11 @@ public class QueryServiceImpl implements QueryService {
             columns.add(column);
         }
 
-        Set<String> ratioFieldNames = Sets.newHashSet();
+        List<String> ratioFieldNames = Lists.newArrayList();
         if (queryParam.getCompare() != null) {
-            List<Measure> ratioMeasures = queryParam.getCompare().getMeasures();
+            List<RatioMeasure> ratioMeasures = queryParam.getCompare().getMeasures();
             if (ratioMeasures != null && !ratioMeasures.isEmpty()) {
-                ratioFieldNames = ratioMeasures.stream().map(Measure::getName).collect(Collectors.toSet());
+                ratioFieldNames = ratioMeasures.stream().map(Measure::getName).collect(Collectors.toList());
             }
         }
 
@@ -230,21 +230,25 @@ public class QueryServiceImpl implements QueryService {
             DatasetFieldDTO datasetFieldDTO = fieldMap.get(measure.getName());
             QueryColumn column = QueryColumn.of(datasetFieldDTO);
             column.setAggregator(measure.getAggregator());
+            columns.add(column);
             if (!Strings.isNullOrEmpty(measure.getDisplayName())) {
                 column.setDisplayName(measure.getDisplayName());
-                columns.add(column);
-                if (ratioFieldNames.contains(measure.getName())) {
-                    QueryColumn ratioColumn = column.copy();
-                    ratioColumn.setDisplayName(String.format("%s(%s)", measure.getDisplayName(), LocaleMessages.getMessage(MessageConsist.RATIO_TIPS)));
-                    columns.add(ratioColumn);
+                for(String ratioFieldName : ratioFieldNames) {
+                    if (ratioFieldName.equals(measure.getName())) {
+                        QueryColumn ratioColumn = column.copy();
+                        ratioColumn.setDisplayName(String.format("%s(%s)", measure.getDisplayName(), LocaleMessages.getMessage(MessageConsist.RATIO_TIPS)));
+                        columns.add(ratioColumn);
+                    }
                 }
             } else {
-                columns.add(column);
-                if (ratioFieldNames.contains(measure.getName())) {
-                    QueryColumn ratioColumn = column.copy();
-                    ratioColumn.setDisplayName(String.format("%s(%s)", datasetFieldDTO.getDisplayName(), LocaleMessages.getMessage(MessageConsist.RATIO_TIPS)));
-                    columns.add(ratioColumn);
+                for(String ratioFieldName : ratioFieldNames) {
+                    if (ratioFieldName.equals(measure.getName())) {
+                        QueryColumn ratioColumn = column.copy();
+                        ratioColumn.setDisplayName(String.format("%s(%s)", datasetFieldDTO.getDisplayName(), LocaleMessages.getMessage(MessageConsist.RATIO_TIPS)));
+                        columns.add(ratioColumn);
+                    }
                 }
+
             }
         }
         return columns;
