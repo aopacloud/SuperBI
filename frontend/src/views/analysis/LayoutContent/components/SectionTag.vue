@@ -9,37 +9,69 @@
     </div>
 
     <template v-else>
-      <component :is="renderView" :field="tag">
-        <div class="tag-popover--trigger">
+      <a-dropdown
+        trigger="click"
+        :overlayStyle="{
+          width: category === CATEGORY.FILTER ? '' : '140px',
+          minWidth: 'initial',
+        }"
+        :overlayClassName="category === CATEGORY.FILTER ? 'filter-dropdown' : ''"
+        v-model:open="open">
+        <div class="tag-dropdown--trigger" :class="{ open: open }">
           <div class="tag-name">
             <slot>{{ tag }}</slot>
           </div>
 
           <div class="tag-extra">
-            <span v-if="category === CATEGORY.INDEX" :title="displayIndexAggregator(tag)">
+            <span
+              v-if="category === CATEGORY.INDEX"
+              :title="displayIndexAggregator(tag)">
               {{ displayIndexAggregator(tag) }}
             </span>
-            <span v-if="category === CATEGORY.FILTER" :title="displayFilter(tag)">
-              {{ displayFilter(tag) }}
+            <span
+              v-if="category === CATEGORY.FILTER"
+              :title="displayFilter(tag, { timeOffset })">
+              {{ displayFilter(tag, { timeOffset }) }}
             </span>
           </div>
+
+          <FilterOutlined
+            v-if="category === CATEGORY.FILTER"
+            class="tag-trigger--filter-icon"
+            :class="{
+              active: isDate || (tag.conditions && tag.conditions.length),
+            }" />
+          <DownOutlined v-else class="tag-trigger--icon" />
         </div>
-      </component>
+
+        <template #overlay>
+          <component
+            :is="renderView"
+            :single="tag.filterMode === 'single'"
+            :dataset="dataset"
+            :field="tag"
+            :timeOffset="timeOffset"
+            v-model:open="open" />
+        </template>
+      </a-dropdown>
     </template>
 
-    <CloseOutlined
-      v-if="versionJs.ViewsAnalysis.sectionTagClosable(tag, category)"
-      @click="handlRemove"
-      class="tag-remove" />
+    <CloseOutlined v-if="isTagRemovable" @click="handlRemove" class="tag-remove" />
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, inject, ref } from 'vue'
-import { CloseOutlined, ArrowDownOutlined, DownOutlined } from '@ant-design/icons-vue'
+import {
+  CloseOutlined,
+  ArrowDownOutlined,
+  DownOutlined,
+  FilterOutlined,
+} from '@ant-design/icons-vue'
 import PropertyDropdown from './PropertyDropdown.vue'
 import IndexDropdown from './IndexDropdown.vue'
 import FilterDropdown from './Filter/index.vue'
+import { displayFilter } from './Filter/utils'
 import { CATEGORY } from '@/CONST.dict.js'
 import {
   summaryOptions,
@@ -52,13 +84,16 @@ import {
 } from '@/views/dataset/config.field'
 import {
   displayDateFormat,
-  getStartDate,
-  getEndDate,
+  getStartDateStr,
+  getEndDateStr,
 } from 'common/components/DatePickers/utils'
 import dayjs from 'dayjs'
-import { versionJs } from '@/versions'
 
 const props = defineProps({
+  dataset: {
+    type: Object,
+    default: () => ({}),
+  },
   category: {
     type: String,
     default: CATEGORY.PROPERTY,
@@ -67,7 +102,6 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
-
   color: {
     type: String,
   },
@@ -96,8 +130,15 @@ const renderView = computed(() => {
     : FilterDropdown
 })
 
-const getOfffsetByDate = date => {
-  const offset = dayjs().diff(dayjs(date), 'day')
+const isTagRemovable = computed(() => {
+  return props.tag._forced !== true
+})
+
+// 日期筛选
+const isDate = computed(() => props.tag.dataType.includes('TIME'))
+
+const getOffsetByDate = date => {
+  const offset = dayjs().diff(date, 'day')
 
   return [offset, offset]
 }
@@ -107,8 +148,14 @@ const handleDateFilterConditions = (conditions = []) => {
   return conditions.map(t => {
     if (t._this && t.timeType === 'RELATIVE') {
       const [tp, of = 0] = t._this.split('_')
-      const s = getStartDate({ type: tp.toLowerCase(), offset: +of }, timeOffset.value)
-      const e = getEndDate({ type: tp.toLowerCase(), offset: +of }, timeOffset.value)
+      const s = getStartDateStr(
+        { type: tp.toLowerCase(), offset: +of },
+        timeOffset.value
+      )
+      const e = getEndDateStr(
+        { type: tp.toLowerCase(), offset: +of },
+        timeOffset.value
+      )
       const sDiff = dayjs().startOf('day').diff(s, 'day')
       const eDiff = dayjs().endOf('day').diff(e, 'day')
 
@@ -123,7 +170,7 @@ const handleDateFilterConditions = (conditions = []) => {
 }
 
 // 初始化过滤条件
-const initFilterField = () => {
+const initFieldFilter = () => {
   // _latestPartitionValue 最近有数的一天
   const {
     dataType,
@@ -134,17 +181,25 @@ const initFilterField = () => {
     conditions = [],
   } = props.tag
 
+  const { force, filters: forcedFilter = [] } = props.dataset.extraConfig
+
+  const forcedItem = force ? forcedFilter.find(t => t.name === props.tag.name) : null
+  if (forcedItem) {
+    props.tag.filterMode = forcedItem.filterMode
+    props.tag._forced = true
+  }
+
   if (dataType.includes('TIME')) {
     props.tag.logical = logical
     props.tag.conditions = conditions.length
-      ? handleDateFilterConditions(conditions)
+      ? conditions
       : [
           {
             functionalOperator: 'BETWEEN',
             timeType: 'RELATIVE', // 时间字段的筛选类型， EXACT 精确时间， RELATIVE 相对时间
             args: _latestPartitionValue
-              ? getOfffsetByDate(_latestPartitionValue)
-              : [1, 1],
+              ? getOffsetByDate(_latestPartitionValue)
+              : [],
           },
         ]
   } else {
@@ -166,7 +221,11 @@ const initFieldAggregator = () => {
 const tagRef = ref(null)
 onMounted(() => {
   if (props.category === CATEGORY.FILTER) {
-    initFilterField()
+    initFieldFilter()
+
+    if (props.tag.autoPopover) {
+      open.value = true
+    }
   } else {
     if (props.category === CATEGORY.INDEX && !props.tag.aggregator) {
       initFieldAggregator()
@@ -209,41 +268,12 @@ const displayIndexAggregator = field => {
 // 所有的操作符
 const operators = operatorMap.DEFAULT
 
-// 显示过滤文本
-const displayFilter = field => {
-  const { dataType, conditions = [], logical, type } = field
-
-  // 日期
-  if (dataType.includes('TIME')) {
-    const { timeType, args, useLatestPartitionValue, _this } = conditions[0] || {}
-
-    return displayDateFormat({
-      mode: timeType === 'RELATIVE' ? 0 : 1,
-      offset: args,
-      date: args,
-      extra: {
-        dt: useLatestPartitionValue,
-        current: _this,
-      },
-      timeOffset: timeOffset.value,
-      format: 'YY/MM/DD',
-    }).join(' - ')
-  } else {
-    return conditions
-      .map(t => {
-        const { functionalOperator, args = [] } = t
-        const hasV = args.filter(Boolean).length
-
-        return operators[functionalOperator] + (hasV ? "'" + args.join('、') + "'" : '')
-      })
-      .join(logical === 'AND' ? '且' : '或')
-  }
-}
-
 const emits = defineEmits(['remove'])
 const handlRemove = () => {
   emits('remove', props.tag)
 }
+
+const open = ref(false)
 </script>
 
 <style lang="scss" scoped>
@@ -283,13 +313,18 @@ const handlRemove = () => {
   }
 }
 
-.tag-popover--trigger {
+.tag-dropdown--trigger {
   display: flex;
-  .tag-trigger--arrow {
+  .tag-trigger--icon,
+  .tag-trigger--filter-icon {
+    margin-left: 12px;
     transition: all 0.2s;
   }
+  .tag-trigger--filter-icon.active {
+    color: #1677ff;
+  }
   &.open {
-    .tag-trigger--arrow {
+    .tag-trigger--icon {
       transform: rotate(180deg);
     }
   }
@@ -305,7 +340,7 @@ const handlRemove = () => {
 .tag-extra {
   margin-left: 24px;
   color: rgba(255, 255, 255, 0.7);
-  max-width: 200px;
+  max-width: 235px;
   @extend .ellipsis;
 }
 

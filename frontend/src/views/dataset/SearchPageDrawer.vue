@@ -31,7 +31,7 @@
     </template>
 
     <a-table
-      rowkey="id"
+      rowKey="id"
       size="small"
       class="list-table"
       :loading="loading"
@@ -67,7 +67,9 @@
                 <template v-if="hasManagePermission(record)">
                   <a-menu-item key="authorize">授权</a-menu-item>
                   <a-menu-item
-                    v-if="record.status === 'UN_PUBLISH' || record.status === 'OFFLINE'"
+                    v-if="
+                      record.status === 'UN_PUBLISH' || record.status === 'OFFLINE'
+                    "
                     key="publish">
                     发布
                   </a-menu-item>
@@ -135,7 +137,6 @@
                   <template v-if="hasManagePermission(record)">
                     <template v-if="hasManagePermission(record)">
                       <a-menu-item key="authorize">授权</a-menu-item>
-                      <a-menu-item key="setting">设置</a-menu-item>
                       <a-menu-item key="export">导出</a-menu-item>
                     </template>
 
@@ -144,7 +145,9 @@
                     </a-menu-item>
 
                     <template v-if="hasManagePermission(record)">
-                      <a-menu-item v-if="record.status === 'UN_PUBLISH'" key="publish">
+                      <a-menu-item
+                        v-if="record.status === 'UN_PUBLISH'"
+                        key="publish">
                         发布
                       </a-menu-item>
                       <a-menu-item v-if="record.status === 'ONLINE'" key="offline">
@@ -171,12 +174,6 @@
     :init-data="rowInfo"
     :init-params="{ position: 'DATASET', type: 'ALL', workspaceId }" />
 
-  <!-- 设置 -->
-  <SettingDrawer
-    v-model:open="settingDrawerOpen"
-    :init-data="rowInfo"
-    @success="onSettingSuccess" />
-
   <!-- 授权 -->
   <AuthorizeDrawer v-model:open="authorizeDrawerOpen" :init-data="rowInfo" />
 </template>
@@ -196,7 +193,6 @@ import { tableColumns } from './config'
 import { getDatasetList } from '@/apis/dataset'
 import ApplyModal from '@/components/ApplyModal/index.vue'
 import { MoveDrawer } from '@/components/DirTree'
-import SettingDrawer from './components/SettingDrawer.vue'
 import AuthorizeDrawer from '@/components/Authorize/ListDrawer.vue'
 import useAppStore from '@/store/modules/app'
 import useUserStore from '@/store/modules/user'
@@ -343,6 +339,7 @@ const pager = reactive({
   showSizeChanger: true,
   showQuickJumper: true,
 })
+
 const queryParams = computed(() => {
   const { current: pageNum, pageSize } = pager
   const kw = keyword.value.trim()
@@ -376,9 +373,7 @@ const setRowClassName = ({ permission, status }) => {
     : ''
 }
 
-const onTableChange = pager => {
-  const { current, pageSize } = pager
-
+const onTableChange = ({ current, pageSize }) => {
   pager.current = current
   pager.pageSize = pageSize
 
@@ -411,9 +406,6 @@ const onMenuClick = ({ key }, row) => {
       break
     case 'authorize':
       authorize(row)
-      break
-    case 'setting':
-      setting(row)
       break
     case 'publish':
       publish(row)
@@ -450,18 +442,6 @@ const moveDrawerOpen = ref(false)
 const move = row => {
   rowInfo.value = { ...row }
   moveDrawerOpen.value = true
-}
-
-// 设置
-const settingDrawerOpen = ref(false)
-const setting = row => {
-  rowInfo.value = { ...row }
-  settingDrawerOpen.value = true
-}
-const onSettingSuccess = payload => {
-  const item = list.value.find(t => t.id === payload.id)
-
-  item.enableApply = payload.enableApply || 0
 }
 </script>
 

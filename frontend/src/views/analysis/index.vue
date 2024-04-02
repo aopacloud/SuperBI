@@ -141,7 +141,8 @@ const hasReadPermission = computed(() => {
     return true
   } else if (userStore.hasPermission('REPORT:READ:HAS:PRIVILEGE')) {
     return (
-      chartDetail.value.permission === 'READ' || chartDetail.value.permission === 'WRITE'
+      chartDetail.value.permission === 'READ' ||
+      chartDetail.value.permission === 'WRITE'
     )
   } else {
     return false
@@ -248,7 +249,38 @@ const onChartUpdate = e => {
 
 // 初始化过滤条件
 const initChooseFilters = () => {
-  chooseFilters.value = versionJs.ViewsAnalysis.initFilters(datasetDetail.value)
+  const { force = true, filters } = datasetDetail.value.extraConfig
+
+  if (!force) {
+    chooseFilters.value = []
+  } else {
+    const allFields = [...dimensionList.value, ...indexList.value]
+
+    if (typeof filters === 'undefined') {
+      // 初始化 dt
+      const dtField = allFields.find(versionJs.ViewsDatasetModify.isDt)
+      if (!dtField) {
+        chooseFilters.value = []
+      } else {
+        chooseFilters.value = [
+          {
+            ...dtField,
+            _forced: true,
+            _latestPartitionValue: datasetDetail.value.latestPartitionValue,
+          },
+        ]
+      }
+    } else {
+      chooseFilters.value = filters.map(t => {
+        const field = allFields.find(f => f.name === t.name)
+        return {
+          ...t,
+          displayName: field?.displayName,
+          _forced: true,
+        }
+      })
+    }
+  }
 }
 
 // ------ 所有数据集详情 start ------ //
@@ -260,7 +292,11 @@ const fetchDatasetDetail = async id => {
 
     const res = await getDatasetDetail(id)
 
-    datasetDetail.value = res
+    datasetDetail.value = {
+      ...res,
+      extraConfig:
+        typeof res.extraConfig === 'string' ? JSON.parse(res.extraConfig) : {},
+    }
 
     initChooseFilters()
   } catch (error) {
@@ -336,7 +372,11 @@ const updateChoosed = () => {
 // 数据集切换
 const onDatasetToggled = e => {
   // 修改地址栏参数（注意看是否有监听路由做的处理）
-  router.replace({ name: 'DatasetAnalysis', params: { id: e.id }, query: route.query })
+  router.replace({
+    name: 'DatasetAnalysis',
+    params: { id: e.id },
+    query: route.query,
+  })
 
   resetChoosed()
   setRequestResponse()
@@ -399,7 +439,7 @@ const setChoosed = (category, values) => {
   } else if (category === CATEGORY.FILTER) {
     // version
     if (!values.length) {
-      chooseFilters.value = versionJs.ViewsAnalysis.clearFilters(chooseFilters.value)
+      chooseFilters.value = chooseFilters.value.filter(t => t._forced) // versionJs.ViewsAnalysis.clearFilters(chooseFilters.value)
     } else {
       chooseFilters.value = values
     }
@@ -631,17 +671,24 @@ const updateChoosedFromChart = ({
       }
     })
 
+  const { force, filters: forcedFilters = [] } = datasetDetail.value.extraConfig
+
   // 过滤条件
   chooseFilters.value = filters
     .filter(t => fields.some(f => f.name === t.name))
     .map(t => {
       const item = fields.find(it => it.name === t.name)
 
+      // 数据集中配置的强制过滤
+      const forceItem = force ? forcedFilters.find(ft => ft.name === t.name) : null
+
       return {
         ...t,
         ...item,
-        dataType: item.dataType,
         _id: getRandomKey(),
+        _forced: !!forceItem,
+        filterMode: forceItem?.filterMode,
+        dataType: item.dataType,
         category: item.category,
         displayName: item.displayName,
       }
@@ -769,7 +816,10 @@ onMounted(() => {
       storagePrefix + DASHBORD_TO_REPORT_NAME
     )
 
-    if (window.name === DASHBORD_TO_REPORT_NAME && typeof localParameters === 'string') {
+    if (
+      window.name === DASHBORD_TO_REPORT_NAME &&
+      typeof localParameters === 'string'
+    ) {
       dashboardFilters.value = JSON.parse(localParameters)
     }
 

@@ -41,7 +41,10 @@
         </a-radio-group>
       </a-form-item>
 
-      <a-form-item v-if="formState.filterType === 'ENUM'" class="item" label="枚举值来源">
+      <a-form-item
+        v-if="formState.filterType === 'ENUM'"
+        class="item"
+        label="枚举值来源">
         <a-radio-group v-model:value="formState.enumResourceType">
           <a-radio value="AUTO">自动解析</a-radio>
           <a-radio value="MANUAL">手工录入</a-radio>
@@ -58,7 +61,9 @@
       <a-form-item class="item" label="" name="value">
         <div class="flex align-center">
           <a-form-item-rest>
-            <a-checkbox v-model:checked="formState.setDefault" @change="onDefaultChange">
+            <a-checkbox
+              v-model:checked="formState.setDefault"
+              @change="onDefaultChange">
               设置默认值
             </a-checkbox>
           </a-form-item-rest>
@@ -85,7 +90,6 @@ import FilterRender from '../../components/FilterRender.vue'
 
 const defaultValueItem = { operator: RELATION.EQUAL, value: '' }
 
-const emits = defineEmits(['update:item'])
 const props = defineProps({
   item: {
     type: Object,
@@ -136,7 +140,8 @@ const formRules = {
 const onFilterTypeChange = type => {
   // 本文类型和数值类型间的切换只改变类型
   if (
-    (formState.value.filterType === 'TEXT' || formState.value.filterType === 'NUMBER') &&
+    (formState.value.filterType === 'TEXT' ||
+      formState.value.filterType === 'NUMBER') &&
     (type === 'TEXT' || type === 'NUMBER')
   ) {
     formState.value.filterType = type
@@ -209,7 +214,7 @@ const setValue = (reset = false) => {
       formState.value.value = []
       break
     case 'TIME':
-      formState.value.value = { mode: 0, date: [], offset: [] }
+      formState.value.value = { mode: 0, date: [], offset: [1, 1] }
       break
     case 'TEXT':
     case 'NUMBER':

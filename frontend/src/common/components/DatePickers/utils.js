@@ -1,5 +1,7 @@
 ﻿import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
 import weekday from 'dayjs/plugin/weekday'
+dayjs.extend(utc)
 dayjs.extend(weekday)
 
 /**
@@ -9,7 +11,7 @@ dayjs.extend(weekday)
  * @returns
  */
 export const getUtcDate = (utcOffset = 8, date) => {
-  return dayjs(date).utcOffset(utcOffset)
+  return dayjs(date).utcOffset(+utcOffset)
 }
 
 /**
@@ -19,28 +21,24 @@ export const getUtcDate = (utcOffset = 8, date) => {
  * @param {number} offset 偏移量
  * @returns {dayjs}
  * @example
- *  getStartDate({ type: 'day', value: -2 }) => 过去两天
+ *  getStartDateStr({ type: 'day', value: -2 }) => 过去两天
  */
-export const getStartDate = ({ type, offset = 0 }, utcOffset = 8) => {
-  // ?? 这里是否需要用到 getUtcDate
-
-  return dayjs().utcOffset(+utcOffset).add(offset, type).startOf(type)
+export const getStartDateStr = ({ type, offset = 0 }, utcOffset = 8) => {
+  return getUtcDate(utcOffset).add(+offset, type).startOf(type).format('YYYY-MM-DD')
 }
 
 /**
- * 获取开始日期
+ * 获取结束日期
  * @param {{type: 'day'|'week'|'month', offset: number}}
  * @param {string} type 类型
  * @param {number} offset 偏移量
  * @returns {dayjs}
  */
-export const getEndDate = ({ type, offset = 0 }, utcOffset = 8) => {
-  // ?? 这里是否需要用到 getUtcDate
-
-  return dayjs()
-    .utcOffset(+utcOffset)
-    .subtract(offset ? 1 : 0, type)
+export const getEndDateStr = ({ type, offset = 0 }, utcOffset = 8) => {
+  return getUtcDate(utcOffset)
+    .subtract(+offset ? 1 : 0, type)
     .endOf(offset ? type : 'day')
+    .format('YYYY-MM-DD')
 }
 
 /**
@@ -52,26 +50,57 @@ export const displayDateFormat = ({
   mode = 0,
   offset = [],
   date = [],
+  single = false,
+  hms = ['', ''],
   format = 'YYYY-MM-DD',
   extra = {},
   timeOffset = 8,
 } = {}) => {
+  // 单个值直接显示
+  if (single) {
+    const [d = ''] = date,
+      [t] = hms
+
+    return [d + (t ? ' ' + t : '')]
+  }
+
   if (extra.dt) return ['有数的一天']
 
   const utcOffset = +timeOffset
+  const validateHms = hms.map(t => (!!t ? t : ''))
 
-  if (mode === 0) {
+  const joinDateWithHms = (d, i) => {
+    const dateStr = dayjs(d).format(format)
+    const hmsStr = validateHms[i]
+    if (!hmsStr) return dateStr
+
+    return dateStr + ' ' + hmsStr
+  }
+
+  // 自某日至*，需要将其中的动态时间转为静态时间
+  if (!!extra.until) {
+    const e = getEndDateStr(
+      { type: 'day', offset: extra.until.split('_')[1] },
+      utcOffset
+    )
+
+    return [date[0], e].map(joinDateWithHms)
+  } else if (mode === 0) {
     const crt = extra.current
     if (crt) {
       const [tp, of = 0] = crt.split('_')
-      const s = getStartDate({ type: tp.toLowerCase(), offset: +of }, utcOffset)
-      const e = getEndDate({ type: tp.toLowerCase(), offset: +of }, utcOffset)
+      const s = getStartDateStr({ type: tp.toLowerCase(), offset: +of }, utcOffset)
+      const e = getEndDateStr({ type: tp.toLowerCase(), offset: +of }, utcOffset)
 
-      return [s, e].map(t => dayjs(t).format(format))
+      return [s, e].map(joinDateWithHms)
     }
 
-    return offset.map(t => getUtcDate(utcOffset).subtract(t, 'day').format(format))
+    return offset.map(
+      (t, i) =>
+        getUtcDate(utcOffset).subtract(t, 'day').format(format) +
+        (validateHms[i] ? ' ' + validateHms[i] : '')
+    )
   } else {
-    return date.map(t => dayjs(t).format(format))
+    return date.map(joinDateWithHms)
   }
 }

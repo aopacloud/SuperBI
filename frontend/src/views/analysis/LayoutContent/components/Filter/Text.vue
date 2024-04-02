@@ -7,19 +7,22 @@
       <a-radio-group v-model:value="formState.mode" @change="onModeChange">
         <a-radio value="ENUM">枚举过滤</a-radio>
         <a-radio value="CONDITION">条件过滤</a-radio>
-        <a-radio value="CUSTOM">自定义</a-radio>
+        <a-radio v-if="!single" value="CUSTOM">自定义</a-radio>
       </a-radio-group>
     </a-form-item>
 
     <a-form-item label="过滤范围" v-if="formState.mode === 'CONDITION'">
       <a-radio-group v-model:value="formState.scope">
-        <a-radio :disabled="scopeDisabled" :value="true">结果过滤</a-radio>
+        <a-radio v-if="!single" :disabled="scopeDisabled" :value="true">
+          结果过滤
+        </a-radio>
         <a-radio :value="false">明细过滤</a-radio>
       </a-radio-group>
     </a-form-item>
 
+    <!-- 单条件无自定义、排除及上传 -->
     <a-form-item label="过滤条件" v-bind="validateInfos.conditions">
-      <template #extra v-if="formState.mode !== 'CONDITION'">
+      <template #extra v-if="formState.mode !== 'CONDITION' && !single">
         <div class="extra-tools">
           <a-space>
             <a
@@ -30,6 +33,11 @@
             </a>
             <a-checkbox v-model:checked="formState.exclude">排除</a-checkbox>
           </a-space>
+          <a-tooltip
+            v-if="formState.mode === 'ENUM'"
+            title="下拉列表仅展示前1000条，若是搜索无数据可切换至条件过滤">
+            <InfoCircleOutlined style="font-size: 16px" />
+          </a-tooltip>
           <a-button
             v-if="formState.mode === 'CUSTOM'"
             size="small"
@@ -40,31 +48,41 @@
         </div>
       </template>
 
+      <!-- 枚举过滤 -->
       <a-select
         v-if="formState.mode === 'ENUM'"
-        mode="multiple"
         placeholder="请选择"
         allow-clear
+        :mode="!single ? 'multiple' : ''"
         :loading="enumLoading"
+        :getPopupContainer="node => node.parentNode"
         v-model:value="formState.conditions">
-        <a-select-option v-for="item in enumList" :key="item">{{ item }}</a-select-option>
+        <a-select-option v-for="item in enumList" :key="item">{{
+          item
+        }}</a-select-option>
       </a-select>
 
+      <!-- 条件过滤 -->
       <Conditions
-        v-else-if="formState.mode === 'CONDITION'"
+        v-if="formState.mode === 'CONDITION'"
+        :single="single"
         :dataType="field.dataType"
         :conditions="formState.conditions"
         v-model:relation="formState.relation">
       </Conditions>
 
+      <!-- 单条件无自定义 -->
       <a-textarea
-        v-else
+        v-if="formState.mode === 'CUSTOM' && !single"
         placeholder="回车分隔"
         :rows="4"
         v-model:value="formState.conditions"></a-textarea>
     </a-form-item>
 
-    <a-form-item label=" " style="margin: 50px 0 -10px; text-align: right" :colon="false">
+    <a-form-item
+      label=" "
+      style="margin: 50px 0 -10px; text-align: right"
+      :colon="false">
       <a-space>
         <a-button @click="handleCancel">取消</a-button>
         <a-button type="primary" @click="handleOk">确认</a-button>
@@ -83,7 +101,7 @@
 <script setup>
 import { h, ref, reactive, computed, watch, nextTick, inject, onMounted } from 'vue'
 import { Form, message } from 'ant-design-vue'
-import { ClearOutlined } from '@ant-design/icons-vue'
+import { ClearOutlined, InfoCircleOutlined } from '@ant-design/icons-vue'
 import { CATEGORY, RELATION } from '@/CONST.dict'
 import { NOT_IN } from '@/views/dataset/config.field'
 import Conditions from './Conditions.vue'
@@ -93,18 +111,26 @@ import { postParseExcel } from '@/apis/system/excel'
 
 const emits = defineEmits(['ok', 'cancel'])
 const props = defineProps({
+  dataset: {
+    type: Object,
+    default: () => ({}),
+  },
   field: {
     type: Object,
     default: () => ({}),
   },
+  // 是否单条件
+  single: { type: Boolean },
 })
 
-const indexInject = inject('index')
+const { choosed: indexChoosed } = inject('index', {})
 
 const scopeDisabled = computed(() => {
-  const indexChoosed = indexInject.choosed.get(CATEGORY.INDEX)
+  if (typeof indexChoosed === 'undefined') return true
 
-  return indexChoosed.every(t => t.name !== props.field.name)
+  const indexFields = indexChoosed.get(CATEGORY.INDEX) || []
+
+  return indexFields.every(t => t.name !== props.field.name)
 })
 
 watch(scopeDisabled, disabled => {
@@ -131,7 +157,9 @@ const validateConfitions = {
       const { operator, value } = v
 
       return (
-        operator === 'IS_NOT_NULL' || operator === 'IS_NULL' || value?.trim().length > 0
+        operator === 'IS_NOT_NULL' ||
+        operator === 'IS_NULL' ||
+        value?.trim().length > 0
       )
     })
   },
@@ -166,7 +194,9 @@ const { resetFields, clearValidate, validate, validateInfos } = useForm(
 // 过滤方式改变
 const onModeChange = e => {
   if (e.target.value === 'CONDITION') {
-    formState.conditions = [{ _id: getRandomKey(), operator: RELATION.EQUAL, value: '' }]
+    formState.conditions = [
+      { _id: getRandomKey(), operator: RELATION.EQUAL, value: '' },
+    ]
   } else {
     formState.conditions = undefined
   }
@@ -184,13 +214,17 @@ const onModeChange = e => {
 const enumLoading = ref(false)
 const enumList = ref([])
 const fetchEnumList = async () => {
+  if (!props.dataset.id) {
+    enumList.value = []
+    return
+  }
+
   try {
     enumLoading.value = true
 
-    const dataset = indexInject.dataset.get()
     const paylaod = {
       type: 'SINGLE_FIELD',
-      datasetId: dataset.id,
+      datasetId: props.dataset.id,
       fromSource: 'temporary', // dashboard 从看板查询, report 保存图表查询, temporary 临时查询
       dimensions: [{ ...props.field }],
     }
@@ -209,11 +243,15 @@ const fetchEnumList = async () => {
 const init = () => {
   const { filterType = 'ENUM', having, logical, conditions = [] } = props.field
 
-  formState.mode = filterType || 'ENUM'
+  if (filterType === 'CUSTOM' && props.single) {
+    formState.mode = 'ENUM'
+  } else {
+    formState.mode = filterType || 'ENUM'
+  }
   formState.scope = having || false
   formState.relation = logical ?? 'AND'
 
-  formState.conditions =
+  const conditionsRes =
     filterType === 'ENUM'
       ? conditions[0]?.args
       : filterType === 'CONDITION'
@@ -225,7 +263,9 @@ const init = () => {
           }
         })
       : conditions[0].args?.join('\n')
-  formState.exclude = conditions[0]?.functionalOperator === NOT_IN
+
+  formState.conditions = props.single ? [conditionsRes[0]] : conditionsRes
+  formState.exclude = conditionsRes?.[0]?.functionalOperator === NOT_IN
 }
 
 defineExpose({ init })

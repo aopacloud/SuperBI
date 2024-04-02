@@ -3,14 +3,23 @@
     <!-- 维度 -->
     <SectionList
       v-if="renderType !== 'statistic'"
+      :dataset="dataset"
       :category="CATEGORY.PROPERTY"
       :data-source="dimensions" />
 
     <!-- 指标 -->
-    <SectionList :category="CATEGORY.INDEX" :data-source="indexes" />
+    <SectionList
+      style="margin-top: 8px"
+      :dataset="dataset"
+      :category="CATEGORY.INDEX"
+      :data-source="indexes" />
 
     <!-- 筛选 -->
-    <SectionList :category="CATEGORY.FILTER" :data-source="filters" />
+    <SectionList
+      style="margin-top: 8px"
+      :dataset="dataset"
+      :category="CATEGORY.FILTER"
+      :data-source="filters" />
   </div>
 
   <!-- 重命名 -->
@@ -28,6 +37,10 @@ import FieldRenameModal from '@/views/analysis/components/FieldRenameModal.vue'
 import { CATEGORY } from '@/CONST.dict.js'
 
 const props = defineProps({
+  dataset: {
+    type: Object,
+    default: () => ({}),
+  },
   dimensions: {
     type: Array,
     default: () => [],
@@ -44,13 +57,11 @@ const props = defineProps({
 
 const {
   options,
-  dataset: indexDataset,
   permissions,
   requestResponse: indexRequestResponse,
 } = inject('index')
 
 const renderType = computed(() => options.get('renderType'))
-const dataset = computed(() => indexDataset.get())
 const hasDatasetAnalysis = computed(() => permissions.dataset.hasAnalysis())
 
 const renameModalVisible = ref(false)
@@ -85,7 +96,7 @@ const onRenameOk = (field, e) => {
   updateRequest({ ...field, ...e })
 }
 const onRenameReset = field => {
-  const originFields = dataset.value.fields
+  const originFields = props.dataset.fields
   const item = props.indexes.find(t => t.name === field.name)
   const originItem = originFields.find(t => t.name === item.name)
 

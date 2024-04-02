@@ -17,13 +17,6 @@
           label-field="displayName"
           :data-source="dataSource"
           v-model:value="modelValue">
-          <span
-            slot="item"
-            slot-scope="{ displayName, name }"
-            :title="`${displayName}(${name})`">
-            {{ displayName }}
-            <span style="color: #aaa">({{ name }})</span>
-          </span>
         </SelectList>
         <a-space style="margin-top: 10px; align-self: flex-end">
           <a-button size="small" @click="handleCancel">取消</a-button>

@@ -104,7 +104,7 @@ import { DASHBORD_TO_REPORT_NAME } from '../config'
 import BoxUnaccess from './BoxUnaccess.vue'
 import emittor from 'common/plugins/emittor'
 import { versionJs } from '@/versions'
-import { getStartDate, getEndDate } from 'common/components/DatePickers/utils'
+import { getStartDateStr, getEndDateStr } from 'common/components/DatePickers/utils'
 import dayjs from 'dayjs'
 
 const router = useRouter()
@@ -304,7 +304,7 @@ const toFilterItem = item => {
 
   if (filterType === 'TIME') {
     // 日期
-    const { date = [], mode = 0, offset = [], extra = {} } = value
+    const { date = [], mode = 0, offset = [], extra = {}, hms } = value
     return {
       name: fieldName,
       logical: 'AND',
@@ -314,6 +314,7 @@ const toFilterItem = item => {
           functionalOperator: 'BETWEEN',
           timeType: mode === 0 ? 'RELATIVE' : 'EXACT',
           args: mode === 0 ? [...offset] : [...date],
+          timeParts: hms,
         },
       ],
     }
@@ -362,16 +363,31 @@ const updateFilterItem = filter => {
     return filter
   } else {
     const cond = filter.conditions[0]
-    const { timeType = 'RELATIVE', _this } = cond
+    const { timeType = 'RELATIVE', _this, _until } = cond
 
-    // 相对时间的当月在查询时重新计算
-    if (timeType === 'RELATIVE' && _this) {
+    if (!!_until) {
+      const endDate = getEndDateStr(
+        { type: 'day', offset: _until.split('_')[1] },
+        props.timeOffset
+      )
+      cond.args[1] = endDate
+      cond.timeType = 'EXACT'
+
+      return {
+        ...filter,
+        conditions: [cond],
+      }
+    } else if (timeType === 'RELATIVE' && _this) {
+      // 相对时间的当月在查询时重新计算
       const [tp, of = 0] = _this.split('_')
-      const s = getStartDate(
+      const s = getStartDateStr(
         { type: tp.toLowerCase(), offset: +of },
         props.timeOffset
       )
-      const e = getEndDate({ type: tp.toLowerCase(), offset: +of }, props.timeOffset)
+      const e = getEndDateStr(
+        { type: tp.toLowerCase(), offset: +of },
+        props.timeOffset
+      )
       const sDiff = dayjs().startOf('day').diff(s, 'day')
       const eDiff = dayjs().endOf('day').diff(e, 'day')
 
@@ -416,8 +432,10 @@ const runQuery = async () => {
     mergedFilters.value = versionJs.ViewsDashboard.mergeBoxFilters(
       props.filters,
       props.globalDateConfig,
-      toFilterItem
+      toFilterItem,
+      props.timeOffset
     )
+
     queryFilters.value = queryFiltersHandler()
 
     const p = _n(CATEGORY.PROPERTY),

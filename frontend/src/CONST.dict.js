@@ -12,8 +12,8 @@ export const COMPARE = {
     DIFF_PERSENT: 2, // 差值百分比
   },
   MERGE: {
-    FALSE: 0, // 单独显示
-    TRUE: 1, // 合并显示
+    FALSE: false, // 单独显示
+    TRUE: true, // 合并显示
   },
 }
 

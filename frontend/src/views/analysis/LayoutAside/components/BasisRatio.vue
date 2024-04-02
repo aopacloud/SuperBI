@@ -18,6 +18,8 @@
 
 <script setup>
 import { ref, watchEffect, computed, watch, onUnmounted } from 'vue'
+import { COMPARE } from '@/CONST.dict'
+
 const props = defineProps({
   chartType: {
     type: String,
@@ -38,8 +40,8 @@ const cMerge = ref(false)
 const initWatcher = watchEffect(() => {
   const { mode, merge } = props.value
 
-  cMode.value = mode
-  cMerge.value = merge
+  cMode.value = mode ?? COMPARE.MODE.ORIGIN
+  cMerge.value = merge ?? COMPARE.MERGE.FALSE
 })
 onUnmounted(initWatcher)
 

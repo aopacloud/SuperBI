@@ -43,7 +43,9 @@
 
         <section class="content">
           <header class="title">
-            <span v-if="!detail.config?.tableName" style="line-height: 26px; color: #666">
+            <span
+              v-if="!detail.config?.tableName"
+              style="line-height: 26px; color: #666">
               暂未选中任何表
             </span>
             <a-tag v-else class="title-tag" color="#1677ff">
@@ -52,7 +54,10 @@
           </header>
 
           <!-- TODO: 性能瓶颈 -->
-          <a-tabs :animated="false" v-model:activeKey="tabKey" @tabClick="onTabChange">
+          <a-tabs
+            :animated="false"
+            v-model:activeKey="tabKey"
+            @tabClick="onTabChange">
             <a-tab-pane key="fields" tab="字段配置">
               <FieldTable
                 ref="tableRef"
@@ -60,10 +65,25 @@
                 :dataset="detail"
                 :originFields="tableFields" />
             </a-tab-pane>
+
+            <a-tab-pane key="partition" tab="分区及更新">
+              <PartitionTab
+                ref="partitionTabRef"
+                :fields="allFields"
+                v-model:dataset="detail" />
+            </a-tab-pane>
+
+            <a-tab-pane key="query" tab="申请与查询">
+              <QueryTab
+                ref="queryTabRef"
+                :fields="allFields"
+                v-model:dataset="detail" />
+            </a-tab-pane>
+
             <a-tab-pane key="preview" tab="数据预览">
               <FieldPreview
                 :dataset="{ workspaceId, ...detail }"
-                :fields="previewFields" />
+                :fields="allFields" />
             </a-tab-pane>
           </a-tabs>
         </section>
@@ -90,6 +110,8 @@ import FieldTable from './components/FieldTable.vue'
 import FieldPreview from './components/Preview.vue'
 import ModifyModal from './components/ModifyModal.vue'
 import { getFieldsByTableItem } from '@/apis/metaData'
+import PartitionTab from './components/PartitionTab.vue'
+import QueryTab from './components/QueryTab.vue'
 import {
   getLastVersionById,
   postDataset,
@@ -151,7 +173,7 @@ const toBackFrom = () => {
 const loading = ref(false)
 const detailSuccess = ref(false)
 // 数据集详情
-const detail = ref({})
+const detail = ref({ workspaceId })
 const fetchDetail = async id => {
   try {
     loading.value = true
@@ -159,7 +181,14 @@ const fetchDetail = async id => {
     const res = await getLastVersionById(id)
 
     detailSuccess.value = true
-    detail.value = res
+
+    detail.value = {
+      ...res,
+      _extraConfig:
+        typeof res.extraConfig === 'string'
+          ? JSON.parse(res.extraConfig)
+          : undefined,
+    }
 
     nextTick(() => {
       tableRef.value?.init()
@@ -206,10 +235,15 @@ const _transformFieldsPayload = (fields = []) => {
 
     return {
       ...item,
-      dataType: Array.isArray(dataType) ? dataType.filter(Boolean).join('_') : dataType,
+      dataType: Array.isArray(dataType)
+        ? dataType.filter(Boolean).join('_')
+        : dataType,
     }
   })
 }
+
+const partitionTabRef = ref(null)
+const queryTabRef = ref(null)
 
 // 保存
 const save = async () => {
@@ -223,10 +257,22 @@ const save = async () => {
     saveLoading.value = true
 
     const fields = tableRef.value.getTableData()
+
+    const partitionData = await partitionTabRef.value?.validate()
+    const queryData = await queryTabRef.value?.validate()
+
+    const extraConfig = {
+      ...detail.value._extraConfig,
+      ...partitionData,
+      ...queryData,
+      enableApply: queryData?.enableApply ?? detail.value.enableApply,
+    }
+
     const payload = {
       ...detail.value,
       workspaceId: workspaceId.value,
       fields: _transformFieldsPayload(fields),
+      extraConfig: JSON.stringify(extraConfig),
     }
 
     const fn = !!payload.id
@@ -235,7 +281,14 @@ const save = async () => {
     const res = await fn()
 
     message.success('保存成功')
-    detail.value = res
+
+    detail.value = {
+      ...res,
+      _extraConfig:
+        typeof res.extraConfig === 'string'
+          ? JSON.parse(res.extraConfig)
+          : undefined,
+    }
 
     return res.id
   } catch (error) {
@@ -264,11 +317,9 @@ const saveToPublish = async () => {
   }
 }
 
-const previewFields = shallowRef([])
+const allFields = shallowRef([])
 const onTabChange = key => {
-  if (key === 'preview') {
-    previewFields.value = tableRef.value.getTableData()
-  }
+  allFields.value = tableRef.value?.getTableData?.()
 }
 
 const tableFieldsLoading = ref(false)
@@ -283,7 +334,7 @@ const tabKey = ref('fields')
  */
 const fetchFields = async (payload, reset = 0) => {
   try {
-    tabKey.value = 'fields'
+    // tabKey.value = 'fields'
     tableFieldsLoading.value = true
 
     const { fields = [], ...res } = await getFieldsByTableItem(payload)

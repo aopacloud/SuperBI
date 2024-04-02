@@ -28,11 +28,16 @@ export const presetOptions = [
   { label: '过去7天', value: -7, type: 'day' },
   { label: '过去15天', value: -15, type: 'day' },
   { label: '过去30天', value: -30, type: 'day' },
+  { label: '自某日至昨日', value: -1, type: 'until', col: 50 },
+  { label: '自某日至今日', value: 0, type: 'until', col: 50 },
   { label: '自定义', value: 'custom', type: 'custom' },
 ]
 
 // 自定义选择范围
-export const customRangeOptions = createRange().map(t => ({ label: t, value: t * -1 }))
+export const customRangeOptions = createRange().map(t => ({
+  label: t,
+  value: t * -1,
+}))
 
 // 自定义模式
 export const customMode = [

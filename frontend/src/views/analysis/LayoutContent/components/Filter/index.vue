@@ -1,100 +1,109 @@
 ﻿<template>
-  <a-dropdown
-    trigger="click"
-    placement="bottomLeft"
-    overlayClassName="filter-dropdown"
-    v-model:open="open">
-    <div class="filter-dropdown-trigger" :class="{ open: open }">
-      <slot></slot>
+  <div class="filter-wrapper">
+    <FilterDate
+      v-if="isDate"
+      ref="datepickerRef"
+      :single="single"
+      :utcOffset="timeOffset"
+      :moda="+(field.conditions[0].timeType === 'EXACT')"
+      :offset="field.conditions[0].args"
+      :value="field.conditions[0].args"
+      :hms="field.conditions[0].timeParts"
+      :showTime="field.dataType === 'TIME_YYYYMMDD_HHMMSS'"
+      :extra="{
+        dt: field.conditions[0].useLatestPartitionValue,
+        current: field.conditions[0]._this,
+        isCustom: field.conditions[0]._current,
+        until: field.conditions[0]._until,
+      }"
+      @cancel="cancel"
+      @ok="ok">
+    </FilterDate>
 
-      <FilterOutlined
-        class="dropdown-trigger-icon"
-        :class="{ active: isDate || (field.conditions && field.conditions.length) }" />
-    </div>
-
-    <template #overlay>
-      <div class="filter-dropdown-overlay">
-        <FilterDate
-          v-if="isDate"
-          ref="datepickerRef"
-          :utcOffset="timeOffset"
-          :moda="+(field.conditions[0].timeType === 'EXACT')"
-          :offset="field.conditions[0].args"
-          :value="field.conditions[0].args"
-          :extra="{
-            dt: field.conditions[0].useLatestPartitionValue,
-            current: field.conditions[0]._this,
-            isCustom: field.conditions[0]._current,
-          }"
-          @cancel="cancel"
-          @ok="ok" />
-
-        <FilterText v-else ref="filterTextRef" :field="field" @cancel="cancel" @ok="ok" />
-      </div>
-    </template>
-  </a-dropdown>
+    <FilterText
+      v-else
+      ref="filterTextRef"
+      :single="single"
+      :dataset="dataset"
+      :field="field"
+      @cancel="cancel"
+      @ok="ok" />
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, inject, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, inject } from 'vue'
 import { FilterOutlined } from '@ant-design/icons-vue'
 import { RELATION } from '@/CONST.dict'
 import { NOT_IN, IN } from '@/views/dataset/config.field'
 import FilterText from './Text.vue'
 import FilterDate from 'common/components/DatePickers/PickerPanel.vue'
 
-const emits = defineEmits(['cancel', 'ok'])
-const props = defineProps({
-  field: {
-    type: Object,
-    default: () => ({}),
-  },
+defineOptions({
+  inheritAttrs: false,
 })
 
-// 时区偏移
-const { timeOffset } = inject('index')
+const emits = defineEmits(['update:open', 'ok', 'cancel'])
+const props = defineProps({
+  // 面板的开启状态
+  open: { type: Boolean },
+  // 是否单条件
+  single: { type: Boolean },
+  dataset: { type: Object, default: () => ({}) },
+  field: { type: Object, default: () => ({}) },
+  timeOffset: { type: String, default: '+8' },
+})
 
-const open = ref(false)
 const datepickerRef = ref(null)
 const filterTextRef = ref(null)
-watch(open, op => {
-  if (op) {
-    nextTick(() => {
-      datepickerRef.value?.init()
-      filterTextRef.value?.init()
-    })
-  }
-})
 
-onMounted(() => {
-  // 自动展开过滤面板
-  if (props.field.autoPopover) {
-    open.value = true
-  }
-})
+const init = () => {
+  nextTick(() => {
+    datepickerRef.value?.init()
+    filterTextRef.value?.init()
+  })
+}
+
+watch(
+  () => props.open,
+  op => {
+    if (op) {
+      init()
+    } else {
+      datepickerRef.value?.resetOpen?.()
+    }
+  },
+  { immediate: true }
+)
+
+defineExpose({ init })
 
 // 日期筛选
-const isDate = computed(() => props.field.dataType.includes('TIME'))
+const isDate = computed(() => props.field.dataType?.includes('TIME'))
 
 const cancel = () => {
-  open.value = false
+  emits('update:open', false)
+  emits('cancel')
 }
 
 // 过滤条件确认
 const ok = e => {
   // 日期过滤
   if (isDate.value) {
-    const { moda, offset, date, extra = {} } = e
+    const { moda, offset, value, extra = {}, hms } = e
 
+    props.field._dtChanged = true // 日期有修改过，看板携带的日期过滤不生效
     props.field.logical = RELATION.AND
     props.field.conditions = [
       {
         useLatestPartitionValue: extra.dt || undefined,
         functionalOperator: 'BETWEEN',
         timeType: moda === 0 ? 'RELATIVE' : 'EXACT', // 时间字段的筛选类型， EXACT 精确时间， RELATIVE 相对时间
-        args: moda === 0 ? offset : date,
+        args: moda === 0 ? offset : value,
+        timeParts: hms,
         _this: extra.current,
         _current: extra.isCustom,
+        _until: extra.until,
       },
     ]
   } else {
@@ -127,40 +136,25 @@ const ok = e => {
     }
   }
 
-  open.value = false
+  emits('update:open', false)
   emits('ok')
 }
 </script>
 
 <style lang="scss" scoped>
-.filter-dropdown-trigger {
-  display: inline-flex;
-}
-.dropdown-trigger-icon {
-  margin-left: 12px;
-  transition: all 0.2s;
-  &.active {
-    color: #1677ff;
-  }
-}
-</style>
+.filter-wrapper {
+  background-color: #ffffff;
+  background-clip: padding-box;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12),
+    0 9px 28px 8px rgba(0, 0, 0, 0.05);
+  padding: 12px;
 
-<style lang="scss">
-.filter-dropdown {
-  .filter-dropdown-overlay {
-    background-color: #ffffff;
-    background-clip: padding-box;
-    border-radius: 8px;
-    box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12),
-      0 9px 28px 8px rgba(0, 0, 0, 0.05);
-    padding: 12px;
-
-    & > .section {
-      padding: 0;
-      background: #fff;
-      border-radius: 0;
-      box-shadow: none;
-    }
+  & > .custom-picker-section {
+    padding: 0;
+    background: #fff;
+    border-radius: 0;
+    box-shadow: none;
   }
 }
 </style>

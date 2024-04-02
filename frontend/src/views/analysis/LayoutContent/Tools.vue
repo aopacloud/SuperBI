@@ -70,10 +70,14 @@ import { CATEGORY } from '@/CONST.dict'
 import { IS_NOT_NULL, IS_NULL } from '@/views/dataset/config.field'
 import { postAnalysisQuery } from '@/apis/analysis'
 import { repeatIndex } from '@/views/analysis/utils'
-import { getByInlcudesKeys, deepClone } from 'common/utils/help'
+import { getByInlcudesKeys } from 'common/utils/help'
 import dayjs from 'dayjs'
 import { versionJs } from '@/versions'
 import { toContrastFiled, queryTotalOptions } from '@/views/analysis/config'
+import {
+  getStartDateStr,
+  getEndDateStr,
+} from '@/common/components/DatePickers/utils'
 
 const emits = defineEmits([
   'run-loading',
@@ -85,6 +89,7 @@ const emits = defineEmits([
 ])
 
 const {
+  timeOffset,
   dataset: indexDataset,
   choosed: indexChoosed,
   options: indexOptions,
@@ -176,8 +181,53 @@ const responseInfo = reactive({
   total: 0,
 })
 
-const mergeDashbaordFilters = choosedMap => {
-  const choosedFilters = deepClone(choosedMap[CATEGORY.FILTER])
+/**
+ * 处理日期过滤
+ * 不分动态日期的过滤需要重新计算值
+ */
+const transferChoosedFilters = filterItem => {
+  const {
+    dataType,
+    conditions: [cond1],
+  } = filterItem
+
+  if (!versionJs.ViewsAnalysis.isDateField(filterItem)) return filterItem
+
+  const { timeType, args, timeParts, _this, _until } = cond1
+
+  // 自某日至*，需要将动态时间转换为静态时间
+  if (_until) {
+    args[1] = getEndDateStr({ type: 'day', offset: _until.split('_')[1] })
+  } else if (timeType === 'RELATIVE' && _this) {
+    // 相对时间的本周、本月、上周、上月 再查询时需重新计算
+    const [tp, of = 0] = _this.split('_')
+    const sDate = getStartDateStr(
+      { type: tp.toLowerCase(), offset: +of },
+      timeOffset.value
+    )
+    const endDate = getEndDateStr(
+      { type: tp.toLowerCase(), offset: +of },
+      timeOffset.value
+    )
+
+    args[0] = dayjs().startOf('day').diff(sDate, 'day')
+    args[1] = dayjs().endOf('day').diff(endDate, 'day')
+  }
+  return {
+    ...filterItem,
+    conditions: [
+      {
+        ...cond1,
+        timeType: !!_until ? 'EXACT' : timeType,
+        timeParts: dataType === 'TIME_YYYYMMDD_HHMMSS' ? timeParts : undefined,
+        args,
+      },
+    ],
+  }
+}
+
+const mergeDashbaordFilters = (filters = []) => {
+  const choosedFilters = [...filters].map(transferChoosedFilters)
 
   const dashboardFilters = indexDashboardFilters.get().filters
   if (!dashboardFilters || !dashboardFilters.length) return choosedFilters
@@ -187,7 +237,8 @@ const mergeDashbaordFilters = choosedMap => {
   // 选中的dt
   const choosedDt = choosedFilters.find(versionJs.ViewsDatasetModify.isDt)
 
-  if (choosedDt && dashboardDt) {
+  // 日期字段过滤未修改
+  if (choosedDt && !choosedDt._dtChanged && dashboardDt) {
     const {
       conditions: [cond1],
     } = dashboardDt
@@ -196,7 +247,7 @@ const mergeDashbaordFilters = choosedMap => {
       conditions: [cond2],
     } = choosedDt
 
-    const { useLatestPartitionValue, timeType, args } = cond1
+    const { useLatestPartitionValue, timeType, args, _until } = cond1
 
     cond2.timeType = timeType
     cond2.useLatestPartitionValue = useLatestPartitionValue
@@ -205,8 +256,13 @@ const mergeDashbaordFilters = choosedMap => {
       cond2.args = []
     } else {
       cond2.args = [...args]
+      // 自某日至*，需要将动态时间转换为静态时间
+      if (_until) {
+        cond2.args[1] = getEndDateStr({ type: 'day', offset: _until.split('_')[1] })
+      }
     }
   }
+
   return [
     ...choosedFilters,
     ...dashboardFilters
@@ -356,12 +412,6 @@ const validateChoosed = (choosed = {}) => {
 }
 // 校验过滤条件
 const validateFilter = (filters = []) => {
-  if (!versionJs.ViewsAnalysis.valideteFilterItem(dataset.value.fields, filters)) {
-    message.warn('请拖入dt到过滤条件中')
-
-    return
-  }
-
   const unValidatedWithEmpty = filters.some(item => {
     return (
       !item.conditions.length ||
@@ -373,7 +423,7 @@ const validateFilter = (filters = []) => {
         ) {
           return false
         } else {
-          return !t.args.length && !t.useLatestPartitionValue
+          return !t.args?.length && !t.useLatestPartitionValue
         }
       })
     )
@@ -398,7 +448,7 @@ const transformChoosed = (choosedMap = {}) => {
   return {
     ...choosedMap,
     [CATEGORY.INDEX]: indexRepeated,
-    [CATEGORY.FILTER]: mergeDashbaordFilters(choosedMap),
+    [CATEGORY.FILTER]: mergeDashbaordFilters(choosedMap[CATEGORY.FILTER]),
   }
 }
 // 提取字段需要的参数

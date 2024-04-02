@@ -1,5 +1,7 @@
 ﻿<template>
-  <div class="graggable-handler filter-layout" :class="{ readonly: mode !== 'EDIT' }">
+  <div
+    class="graggable-handler filter-layout"
+    :class="{ readonly: mode !== 'EDIT' }">
     <div class="filter-tools" v-if="mode === 'EDIT'">
       <a-tooltip title="编辑">
         <EditOutlined

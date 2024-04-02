@@ -14,18 +14,20 @@
 
     <DatePicker
       v-if="type === 'TIME'"
+      showTime
       :modeOnly="from === 'setting' ? undefined : 1"
       :utcOffset="timeOffset"
       :options="{ dt: false }"
+      v-model:extra="modelValue.extra"
       v-model:moda="modelValue.mode"
       v-model:offset="modelValue.offset"
       v-model:value="modelValue.date"
-      v-model:extra="modelValue.extra">
+      v-model:hms="modelValue.hms">
       <a-input
         readonly
         placeholder="请选择默认日期"
         :size="size"
-        :style="{ width: layout === 'inline' ? '230px' : '' }"
+        :style="{ width: layout === 'inline' ? '350px' : '' }"
         :value="displayDate(modelValue)">
         <template #prefix>
           <CalendarOutlined style="margin-right: 2px" />
@@ -140,7 +142,7 @@ const type = computed(() => {
   return props.item.filterType
 })
 
-const modelValue = ref('')
+const modelValue = ref({})
 
 // 枚举值
 const enumLoading = ref(false)
@@ -164,14 +166,14 @@ const fetchEnumList = async () => {
 }
 
 // 默认值初始化
-const init = type => {
-  const { value, filterMethod } = props.item
+const init = () => {
+  const { value, filterMethod, filterType } = props.item
 
-  if (type === 'ENUM') {
+  if (filterType === 'ENUM') {
     modelValue.value = value
-  } else if (type === 'TIME') {
+  } else if (filterType === 'TIME') {
     modelValue.value = value ?? {}
-  } else if (type === 'TEXT' || type === 'NUMBER') {
+  } else if (filterType === 'TEXT' || filterType === 'NUMBER') {
     const item = { operator: RELATION.EQUAL, value: '' }
 
     if (value?.length) {
@@ -201,9 +203,7 @@ watch(
   { immediate: true }
 )
 
-watchEffect(() => {
-  init(props.item.filterType)
-})
+watchEffect(init)
 
 // 触发外层的表单校验
 const formItemContext = Form.useInjectFormItemContext()
@@ -237,20 +237,28 @@ const operators = computed(() => {
 })
 // 筛选方式文本
 const filterMethodLabel = computed(() => {
-  return method.value === RELATION.OR ? '或' : method.value === RELATION.AND ? '且' : ''
+  return method.value === RELATION.OR
+    ? '或'
+    : method.value === RELATION.AND
+    ? '且'
+    : ''
 })
 
 const removeDate = () => {
-  props.item.value.date = []
-  props.item.value.offset = []
+  modelValue.value.date = []
+  modelValue.value.offset = []
+  modelValue.value.hms = undefined
+  modelValue.value.extra.until = undefined
 }
-const displayDate = ({ date = [], mode, extra = {}, offset = [] }) => {
+const displayDate = ({ date = [], mode, extra = {}, offset = [], hms }) => {
   if (extra.dt) return '有数的一天'
 
   return displayDateFormat({
     mode,
     offset,
+    hms,
     date,
+    extra,
     format: 'YYYY/MM/DD',
   }).join(' ~ ')
 }

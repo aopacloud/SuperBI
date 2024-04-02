@@ -1,72 +1,59 @@
 ﻿<template>
-  <a-dropdown
-    trigger="click"
-    :overlayStyle="{ width: '140px', minWidth: 'initial' }"
-    v-model:open="open">
-    <div class="property-dropdown-trigger" :class="{ open: open }">
-      <slot></slot>
+  <a-menu>
+    <a-sub-menu key="group" title="日期分组">
+      <div class="list">
+        <div
+          class="item"
+          style="width: 100px"
+          v-for="item in weekBefore"
+          :key="item.value"
+          :class="{ active: selectedKeys.includes(item.value) }"
+          @click="onMenuClick(item.value)">
+          <span v-if="item.value !== WEEK">{{ item.label }}</span>
+        </div>
 
-      <DownOutlined class="dropdown-trigger-icon" />
-    </div>
-    <template #overlay>
-      <a-menu>
-        <!-- selectable :selectedKeys="selectedKeys" -->
-        <a-sub-menu key="group" title="日期分组">
-          <div class="list">
-            <div
-              class="item"
-              style="width: 100px"
-              v-for="item in weekBefore"
-              :key="item.value"
-              :class="{ active: selectedKeys.includes(item.value) }"
-              @click="onMenuClick(item.value)">
-              <span v-if="item.value !== WEEK">{{ item.label }}</span>
-            </div>
-
-            <div
-              class="item"
-              style="padding-right: 30px"
-              :class="{ active: selectedKeys.includes('WEEK') }">
-              <div>
-                周 <RightOutlined style="position: absolute; right: 8px; top: 8px" />
-              </div>
-              <div class="item-sublist" style="width: 150px">
-                <div
-                  class="item"
-                  v-for="item in week.children"
-                  :key="item.value"
-                  :class="{ active: selectedKeys.includes(item.value) }"
-                  @click="onMenuClick(item.value)">
-                  {{ item.label }}
-                </div>
-              </div>
-            </div>
-
-            <div
-              class="item"
-              v-for="item in weekAfter"
-              :key="item.value"
-              :class="{ active: selectedKeys.includes(item.value) }"
-              @click="onMenuClick(item.value)">
-              <span v-if="item.value !== WEEK">{{ item.label }}</span>
-            </div>
+        <div
+          class="item"
+          style="padding-right: 30px"
+          :class="{ active: selectedKeys.includes('WEEK') }">
+          <div>
+            周 <RightOutlined style="position: absolute; right: 8px; top: 8px" />
           </div>
-        </a-sub-menu>
-        <a-sub-menu v-if="curDateDisplayOptions.length" key="display" title="日期显示">
-          <div class="list" style="width: 250px">
+          <div class="item-sublist" style="width: 150px">
             <div
               class="item"
-              v-for="item in curDateDisplayOptions"
+              v-for="item in week.children"
               :key="item.value"
               :class="{ active: selectedKeys.includes(item.value) }"
               @click="onMenuClick(item.value)">
               {{ item.label }}
             </div>
           </div>
-        </a-sub-menu>
-      </a-menu>
-    </template>
-  </a-dropdown>
+        </div>
+
+        <div
+          class="item"
+          v-for="item in weekAfter"
+          :key="item.value"
+          :class="{ active: selectedKeys.includes(item.value) }"
+          @click="onMenuClick(item.value)">
+          <span v-if="item.value !== WEEK">{{ item.label }}</span>
+        </div>
+      </div>
+    </a-sub-menu>
+    <a-sub-menu v-if="curDateDisplayOptions.length" key="display" title="日期显示">
+      <div class="list" style="width: 250px">
+        <div
+          class="item"
+          v-for="item in curDateDisplayOptions"
+          :key="item.value"
+          :class="{ active: selectedKeys.includes(item.value) }"
+          @click="onMenuClick(item.value)">
+          {{ item.label }}
+        </div>
+      </div>
+    </a-sub-menu>
+  </a-menu>
 </template>
 
 <script setup>
@@ -104,7 +91,6 @@ const props = defineProps({
 
 const { compare: indexCompare } = inject('index')
 
-const open = ref(false)
 const selectedKeys = ref([])
 watchEffect(() => {
   const { dateTrunc, firstDayOfWeek, viewModel } = props.field
@@ -122,7 +108,9 @@ const curDateDisplayOptions = computed(() => {
   return dateDisplayOptions.filter(t => t.group === (isWeek ? WEEK : DAY))
 })
 // 当前日期类型的值
-const dateDisplayValues = computed(() => curDateDisplayOptions.value.map(t => t.value))
+const dateDisplayValues = computed(() =>
+  curDateDisplayOptions.value.map(t => t.value)
+)
 
 // 更新同环比
 const updateCompare = e => {
@@ -167,7 +155,8 @@ const onMenuClick = key => {
 
       // 当前的日期显示
       const item =
-        preKeys.find(t => dateDisplayValues.value.includes(t)) || DEFAULT_WEEK_DISPLAY
+        preKeys.find(t => dateDisplayValues.value.includes(t)) ||
+        DEFAULT_WEEK_DISPLAY
 
       selectedKeys.value = [WEEK, key, item]
     } else {
@@ -197,19 +186,6 @@ const onMenuClick = key => {
 .week-item-checkicon {
   float: right;
   margin-top: 4px;
-}
-
-.property-dropdown-trigger {
-  display: inline-flex;
-  &.open {
-    .dropdown-trigger-icon {
-      transform: rotate(180deg);
-    }
-  }
-}
-.dropdown-trigger-icon {
-  margin-left: 12px;
-  transition: all 0.2s;
 }
 
 .item {
