@@ -38,10 +38,9 @@
 </template>
 
 <script setup>
-import { ref, watch, watchEffect, computed } from 'vue'
+import { ref, watch, watchEffect, computed, compile } from 'vue'
 import { presetOptions, customRangeOptions, customMode } from '../config'
-import { getStartDate, getEndDate } from '../utils'
-import dayjs from 'dayjs'
+import { getStartDateStr, getEndDateStr } from '../utils'
 
 const emits = defineEmits(['click'])
 const props = defineProps({
@@ -67,6 +66,7 @@ const props = defineProps({
     default: () => ({}),
   },
 })
+
 // 自定义值
 const customValue = ref(-1)
 const customType = ref('day')
@@ -99,19 +99,23 @@ const getItemStyle = item => {
 }
 // 激活状态
 const isItemActive = item => {
-  if (props.extra.dt) {
-    return item.type === 'dt'
-  } else if (isCustomActive.value) {
-    return item.type === 'custom'
-  } else {
-    return item.active
+  if (!!props.extra.until) {
+    if (item.type !== 'until') return false
+
+    return item.value === +props.extra.until.split('_')[1]
   }
+
+  if (item.type === 'dt') return !!props.extra.dt
+
+  if (item.type === 'custom') return isCustomActive.value
+
+  return item.active
 }
 
 watch(
   () => props.extra,
   e => {
-    const { isCustom, current } = e
+    const { isCustom, current, until } = e
 
     isCustomActive.value = isCustom
 
@@ -143,18 +147,13 @@ watchEffect(() => {
   presetsList.value.forEach(item => {
     const { type, value } = item
 
-    // 有数的一天或自定义， 不需要判断
-    if (type == 'dt' || type === 'custom') return
+    // 有数的一天或自定义或自某日， 不需要判断
+    if (type === 'dt' || type === 'custom' || type === 'until') return
 
-    const s = getStartDate({ type, offset: value }, props.utcOffset)
-    const e = getEndDate({ type, offset: value }, props.utcOffset)
-    const sFormat = s.format('YYYY-MM-DD')
-    const eFormat = e.format('YYYY-MM-DD')
+    const s = getStartDateStr({ type, offset: value }, props.utcOffset)
+    const e = getEndDateStr({ type, offset: value }, props.utcOffset)
 
-    const startFormat = dayjs(start).format('YYYY-MM-DD')
-    const endFormat = dayjs(end).format('YYYY-MM-DD')
-
-    if (startFormat === sFormat && endFormat === eFormat) {
+    if (start === s && end === e) {
       item.active = true
     } else {
       item.active = false
@@ -179,6 +178,7 @@ const itemClick = item => {
 <style lang="scss" scoped>
 .list {
   display: flex;
+  height: 100%;
   flex-wrap: wrap;
   justify-content: space-between;
   margin: 0;
@@ -187,9 +187,11 @@ const itemClick = item => {
 }
 
 .item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
   background-color: #f3f9ff;
-  line-height: 30px;
-  margin-top: 10px;
   border-radius: 4px;
   transition: all 0.2s;
   cursor: pointer;

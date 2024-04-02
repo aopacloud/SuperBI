@@ -2,7 +2,10 @@
   <section class="section">
     <header class="header">
       <h3 style="margin: 0">查询条件</h3>
-      <PlusOutlined class="pointer" style="padding: 2px; margin-left: 6px" @click="add" />
+      <PlusOutlined
+        class="pointer"
+        style="padding: 2px; margin-left: 6px"
+        @click="add" />
     </header>
 
     <main class="list">
@@ -245,6 +248,7 @@ defineExpose({ update, validate, getData })
 .list {
   flex: 1;
   line-height: 1.5;
+  padding-right: 16px;
   overflow: auto;
 }
 .item {

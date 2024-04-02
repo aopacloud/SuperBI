@@ -1,0 +1,128 @@
+.custom-picker {
+  display: flex;
+  height: 100%;
+
+  .panel {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    & > div {
+      flex: 1;
+    }
+
+    &.right {
+      margin-left: 15px;
+    }
+
+    &:only-child {
+      .panel-title,
+      .date-picker-trigger {
+        padding-left: 0;
+      }
+
+      .panel-title {
+        width: 100%;
+      }
+
+      .ant-picker-input {
+        & > input {
+          text-align: center;
+        }
+      }
+    }
+  }
+
+  .panel-title {
+    display: flex;
+    align-items: center;
+    width: 234px;
+    padding-left: 10px;
+  }
+  .title-label {
+    padding: 0 10px;
+    font-size: 14px;
+    color: #aaa;
+  }
+  .date-picker-trigger {
+    flex: 1;
+    padding-right: 20px;
+    :deep(.ant-picker-input) > input {
+      color: #1677ff;
+    }
+  }
+
+  .time-picker {
+    position: absolute;
+    bottom: -40px;
+    width: 100%;
+    &.start-time {
+      left: 0;
+    }
+    &.end-time {
+      left: 0;
+    }
+  }
+
+  &.showTime {
+    .ant-picker-footer {
+      display: block;
+      .ant-picker-ranges {
+        padding-left: 50px;
+        margin-top: 0;
+      }
+    }
+  }
+}
+
+.custom-date-picker-dropdown {
+  position: static !important;
+  margin-top: 10px !important;
+  .ant-picker-panel-container {
+    box-shadow: none !important;
+    border: 1px solid #e9e9e9;
+  }
+
+  .ant-picker-cell-selected {
+    .ant-picker-cell-in-range::after {
+      background-color: transparent;
+    }
+  }
+
+  .ant-picker-cell {
+    .ant-picker-cell-inner {
+      position: static !important;
+    }
+
+    &:not(.ant-picker-cell-selected) {
+      .ant-picker-cell-in-range {
+        &::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          right: 0;
+          height: 24px;
+          background-color: #e6f4ff;
+          transition: none;
+          z-index: -1;
+        }
+        &::after {
+          content: attr(data-date);
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 50%;
+          height: 24px;
+          background-color: #e6f4ff;
+          transform: translateY(-50%);
+          transition: all 0.3s;
+          z-index: 1;
+        }
+      }
+    }
+  }
+
+  .ant-picker-footer {
+    display: none;
+  }
+}

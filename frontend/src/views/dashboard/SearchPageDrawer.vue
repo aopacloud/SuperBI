@@ -31,7 +31,7 @@
     </template>
 
     <a-table
-      rowkey="id"
+      rowKey="id"
       size="small"
       class="list-table"
       :loading="loading"
@@ -319,6 +319,7 @@ const pager = reactive({
   showSizeChanger: true,
   showQuickJumper: true,
 })
+
 const queryParams = computed(() => {
   const { current: pageNum, pageSize } = pager
   const kw = keyword.value.trim()
@@ -350,9 +351,7 @@ const setRowClassName = row => {
   return hasReadPermission(row) ? '' : 'no-permission'
 }
 
-const onTableChange = pager => {
-  const { current, pageSize } = pager
-
+const onTableChange = ({ current, pageSize }) => {
   pager.current = current
   pager.pageSize = pageSize
 

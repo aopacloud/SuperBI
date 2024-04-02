@@ -20,7 +20,9 @@
         <a-button @click="toBack">返回</a-button>
 
         <a-button
-          v-if="chart.id && (chartPermission.hasWrite() || chartPermission.hasRead())"
+          v-if="
+            chart.id && (chartPermission.hasWrite() || chartPermission.hasRead())
+          "
           @click="saveAs">
           另存为
         </a-button>
@@ -38,7 +40,6 @@
           <template #overlay>
             <a-menu @click="onMenuClick">
               <a-menu-item key="authorize">授权</a-menu-item>
-              <a-menu-item key="setting">设置</a-menu-item>
               <a-menu-item key="move">移动至</a-menu-item>
             </a-menu>
           </template>
@@ -48,12 +49,6 @@
 
     <!-- 数据集授权 -->
     <AuthorizeDrawer v-model:open="authorizeDrawerOpen" :initData="dataset" />
-
-    <!-- 数据集设置 -->
-    <SettingDrawer
-      v-model:open="settingDrawerOpen"
-      :initData="dataset"
-      @ok="onSettingOk" />
 
     <!-- 数据集移动 -->
     <MoveDrawer
@@ -77,7 +72,6 @@ import { LeftOutlined, MoreOutlined } from '@ant-design/icons-vue'
 import useAppStore from '@/store/modules/app'
 import AuthorizeDrawer from '@/components/Authorize/ListDrawer.vue'
 import { MoveDrawer } from '@/components/DirTree'
-import SettingDrawer from '@/views/dataset/components/SettingDrawer.vue'
 import SaveModal from './components/SaveModal.vue'
 import { versionVue } from '@/versions'
 
@@ -115,18 +109,10 @@ const toBack = () => {
 }
 
 const onMenuClick = ({ key }) => {
-  switch (key) {
-    case 'authorize':
-      authorize()
-      break
-    case 'setting':
-      setting()
-      break
-    case 'move':
-      move()
-      break
-    default:
-      break
+  if (key === 'authorize') {
+    authorize()
+  } else if (key === 'move') {
+    move()
   }
 }
 
@@ -148,15 +134,6 @@ const onModifyOk = e => {
 const authorizeDrawerOpen = ref(false)
 const authorize = () => {
   authorizeDrawerOpen.value = true
-}
-
-// 设置
-const settingDrawerOpen = ref(false)
-const setting = () => {
-  settingDrawerOpen.value = true
-}
-const onSettingOk = e => {
-  emits('update-dataset', e)
 }
 
 // 移动

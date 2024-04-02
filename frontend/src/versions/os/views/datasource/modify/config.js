@@ -14,10 +14,13 @@ const allImgs = Object.keys(modules).reduce((acc, cur) => {
   return acc
 }, {})
 
-console.log('allImgs', allImgs)
-
 export const engines = [
-  { name: 'MySql', engine: 'MYSQL', img: allImgs['mySql'], icon: allImgs['mySql.icon'] },
+  {
+    name: 'MySql',
+    engine: 'MYSQL',
+    img: allImgs['mySql'],
+    icon: allImgs['mySql.icon'],
+  },
   {
     name: 'ClickHouse',
     engine: 'CLICKHOUSE',
@@ -40,5 +43,10 @@ export const engines = [
     img: allImgs['sqlServer'],
   },
   { name: 'TiDB', engine: 'tidb', disabled: true, img: allImgs['tiDB'] },
-  { name: '本地文件上传', engine: 'file', disabled: true, img: allImgs['fileExcel'] },
+  {
+    name: '本地文件上传',
+    engine: 'file',
+    disabled: true,
+    img: allImgs['fileExcel'],
+  },
 ]

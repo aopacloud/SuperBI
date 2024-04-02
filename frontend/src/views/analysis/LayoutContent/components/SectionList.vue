@@ -15,6 +15,7 @@
         <template #item="{ element, index }">
           <SectionTag
             class="list-item"
+            :dataset="dataset"
             :tag="element"
             :category="category"
             :color="tagColor"
@@ -58,6 +59,10 @@ import { getRandomKey } from 'common/utils/help'
 import { versionJs } from '@/versions'
 
 const props = defineProps({
+  dataset: {
+    type: Object,
+    default: () => ({}),
+  },
   category: {
     type: String,
     default: CATEGORY.PROPERTY,
@@ -68,7 +73,6 @@ const props = defineProps({
   },
 })
 const {
-  dataset: datasetInfo,
   dragedField: indexDragedField,
   choosed: indexChoosed,
   options: indexOptions,
@@ -88,29 +92,25 @@ const multipleValue = computed(() => {
   return category === CATEGORY.INDEX ? [] : dataSource.map(item => item.name)
 })
 
-const dataset = computed(() => {
-  return datasetInfo.get()
-})
-
 // 原始字段
 const datasetFields = computed(() => {
   const list =
-    dataset.value.fields?.filter(
+    props.dataset.fields?.filter(
       item =>
         item.status !== 'HIDE' &&
         (item.category === props.category || props.category === CATEGORY.FILTER)
     ) || []
 
-  // 筛选项需要确认dt字段作为必填筛选条件
-  return props.category === CATEGORY.FILTER &&
-    versionJs.ViewsAnalysis.dtInDatasetFields(dataset.value.fields)
-    ? list.map(item => {
-        return {
-          ...item,
-          disabled: versionJs.ViewsDatasetModify.isDt(item),
-        }
-      })
-    : list
+  if (props.category !== CATEGORY.FILTER) return list
+
+  return list.map(item => {
+    const { force, filters } = props.dataset.extraConfig
+
+    return {
+      ...item,
+      disabled: force && filters.some(t => t.name === item.name),
+    }
+  })
 })
 
 const label = computed(() => {
@@ -202,8 +202,10 @@ const onMultipleOk = value => {
   setTimeout(() => {
     const choosed = value.map(t => {
       const item = datasetFields.value.find(f => f.name === t)
+      // 已选中的过滤项
+      const pre = props.dataSource.find(d => d.name === item.name)
 
-      return { ...item, _id: getRandomKey() }
+      return { ...item, ...pre, _id: getRandomKey() }
     })
 
     if (props.category === CATEGORY.INDEX) {

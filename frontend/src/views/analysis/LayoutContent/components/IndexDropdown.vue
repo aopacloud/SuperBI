@@ -1,27 +1,15 @@
 ﻿<template>
-  <a-dropdown
-    :overlayStyle="{ width: '140px', minWidth: 'initial' }"
-    trigger="click"
-    v-model:open="open">
-    <div class="index-dropdown-trigger" :class="{ open: open }">
-      <slot></slot>
-
-      <DownOutlined class="dropdown-trigger-icon" />
-    </div>
-    <template #overlay>
-      <a-menu :selectedKeys="selectedKeys" @click="onMenuClick">
-        <a-sub-menu
-          v-if="props.field.aggregator !== SUMMARY_DEFAULT"
-          key="summary"
-          title="汇总方式">
-          <a-menu-item v-for="item in summaries" :key="item.value">
-            {{ item.label }}
-          </a-menu-item>
-        </a-sub-menu>
-        <a-menu-item key="rename">重命名</a-menu-item>
-      </a-menu>
-    </template>
-  </a-dropdown>
+  <a-menu :selectedKeys="selectedKeys" @click="onMenuClick">
+    <a-sub-menu
+      v-if="props.field.aggregator !== SUMMARY_DEFAULT"
+      key="summary"
+      title="汇总方式">
+      <a-menu-item v-for="item in summaries" :key="item.value">
+        {{ item.label }}
+      </a-menu-item>
+    </a-sub-menu>
+    <a-menu-item key="rename">重命名</a-menu-item>
+  </a-menu>
 </template>
 
 <script setup>
@@ -36,6 +24,7 @@ import {
 } from '@/views/dataset/config.field'
 import { CATEGORY } from '@/CONST.dict.js'
 
+const emits = defineEmits(['update:open'])
 const props = defineProps({
   field: {
     type: Object,
@@ -45,9 +34,11 @@ const props = defineProps({
     type: String,
     default: CATEGORY.INDEX,
   },
+  open: {
+    type: Boolean,
+  },
 })
 
-const open = ref(false)
 const summaries = computed(() => {
   const { category } = props.field
 
@@ -72,8 +63,10 @@ const selectedKeys = ref([])
 watchEffect(() => {
   selectedKeys.value = [props.field.aggregator]
 })
+
 const onMenuClick = ({ key }) => {
-  open.value = false
+  emits('update:open', false)
+
   if (key === 'rename') {
     contentHeaderReject.fieldRename(props.field)
   } else {
@@ -83,18 +76,3 @@ const onMenuClick = ({ key }) => {
   }
 }
 </script>
-
-<style lang="scss" scoped>
-.index-dropdown-trigger {
-  display: inline-flex;
-  &.open {
-    .dropdown-trigger-icon {
-      transform: rotate(180deg);
-    }
-  }
-}
-.dropdown-trigger-icon {
-  margin-left: 12px;
-  transition: all 0.2s;
-}
-</style>
