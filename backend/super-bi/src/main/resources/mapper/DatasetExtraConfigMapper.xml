@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.DatasetExtraConfigMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id"
+            parameterType="net.aopacloud.superbi.model.entity.DatasetExtraConfig">
+        insert into bi_dataset_extra_config(dataset_id, version, content)
+        values (#{datasetId},
+                #{version},
+                #{content}
+               )
+    </insert>
+
+    <select id="selectOneByDatasetAndVersion" resultType="net.aopacloud.superbi.model.entity.DatasetExtraConfig">
+        select
+            id,
+            dataset_id,
+            version,
+            content
+        from bi_dataset_extra_config
+        where dataset_id = #{datasetId}
+        and version = #{version}
+    </select>
+</mapper>

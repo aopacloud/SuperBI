@@ -299,7 +299,7 @@ public class DatasetPrivilegeServiceImpl implements DatasetPrivilegeService {
              AuthorizeThreadLocalCache.setDatasetAuthorize(dataset.getWorkspaceId(), datasetAuthorizeInWorkspace);
         }
 
-        return datasetAuthorizeInWorkspace.stream().filter(item -> item.getDatasetId().equals(dataset.getId())).collect(Collectors.toList());
+        return datasetAuthorizeInWorkspace.stream().filter(item -> item.getDatasetId().equals(dataset.getId())).filter(item -> username.equals(item.getUsername())).collect(Collectors.toList());
 
     }
 

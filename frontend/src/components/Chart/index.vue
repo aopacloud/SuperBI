@@ -161,7 +161,7 @@ watch(
 
 // 同环比配置变化需要更新列, 重新渲染表格
 watch(
-  () => props.options.compare.merge,
+  () => props.options.compare?.merge,
   (n, o) => {
     if (!tableRef.value || n === o) return
 

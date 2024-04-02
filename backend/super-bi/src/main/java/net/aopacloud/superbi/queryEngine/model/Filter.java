@@ -1,6 +1,7 @@
 package net.aopacloud.superbi.queryEngine.model;
 
 import lombok.Data;
+import net.aopacloud.superbi.enums.DataTypeEnum;
 import net.aopacloud.superbi.queryEngine.enums.LogicalEnum;
 
 import java.util.List;
@@ -17,7 +18,7 @@ public class Filter {
 
     private String filterType;
 
-    private String dataType;
+    private DataTypeEnum dataType;
 
     private LogicalEnum logical;
 

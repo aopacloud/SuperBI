@@ -3,7 +3,12 @@ import { createIsEqualFromKey } from 'common/utils/help'
 import { lightenColor } from 'common/utils/color'
 import { toDigit, toThousand, toPercent } from 'common/utils/number'
 import { colors, CHART_GRID_HEIGHT } from 'common/components/Charts/utils/default.js'
-import { VS_FIELD_SUFFIX, formatDtWithOption, formatFieldDisplay, createSortByOrder } from './index.js'
+import {
+  VS_FIELD_SUFFIX,
+  formatDtWithOption,
+  formatFieldDisplay,
+  createSortByOrder,
+} from './index.js'
 import { versionJs } from '@/versions'
 
 // 连接分组的字符(唯一，需要做分割)
@@ -78,7 +83,9 @@ export function getChartSize(chart) {
  * @returns {{fields: array<T>, data: array<K>}}
  */
 export const transformOriginBySort = ({ originFields = [], originData = [] }) => {
-  const xIndex = originFields.findIndex(t => t.category === CATEGORY.PROPERTY && versionJs.ViewsAnalysis.isDateField(t))
+  const xIndex = originFields.findIndex(
+    t => t.category === CATEGORY.PROPERTY && versionJs.ViewsAnalysis.isDateField(t)
+  )
   const fields = originFields.slice()
 
   // 维度排序换位到首位
@@ -114,7 +121,12 @@ export const transformOriginBySort = ({ originFields = [], originData = [] }) =>
  * @param {array} group 分组
  * @returns {{dataMap: any, xData: array}}
  */
-export const generateDataMap = ({ originFields = [], yFields = [], data = [], group = [] }) => {
+export const generateDataMap = ({
+  originFields = [],
+  yFields = [],
+  data = [],
+  group = [],
+}) => {
   const xData = [
     ...new Set(
       data.map(row => {
@@ -145,7 +157,10 @@ export const generateDataMap = ({ originFields = [], yFields = [], data = [], gr
         if (!field) return
 
         resMap[field.renderName]['data'][i] = t
-        resMap[field.renderName]['max'] = Math.max(t, resMap[field.renderName]['max'])
+        resMap[field.renderName]['max'] = Math.max(
+          t,
+          resMap[field.renderName]['max']
+        )
       })
     })
 
@@ -237,7 +252,10 @@ export function generateGrid({ splited, chart, fields = [], grid = {} }) {
   const domHeight = chart.getDom().clientHeight
   const gridsHeight = CHART_GRID_HEIGHT * fields.length + 50
 
-  chart.resize({ width: 'auto', height: gridsHeight > domHeight ? gridsHeight : 'auto' })
+  chart.resize({
+    width: 'auto',
+    height: gridsHeight > domHeight ? gridsHeight : 'auto',
+  })
 
   return fields.map((v, i) => {
     return {
@@ -300,7 +318,7 @@ export const generateYAxis = ({
   // 拆分显示，直接根据每个字段生成y轴
   if (splited) {
     return yFields.map((field, i) => {
-      const axisItem = axis.find(a => a.renderName === field.renderName)
+      const axisItem = axis.find(a => a.name === field.name)
       const max = Math.max(...dataGrouped[field.renderName].map(t => t.max || 0))
       const maxFormat = formatFieldDisplay(max, field, datasetFields)
 
@@ -341,7 +359,9 @@ export const generateYAxis = ({
       const genYAxis = () => {
         const axisFields = axisItem?.yAxisPosition === 'right' ? rightAxis : leftAxis
 
-        const max = Math.max(...(dataGrouped[cur.renderName] || []).map(t => t.max || 0))
+        const max = Math.max(
+          ...(dataGrouped[cur.renderName] || []).map(t => t.max || 0)
+        )
 
         // const max = Math.max(
         //   ...(axisFields.map(field => dataMap[field.renderName]?.['max']) || 0)
@@ -349,7 +369,9 @@ export const generateYAxis = ({
         const isFormatSamed = isSameFieldFormat(
           axisFields.map(t => datasetFields.find(d => d.renderName === t.renderName))
         )
-        const maxFormat = isFormatSamed ? formatFieldDisplay(max, axisFields[0], datasetFields) : toDigit(max, 2)
+        const maxFormat = isFormatSamed
+          ? formatFieldDisplay(max, axisFields[0], datasetFields)
+          : toDigit(max, 2)
 
         return {
           ...yAxis,
@@ -362,7 +384,9 @@ export const generateYAxis = ({
             formatter: v => {
               if (v === 0) return 0
 
-              return isFormatSamed ? formatFieldDisplay(v, axisFields[0], datasetFields) : toDigit(v, 2)
+              return isFormatSamed
+                ? formatFieldDisplay(v, axisFields[0], datasetFields)
+                : toDigit(v, 2)
             },
           },
         }
@@ -434,7 +458,9 @@ export const generateSeries = ({
       formatter(series) {
         const { seriesName, value } = series
 
-        const ySourceFieldName = group.length ? seriesName.split(GROUP_SPLIT).slice(group.length).join('') : seriesName
+        const ySourceFieldName = group.length
+          ? seriesName.split(GROUP_SPLIT).slice(group.length).join('')
+          : seriesName
         const field = yFields.find(t => t.displayName === ySourceFieldName)
 
         return formatFieldDisplay(value, field, datasetFields)
@@ -444,7 +470,9 @@ export const generateSeries = ({
   // 获取 name
   const getCommonSeriesName = (name, field) => {
     return group.length
-      ? name.split(GROUP_SPLIT).slice(0, -1).join(GROUP_SPLIT) + GROUP_SPLIT + field.displayName
+      ? name.split(GROUP_SPLIT).slice(0, -1).join(GROUP_SPLIT) +
+          GROUP_SPLIT +
+          field.displayName
       : field.displayName
   }
 
@@ -455,7 +483,7 @@ export const generateSeries = ({
       const { field, data } = dataMap[mapKey]
       const fieldIndex = yFields.findIndex(t => t.renderName === field.renderName)
       const color = getSeriesColor(fieldIndex)
-      const axisItem = axis.find(t => t.renderName === field.renderName)
+      const axisItem = axis.find(t => t.name === field.name)
 
       const seriesItem = {
         _y: field,
@@ -468,7 +496,11 @@ export const generateSeries = ({
         labelLayout: { hideOverlap: true },
         position: axisItem?.yAxisPosition,
         xAxisIndex: splited ? fieldIndex : 0,
-        yAxisIndex: splited ? fieldIndex : axisItem?.yAxisPosition === 'right' ? 1 : 0,
+        yAxisIndex: splited
+          ? fieldIndex
+          : axisItem?.yAxisPosition === 'right'
+          ? 1
+          : 0,
       }
 
       return acc.concat(seriesItem)
@@ -488,7 +520,13 @@ export const generateSeries = ({
  * @param {String} compareMode 对比类型 0 原值，1 差值，2 差值百分比
  * @returns
  */
-export function tooltipFormat({ series = [], yFields = [], datasetFields = [], compareMode = 0, group = [] }) {
+export function tooltipFormat({
+  series = [],
+  yFields = [],
+  datasetFields = [],
+  compareMode = 0,
+  group = [],
+}) {
   const list = Array.isArray(series)
     ? series
     : [series]
@@ -550,7 +588,10 @@ export function tooltipFormat({ series = [], yFields = [], datasetFields = [], c
         : // .replace(YNAME_SPLIT + originField.displayName, '')
           seriesName
 
-      let displayValue = typeof value === 'undefined' ? '-' : formatFieldDisplay(value, originField, datasetFields)
+      let displayValue =
+        typeof value === 'undefined'
+          ? '-'
+          : formatFieldDisplay(value, originField, datasetFields)
       let preValue = value
 
       // 是否对比字段

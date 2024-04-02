@@ -14,16 +14,14 @@ import net.aopacloud.superbi.constant.BiConsist;
 import net.aopacloud.superbi.enums.*;
 import net.aopacloud.superbi.i18n.LocaleMessages;
 import net.aopacloud.superbi.i18n.MessageConsist;
-import net.aopacloud.superbi.mapper.DatasetAuthorizeMapper;
-import net.aopacloud.superbi.mapper.DatasetFieldMapper;
-import net.aopacloud.superbi.mapper.DatasetMapper;
-import net.aopacloud.superbi.mapper.DatasetMetaConfigMapper;
+import net.aopacloud.superbi.mapper.*;
 import net.aopacloud.superbi.model.converter.DatasetConverter;
 import net.aopacloud.superbi.model.converter.DatasetFieldConverter;
 import net.aopacloud.superbi.model.converter.DatasetMetaConfigConverter;
 import net.aopacloud.superbi.model.domain.ExcelBuilder;
 import net.aopacloud.superbi.model.dto.*;
 import net.aopacloud.superbi.model.entity.Dataset;
+import net.aopacloud.superbi.model.entity.DatasetExtraConfig;
 import net.aopacloud.superbi.model.entity.DatasetField;
 import net.aopacloud.superbi.model.entity.DatasetMetaConfig;
 import net.aopacloud.superbi.model.query.ConditionQuery;
@@ -58,6 +56,8 @@ public class DatasetServiceImpl implements DatasetService {
     private final FolderService folderService;
 
     private final DatasetMetaConfigMapper metaConfigMapper;
+
+    private final DatasetExtraConfigMapper extraConfigMapper;
 
     private final DatasetConverter converter;
 
@@ -96,9 +96,15 @@ public class DatasetServiceImpl implements DatasetService {
 
         DatasetMetaConfig config = metaConfigMapper.selectOneByDatasetAndVersion(id, version);
 
+        DatasetExtraConfig extraConfig = extraConfigMapper.selectOneByDatasetAndVersion(id, version);
+
         List<DatasetField> fields = fieldMapper.selectByDatasetAndVersion(id, version);
 
         DatasetDTO datasetDTO = converter.toDTO(dataset, config, fields);
+
+        if(Objects.nonNull(extraConfig)) {
+            datasetDTO.setExtraConfig(extraConfig.getContent());
+        }
 
         TablePartition latestPartition = Optional.ofNullable(metaDataService).map(metaDataService -> metaDataService.getLatestPartition(datasetDTO)).orElse(new TablePartition());
         datasetDTO.setLatestPartitionValue(latestPartition.getPartitionValue());
@@ -271,9 +277,15 @@ public class DatasetServiceImpl implements DatasetService {
             DatasetMetaConfigDTO configDTO = datasetDTO.getConfig();
             DatasetMetaConfig config = configConverter.toEntity(configDTO);
             config.setDatasetId(dataset.getId());
+
             config.setVersion(1);
             metaConfigMapper.insert(config);
 
+            String extraConfigContent = datasetDTO.getExtraConfig();
+            if (!Strings.isNullOrEmpty(extraConfigContent)) {
+                DatasetExtraConfig extraConfig = new DatasetExtraConfig(dataset.getId(), dataset.getVersion(), extraConfigContent);
+                extraConfigMapper.insert(extraConfig);
+            }
 
             saveFields(dataset, datasetDTO.getFields());
 
@@ -312,6 +324,12 @@ public class DatasetServiceImpl implements DatasetService {
             config.setDatasetId(dataset.getId());
             config.setVersion(lastEditVersion);
             metaConfigMapper.insert(config);
+
+            String extraConfigContent = datasetDTO.getExtraConfig();
+            if (!Strings.isNullOrEmpty(extraConfigContent)) {
+                DatasetExtraConfig extraConfig = new DatasetExtraConfig(dataset.getId(), lastEditVersion, extraConfigContent);
+                extraConfigMapper.insert(extraConfig);
+            }
 
             saveFields(dataset, datasetDTO.getFields());
 

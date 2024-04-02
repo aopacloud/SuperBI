@@ -1,7 +1,7 @@
 ﻿<template>
   <section class="content">
     <!-- 字段拖入容器 -->
-    <ContentHeader :dimensions="dimensions" :indexes="indexes" :filters="filters" />
+    <ContentHeader :dataset="dataset" :dimensions="dimensions" :indexes="indexes" :filters="filters" />
 
     <!-- 看板过滤项 -->
     <DashboardFtilers style="margin-bottom: 10px" />

@@ -50,6 +50,8 @@ public class DatasetVO {
     @NotNull
     private DatasetMetaConfigVO config;
 
+    private String extraConfig;
+
     @NotNull
     private List<DatasetFieldVO> fields;
 

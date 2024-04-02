@@ -50,6 +50,8 @@ public class DatasetDTO {
 
     private DatasetMetaConfigDTO config;
 
+    private String extraConfig;
+
     private List<DatasetFieldDTO> fields;
 
     private Long folderId;

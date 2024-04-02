@@ -46,7 +46,10 @@
             v-model:value="keyword"
             @search="onSearch" />
 
-          <a-button v-permission="'DATASET:VIEW:CREATE'" type="primary" @click="toCreate">
+          <a-button
+            v-permission="'DATASET:VIEW:CREATE'"
+            type="primary"
+            @click="toCreate">
             新建数据集
           </a-button>
         </a-space>
@@ -102,7 +105,9 @@
                   <template v-if="hasManagePermission(record)">
                     <a-menu-item key="authorize">授权</a-menu-item>
                     <a-menu-item
-                      v-if="record.status === 'UN_PUBLISH' || record.status === 'OFFLINE'"
+                      v-if="
+                        record.status === 'UN_PUBLISH' || record.status === 'OFFLINE'
+                      "
                       key="publish">
                       发布
                     </a-menu-item>
@@ -121,7 +126,8 @@
               <a-tooltip
                 v-if="
                   record.enableApply === 1 &&
-                  (record.permission === 'NONE' || record.permission === 'EXPIRED') &&
+                  (record.permission === 'NONE' ||
+                    record.permission === 'EXPIRED') &&
                   !record.applying
                 "
                 title="申请">
@@ -151,7 +157,9 @@
 
               <a-dropdown
                 v-if="
-                  hasWritePermission(record) || hasManagePermission(record) || isPersonal
+                  hasWritePermission(record) ||
+                  hasManagePermission(record) ||
+                  isPersonal
                 "
                 :trigger="['click']">
                 <a-button size="small" type="text" :icon="h(MoreOutlined)" />
@@ -165,7 +173,6 @@
                     <template v-if="hasManagePermission(record) || isPersonal">
                       <template v-if="hasManagePermission(record)">
                         <a-menu-item key="authorize">授权</a-menu-item>
-                        <a-menu-item key="setting">设置</a-menu-item>
                         <a-menu-item key="export">导出</a-menu-item>
                       </template>
 
@@ -178,7 +185,8 @@
                       <template v-if="hasManagePermission(record)">
                         <a-menu-item
                           v-if="
-                            record.status === 'UN_PUBLISH' || record.status === 'OFFLINE'
+                            record.status === 'UN_PUBLISH' ||
+                            record.status === 'OFFLINE'
                           "
                           key="publish">
                           发布
@@ -186,7 +194,9 @@
                         <a-menu-item v-if="record.status === 'ONLINE'" key="offline">
                           下线
                         </a-menu-item>
-                        <a-menu-item key="delete" style="color: red">删除</a-menu-item>
+                        <a-menu-item key="delete" style="color: red"
+                          >删除</a-menu-item
+                        >
                       </template>
                     </template>
                   </a-menu>
@@ -208,12 +218,6 @@
     :init-data="rowInfo"
     :init-params="{ position: 'DATASET', type, workspaceId }"
     @ok="onMoveOk" />
-
-  <!-- 设置 -->
-  <SettingDrawer
-    v-model:open="settingDrawerOpen"
-    :init-data="rowInfo"
-    @success="onSettingSuccess" />
 
   <!-- 授权 -->
   <AuthorizeDrawer v-model:open="authorizeDrawerOpen" :init-data="rowInfo" />
@@ -242,7 +246,6 @@ import { tableColumns } from './config'
 import { getDatasetList } from '@/apis/dataset'
 import ApplyModal from '@/components/ApplyModal/index.vue'
 import DirTree, { MoveDrawer } from '@/components/DirTree'
-import SettingDrawer from './components/SettingDrawer.vue'
 import AuthorizeDrawer from '@/components/Authorize/ListDrawer.vue'
 import SearchPageDrawer from './SearchPageDrawer.vue'
 import useMenus from './useMenus'
@@ -254,8 +257,16 @@ const router = useRouter()
 const route = useRoute()
 const appStore = useAppStore()
 const userStore = useUserStore()
-const { getAnalysisHref, toAnalysis, edit, favor, handleExport, publish, offline, del } =
-  useMenus()
+const {
+  getAnalysisHref,
+  toAnalysis,
+  edit,
+  favor,
+  handleExport,
+  publish,
+  offline,
+  del,
+} = useMenus()
 
 // 分析权限
 const hasAnalysisPermission = row => {
@@ -435,9 +446,6 @@ const onMenuClick = async ({ key }, row) => {
     case 'authorize':
       authorize(row)
       break
-    case 'setting':
-      setting(row)
-      break
     case 'publish':
       publish(row)
       break
@@ -484,18 +492,6 @@ const move = row => {
 const onMoveOk = () => {
   dirTreeRef.value.reload()
   fetchList()
-}
-
-// 设置
-const settingDrawerOpen = ref(false)
-const setting = row => {
-  rowInfo.value = { ...row }
-  settingDrawerOpen.value = true
-}
-const onSettingSuccess = payload => {
-  const item = list.value.find(t => t.id === payload.id)
-
-  item.enableApply = payload.enableApply || 0
 }
 </script>
 

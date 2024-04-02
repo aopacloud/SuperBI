@@ -25,6 +25,7 @@ import { reactive, ref, inject, watch, computed } from 'vue'
 import { Form, message } from 'ant-design-vue'
 import { postReport, putReport } from '@/apis/report'
 import { CATEGORY } from '@/CONST.dict'
+import { versionJs } from '@/versions'
 
 const emits = defineEmits(['update:open', 'cancel', 'ok'])
 const props = defineProps({
@@ -104,11 +105,46 @@ const getRenameIndexList = request => {
   })
 }
 
+// 更新日期筛选项
+const updateFilterDate = filterItem => {
+  if (!versionJs.ViewsAnalysis.isDateField(filterItem)) return filterItem
+
+  const choosedFilters = indexChoosed.get(CATEGORY.FILTER)
+  const {
+    name,
+    conditions: [cond1],
+  } = filterItem
+
+  const { timeType, _until } = cond1
+  // 自某日至*, 请求的静态日期类型与值更新为配置
+  if (_until) {
+    const item = choosedFilters.find(t => t.name === name)
+    const {
+      conditions: [cond2],
+    } = item
+    const { timeType: timeType2, args: args2 } = cond2
+
+    if (item) {
+      // 更新日期类型
+      if (timeType !== timeType2) {
+        cond1.timeType = timeType2
+      }
+      // 更新日期值
+      cond1.args = [...args2]
+    }
+  }
+
+  return {
+    ...filterItem,
+    conditions: [{ ...cond1 }],
+  }
+}
+
 // 过滤从看板的筛选条件
 const filterDashboardFilters = request => {
   const requestFilters = request[CATEGORY.FILTER.toLowerCase() + 's']
 
-  return requestFilters.filter(t => t._from !== 'dashboard')
+  return requestFilters.filter(t => t._from !== 'dashboard').map(updateFilterDate)
 }
 
 const submit = async params => {
@@ -127,7 +163,9 @@ const submit = async params => {
       reportType: options.renderType,
       queryParam: JSON.stringify({
         ...requestResponse.request,
-        [CATEGORY.INDEX.toLowerCase() + 's']: getRenameIndexList(requestResponse.request),
+        [CATEGORY.INDEX.toLowerCase() + 's']: getRenameIndexList(
+          requestResponse.request
+        ),
         [CATEGORY.FILTER.toLowerCase() + 's']: filterDashboardFilters(
           requestResponse.request
         ),

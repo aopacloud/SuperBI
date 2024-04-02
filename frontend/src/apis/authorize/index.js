@@ -99,7 +99,7 @@ export const postDatasetMultiple = data =>
  * @param {RequestPayload} data
  * @returns
  */
-export const pustDatasetMultiple = data =>
+export const putDatasetMultiple = data =>
   request({
     url: '/datasetAuthorize/batch/update',
     method: 'put',

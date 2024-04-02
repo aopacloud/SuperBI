@@ -120,7 +120,11 @@ watch(
   value => {
     if (props.multiple) {
       modelValue.value =
-        typeof value === 'undefined' ? [] : Array.isArray(value) ? [...value] : [value]
+        typeof value === 'undefined'
+          ? []
+          : Array.isArray(value)
+          ? [...value]
+          : [value]
     } else {
       modelValue.value = Array.isArray(value) ? value[0] : value
     }
@@ -190,7 +194,9 @@ const allCheckedHandler = e => {
 
   modelValue.value = !checked
     ? [...disabledValueSelected.value]
-    : disabledValueSelected.value.concat(enableList.value.map(t => t[props.keyField]))
+    : disabledValueSelected.value.concat(
+        enableList.value.map(t => t[props.keyField])
+      )
 
   emits('update:value', modelValue.value)
   emits('change', [...modelValue.value])
@@ -231,7 +237,6 @@ const paneSlotUpdateValue = e => {
 <style scoped lang="scss">
 .select-layout {
   position: relative;
-  flex: auto;
   display: flex;
   flex-direction: column;
   line-height: initial;

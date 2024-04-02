@@ -3,7 +3,7 @@
     <div class="list-wrapper" :class="{ 'only-one': conditions.length === 1 }">
       <span
         class="relation"
-        :class="{ active: relation === RELATION.AND }"
+        :class="{ active: relation === RELATION.AND, disabled: single }"
         @click="handleRelationToggle"
         >{{ relationLabel }}</span
       >
@@ -20,7 +20,10 @@
               :get-popup-container="node => node.parentNode"
               v-model:value="item.operator"
               @change="e => onOperatorChange(e, item)">
-              <a-select-option v-for="(label, key) in operators" :key="key" :value="key">
+              <a-select-option
+                v-for="(label, key) in operators"
+                :key="key"
+                :value="key">
                 {{ label }}
               </a-select-option>
             </a-select>
@@ -31,6 +34,7 @@
               v-model:value="item.value" />
 
             <a-button
+              v-if="!single"
               type="text"
               :disabled="conditions.length < 2"
               :icon="h(MinusCircleOutlined)"
@@ -40,7 +44,7 @@
       </div>
     </div>
 
-    <slot name="add" v-bind="{ add: handleAdd, list: conditions }">
+    <slot v-if="!single" name="add" v-bind="{ add: handleAdd, list: conditions }">
       <a
         style="display: inline-block; margin-top: 6px"
         v-show="conditions.length < 10"
@@ -76,10 +80,17 @@ const props = defineProps({
     type: Number,
     default: 10,
   },
+  single: { type: Boolean },
 })
 
 const operators = computed(() => {
-  return operatorMap[props.dataType]
+  const typeRelation = operatorMap[props.dataType]
+
+  if (props.single) {
+    return { [RELATION.EQUAL]: typeRelation[RELATION.EQUAL] }
+  } else {
+    return typeRelation
+  }
 })
 const relationLabel = computed(() => {
   return props.relation === RELATION.OR
@@ -90,7 +101,12 @@ const relationLabel = computed(() => {
 })
 
 const handleRelationToggle = () => {
-  emits('update:relation', props.relation === RELATION.OR ? RELATION.AND : RELATION.OR)
+  if (props.single) return
+
+  emits(
+    'update:relation',
+    props.relation === RELATION.OR ? RELATION.AND : RELATION.OR
+  )
 }
 
 /**
@@ -134,6 +150,9 @@ const handlerRemove = index => {
   color: #3d90ff;
   transition: all 0.2s;
   cursor: pointer;
+  &.disabled {
+    cursor: not-allowed;
+  }
   &:hover,
   &.active {
     color: #fff;

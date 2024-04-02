@@ -700,3 +700,14 @@ INSERT INTO `bi_sys_user` (`id`, `username`, `alias_name`, `account_expire_time`
 VALUES (1,'Admin','管理员','2023-12-31 23:59:59', null, null,null,'$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', 'Admin', 'Admin');
 
 INSERT INTO `bi_workspace`(`name`,`description`,`sort`) VALUES ('默认空间','系统自带默认空间',1);
+
+CREATE TABLE `bi_dataset_extra_config` (
+       `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+       `dataset_id` int(11) DEFAULT NULL COMMENT '数据集ID',
+       `version` int(11) DEFAULT NULL COMMENT '版本ID',
+       `content` text COMMENT '配置内容，JSON',
+       `create_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+       `update_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+       PRIMARY KEY (`id`),
+       UNIQUE KEY `idx_dataset_id_version` (`dataset_id`,`version`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

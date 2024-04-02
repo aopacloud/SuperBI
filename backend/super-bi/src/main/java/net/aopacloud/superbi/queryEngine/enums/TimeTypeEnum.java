@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public enum TimeTypeEnum {
@@ -15,15 +16,25 @@ public enum TimeTypeEnum {
      */
     EXACT {
         @Override
-        public List<LocalDateTime> getDateTime(List<String> args) {
+        public List<LocalDateTime> getDateTime(List<String> args, List<String> timeParts) {
             if (args.size() == 2) {
-                String start = args.get(0);
-                String end = args.get(1);
+                String startDate = args.get(0);
+                String endDate = args.get(1);
 
-                LocalDateTime startDateTime = LocalDate.parse(start, BiConsist.YYYY_MM_DD_FORMATTER).atStartOfDay();
-                LocalDateTime endDateTime = LocalDate.parse(end, BiConsist.YYYY_MM_DD_FORMATTER).atTime(LocalTime.MAX);
+                if(Objects.nonNull(timeParts) && !timeParts.isEmpty() && timeParts.size() == 2) {
+                    String startTime = timeParts.get(0);
+                    String endTime = timeParts.get(1);
 
-                return Lists.newArrayList(startDateTime, endDateTime);
+                    LocalDateTime startDateTime = LocalDate.parse(startDate, BiConsist.YYYY_MM_DD_FORMATTER).atTime(LocalTime.parse(startTime));
+                    LocalDateTime endDateTime = LocalDate.parse(endDate, BiConsist.YYYY_MM_DD_FORMATTER).atTime(LocalTime.parse(endTime));
+                    return Lists.newArrayList(startDateTime, endDateTime);
+
+                } else {
+                    LocalDateTime startDateTime = LocalDate.parse(startDate, BiConsist.YYYY_MM_DD_FORMATTER).atStartOfDay();
+                    LocalDateTime endDateTime = LocalDate.parse(endDate, BiConsist.YYYY_MM_DD_FORMATTER).atTime(LocalTime.MAX);
+
+                    return Lists.newArrayList(startDateTime, endDateTime);
+                }
 
             }
             return args.stream().map(arg -> LocalDate.parse(arg, BiConsist.YYYY_MM_DD_FORMATTER).atStartOfDay()).collect(Collectors.toList());
@@ -34,22 +45,32 @@ public enum TimeTypeEnum {
      */
     RELATIVE {
         @Override
-        public List<LocalDateTime> getDateTime(List<String> args) {
+        public List<LocalDateTime> getDateTime(List<String> args, List<String> timeParts) {
 
             if (args.size() == 2) {
-                String start = args.get(0);
-                String end = args.get(1);
+                String startDate = args.get(0);
+                String endDate = args.get(1);
 
-                LocalDateTime startDateTime = LocalDate.now().minusDays(Integer.parseInt(start)).atStartOfDay();
-                LocalDateTime endDateTime = LocalDate.now().minusDays(Integer.parseInt(end)).atTime(LocalTime.MAX);
+                if(Objects.nonNull(timeParts) && !timeParts.isEmpty() && timeParts.size() == 2) {
+                    String startTime = timeParts.get(0);
+                    String endTime = timeParts.get(1);
 
-                return Lists.newArrayList(startDateTime, endDateTime);
+                    LocalDateTime startDateTime = LocalDate.now().minusDays(Integer.parseInt(startDate)).atTime(LocalTime.parse(startTime));
+                    LocalDateTime endDateTime = LocalDate.now().minusDays(Integer.parseInt(endDate)).atTime(LocalTime.parse(endTime));
+                    return Lists.newArrayList(startDateTime, endDateTime);
+
+                } else {
+
+                    LocalDateTime startDateTime = LocalDate.now().minusDays(Integer.parseInt(startDate)).atStartOfDay();
+                    LocalDateTime endDateTime = LocalDate.now().minusDays(Integer.parseInt(endDate)).atTime(LocalTime.MAX);
+
+                    return Lists.newArrayList(startDateTime, endDateTime);
+                }
             }
-
             return args.stream().map(arg -> LocalDateTime.now().minusDays(Integer.parseInt(arg))).collect(Collectors.toList());
         }
     };
 
-    public abstract List<LocalDateTime> getDateTime(List<String> args);
+    public abstract List<LocalDateTime> getDateTime(List<String> args, List<String> timeParts);
 
 }

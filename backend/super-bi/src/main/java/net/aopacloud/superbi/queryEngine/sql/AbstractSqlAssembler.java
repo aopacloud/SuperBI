@@ -4,23 +4,25 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
+import net.aopacloud.superbi.common.core.exception.ServiceException;
 import net.aopacloud.superbi.common.core.utils.StringUtils;
 import net.aopacloud.superbi.constant.BiConsist;
 import net.aopacloud.superbi.enums.DataTypeEnum;
 import net.aopacloud.superbi.enums.FieldCategoryEnum;
 import net.aopacloud.superbi.enums.FieldTypeEnum;
+import net.aopacloud.superbi.i18n.LocaleMessages;
+import net.aopacloud.superbi.i18n.MessageConsist;
 import net.aopacloud.superbi.model.dto.DatasetDTO;
+import net.aopacloud.superbi.model.dto.DatasetExtraConfigDTO;
 import net.aopacloud.superbi.model.dto.DatasetFieldDTO;
 import net.aopacloud.superbi.model.dto.TablePartition;
-import net.aopacloud.superbi.queryEngine.enums.DateTruncEnum;
-import net.aopacloud.superbi.queryEngine.enums.RatioPeriodEnum;
-import net.aopacloud.superbi.queryEngine.enums.RatioTypeEnum;
-import net.aopacloud.superbi.queryEngine.enums.TimeTypeEnum;
+import net.aopacloud.superbi.queryEngine.enums.*;
 import net.aopacloud.superbi.queryEngine.model.*;
 import net.aopacloud.superbi.queryEngine.sql.analytic.*;
 import net.aopacloud.superbi.queryEngine.sql.operator.FunctionalOperatorEnum;
 import net.aopacloud.superbi.queryEngine.sql.operator.OperatorParam;
 import net.aopacloud.superbi.util.FieldUtils;
+import net.aopacloud.superbi.util.JSONUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -64,6 +66,11 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
         // parse row privilege
         List<Segment> rowPrivilege = parseRowPrivilege(queryContext.getRowPrivileges());
         filters.addAll(rowPrivilege);
+
+        // parse default partition range
+        List<Segment> defaultPartitionRange = parsePartitionRange(dataset, queryParam);
+        filters.addAll(defaultPartitionRange);
+
 
         switch (queryParam.getType()) {
             case QUERY:
@@ -151,7 +158,91 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
         }
     }
 
+    private List<Segment> parsePartitionRange(DatasetDTO dataset, QueryParam queryParam) {
+        if(Strings.isNullOrEmpty(dataset.getExtraConfig())) {
+            return Lists.newArrayList();
+        }
+        DatasetExtraConfigDTO extraConfig = JSONUtils.parseObject(dataset.getExtraConfig(), DatasetExtraConfigDTO.class);
 
+        if(Objects.isNull(extraConfig) || Objects.isNull(extraConfig.getPartitionRanges()) || extraConfig.getPartitionRanges().isEmpty()) {
+            return Lists.newArrayList();
+        }
+
+        List<Filter> partitionRanges = extraConfig.getPartitionRanges();
+        List<Filter> filters = queryParam.getFilters();
+        for(Filter partitionRange : partitionRanges) {
+            for(Filter filter : filters) {
+                verifyPartitionRange(filter, partitionRange);
+            }
+        }
+
+        return partitionRanges.stream().map(this::parseFilter).filter(Objects::nonNull).collect(Collectors.toList());
+    }
+
+    private void verifyPartitionRange(Filter filter, Filter partitionRange) {
+
+        if(queryContext.getQueryParam().getType() == QueryTypeEnum.TOTAL) {
+            return;
+        }
+
+        if(!filter.getName().equals(partitionRange.getName())) {
+            return;
+        }
+        if(!filter.getDataType().isTime()) {
+            return;
+        }
+        if(!partitionRange.getDataType().isTime()){
+            return;
+        }
+        List<Condition> filterConditions = filter.getConditions();
+        if(Objects.isNull(filterConditions) || filterConditions.isEmpty()) {
+            return;
+        }
+        List<LocalDateTime> filterDateTimes = parseTimeRange(filterConditions.get(0));
+
+        List<Condition> partitionConditions = partitionRange.getConditions();
+        if(Objects.isNull(partitionConditions) || partitionConditions.isEmpty()){
+            return;
+        }
+        if(Objects.isNull(partitionConditions.get(0).getArgs())){
+            return;
+        }
+        List<LocalDateTime> partitionDateTimes = parseTimeRange(partitionConditions.get(0));
+
+        if(partitionDateTimes.size() == 1) {
+            LocalDateTime partitionDateTime = partitionDateTimes.get(0);
+            if(filterDateTimes.size() == 1) {
+                LocalDateTime filterDateTime = filterDateTimes.get(0);
+                if (!partitionDateTime.isEqual(filterDateTime)) {
+                    throw new ServiceException(LocaleMessages.getMessage(MessageConsist.PARTITION_OUT_OF_RANGE));
+                }
+            } else {
+                LocalDateTime start = filterDateTimes.get(0);
+                LocalDateTime end = filterDateTimes.get(1);
+
+                if(start.isAfter(partitionDateTime) || end.isBefore(partitionDateTime)) {
+                    throw new ServiceException(LocaleMessages.getMessage(MessageConsist.PARTITION_OUT_OF_RANGE));
+                }
+            }
+        } else {
+            LocalDateTime partitionStart = partitionDateTimes.get(0);
+            LocalDateTime partitionEnd = partitionDateTimes.get(1);
+
+            if(filterDateTimes.size() == 1) {
+                LocalDateTime filterDateTime = filterDateTimes.get(0);
+                if (filterDateTime.isAfter(partitionEnd) || filterDateTime.isBefore(partitionStart)) {
+                    throw new ServiceException(LocaleMessages.getMessage(MessageConsist.PARTITION_OUT_OF_RANGE));
+                }
+            } else {
+                LocalDateTime start = filterDateTimes.get(0);
+                LocalDateTime end = filterDateTimes.get(1);
+
+                if(start.isAfter(partitionEnd) || end.isBefore(partitionStart)) {
+                    throw new ServiceException(LocaleMessages.getMessage(MessageConsist.PARTITION_OUT_OF_RANGE));
+                }
+            }
+        }
+    }
 
     private List<Segment> parseRowPrivilege(Set<String> rowPrivileges) {
 
@@ -173,7 +264,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
 
         String expression = getFieldExpression(field);
 
-        if (org.assertj.core.util.Strings.isNullOrEmpty(expression)) {
+        if (Strings.isNullOrEmpty(expression)) {
             return Lists.newArrayList();
         }
 
@@ -181,7 +272,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
             return Lists.newArrayList(new Segment(name, expression));
         }
 
-        if (org.assertj.core.util.Strings.isNullOrEmpty(dimension.getDateTrunc())) {
+        if (Strings.isNullOrEmpty(dimension.getDateTrunc())) {
             return Lists.newArrayList(new Segment(name, expression));
         }
 
@@ -214,13 +305,13 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
         DatasetFieldDTO field = queryContext.getFieldMap().get(measure.getName());
 
         String expression = getFieldExpression(field);
-        if (org.assertj.core.util.Strings.isNullOrEmpty(expression)) {
+        if (Strings.isNullOrEmpty(expression)) {
             return null;
         }
 
         String aggregation = measure.getAggregator().buildAggregationExpression(expression);
 
-        if (!org.assertj.core.util.Strings.isNullOrEmpty(field.getComputeExpression())) {
+        if (!Strings.isNullOrEmpty(field.getComputeExpression())) {
             String computed = String.format("( (%s) %s)", aggregation, field.getComputeExpression());
             return new Segment(measure.getName(), measure.getAggregator(), computed);
         } else {
@@ -233,20 +324,20 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
         DatasetFieldDTO field = queryContext.getFieldMap().get(filter.getName());
 
         String expression = getFieldExpression(field);
-        if (org.assertj.core.util.Strings.isNullOrEmpty(expression)) {
+        if (Strings.isNullOrEmpty(expression)) {
             return null;
         }
 
         List<String> conditionExpression = filter.getConditions().stream()
                 .map(condition -> parseCondition(condition, expression, field))
-                .filter(item -> !org.assertj.core.util.Strings.isNullOrEmpty(item))
+                .filter(item -> !Strings.isNullOrEmpty(item))
                 .collect(Collectors.toList());
 
         if (conditionExpression.isEmpty()) {
             return null;
         }
-
-        return new Segment(filter.getName(), String.format("(%s)", Joiner.on(filter.getLogical().getExpression()).join(conditionExpression)));
+        LogicalEnum logical = Objects.nonNull(filter.getLogical()) ? filter.getLogical() : LogicalEnum.AND;
+        return new Segment(filter.getName(), String.format("(%s)", Joiner.on(logical.getExpression()).join(conditionExpression)));
 
     }
 
@@ -256,7 +347,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
 
         String expression = measureSegments.stream().filter(segment -> filter.getName().equals(segment.getName())).findFirst().get().getExpression();
 
-        List<String> conditionExpression = filter.getConditions().stream().map(condition -> parseCondition(condition, expression, field)).filter(item -> !org.assertj.core.util.Strings.isNullOrEmpty(item)).collect(Collectors.toList());
+        List<String> conditionExpression = filter.getConditions().stream().map(condition -> parseCondition(condition, expression, field)).filter(item -> !Strings.isNullOrEmpty(item)).collect(Collectors.toList());
 
         if (conditionExpression.isEmpty()) {
             return null;
@@ -295,7 +386,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
     public List<LocalDateTime> parseTimeRange(Condition condition) {
 
         if (condition.isUseLatestPartitionValue()) {
-            return TimeTypeEnum.EXACT.getDateTime(Lists.newArrayList(getDataset().getLatestPartitionValue(), getDataset().getLatestPartitionValue()));
+            return TimeTypeEnum.EXACT.getDateTime(Lists.newArrayList(getDataset().getLatestPartitionValue(), getDataset().getLatestPartitionValue()), Lists.newArrayList());
         }
 
         List<String> args = condition.getArgs();
@@ -304,7 +395,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
             args = Lists.newArrayList(args.get(0), args.get(0));
         }
 
-        return condition.getTimeType().getDateTime(args);
+        return condition.getTimeType().getDateTime(args, condition.getTimeParts());
 
     }
 
@@ -384,7 +475,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
             Optional<Dimension> dimField = queryParam.getDimensions().stream().filter(dimension -> dimension.getName().equals(timeField)).findFirst();
             if (dimField.isPresent()) {
                 String dataTruncStr = dimField.get().getDateTrunc();
-                if (!org.assertj.core.util.Strings.isNullOrEmpty(dataTruncStr)) {
+                if (!Strings.isNullOrEmpty(dataTruncStr)) {
                     dataTrunc = DateTruncEnum.valueOf(dataTruncStr);
                 }
             }
@@ -404,6 +495,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
         }
         return null;
     }
+
 
     public Segment parseJoinOnField(RatioTypeEnum ratioType, DateTruncEnum dateTrunc, Segment timeSegment) {
 

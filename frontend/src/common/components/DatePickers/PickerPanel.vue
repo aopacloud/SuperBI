@@ -1,6 +1,6 @@
 ﻿<template>
-  <section class="section">
-    <header class="header">
+  <section class="custom-picker-section">
+    <header class="header" v-if="!single">
       <HeaderTabs
         :tabOnly="modeOnly"
         :value="modelValue"
@@ -10,26 +10,50 @@
       </HeaderTabs>
     </header>
 
-    <main class="main">
+    <main class="main" :style="{ padding: single ? 0 : '' }">
       <AsideQuick
+        v-if="!single"
         class="aside"
-        style="width: 165px; margin-top: 10px"
+        style="width: 165px"
         :options="options"
         :id="id"
+        :showTime="showTime"
         :utcOffset="currentUtc"
         :value="modelValue"
         :extra="extraValue"
         @click="onPresetClick" />
 
-      <div class="content" style="margin-left: 10px">
-        <MainPicker
+      <div
+        class="content"
+        :style="{
+          paddingBottom: showTime && !single ? '40px' : '',
+          marginLeft: single ? 0 : '',
+        }">
+        <component
+          ref="pickerRef"
+          :is="pickerComponent"
+          :format="format"
+          :valueFormat="valueFormat"
+          :extra="extraValue"
           :utcOffset="currentUtc"
+          :showTime="showTime"
           v-model:value="modelValue"
-          @click="onPickerClick" />
+          v-model:hms="hmsValue"
+          @change="onPickerChange"
+          @ok="ok" />
       </div>
     </main>
 
-    <footer class="footer">
+    <a-tooltip
+      v-if="single && showTime"
+      arrowPointAtCenter
+      placement="topLeft"
+      :title="utcOffsetTooltip">
+      <InfoCircleOutlined
+        style="position: absolute; bottom: 26px; left: 30px; font-size: 16px" />
+    </a-tooltip>
+
+    <footer v-else class="footer" :style="{ margin: single ? '12px 0 0' : '' }">
       <div class="left flex-inline">
         <a-tooltip arrowPointAtCenter placement="topLeft" :title="utcOffsetTooltip">
           <InfoCircleOutlined style="margin-right: 16px; font-size: 16px" />
@@ -37,8 +61,10 @@
         <div :id="`pick-custom-placeholder-${id}`"></div>
       </div>
       <a-space>
-        <a-button @click="onCancel">取消</a-button>
-        <a-button type="primary" @click="ok">确定</a-button>
+        <a-button :size="single ? 'small' : ''" @click="onCancel">取消</a-button>
+        <a-button :size="single ? 'small' : ''" type="primary" @click="ok">
+          确定
+        </a-button>
       </a-space>
     </footer>
   </section>
@@ -48,64 +74,75 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import HeaderTabs from './components/HeaderTabs.vue'
 import AsideQuick from './components/AsideQuick.vue'
-import MainPicker from './components/Picker.vue'
-import { getStartDate, getEndDate, getUtcDate } from './utils'
-import dayjs from 'dayjs'
-import utc from 'dayjs/plugin/utc'
+import RangePicker from './components/RangePicker.vue'
+import SinglePicker from './components/SinglePicker.vue'
+import { getStartDateStr, getEndDateStr, getUtcDate } from './utils'
 import { InfoCircleOutlined } from '@ant-design/icons-vue'
-dayjs.extend(utc)
+import dayjs from 'dayjs'
+
+defineOptions({
+  inheritAttrs: false,
+})
 
 const emits = defineEmits([
   'update:moda',
   'update:offset',
   'update:value',
+  'update:hms',
   'update:extra',
   'ok',
   'cancel',
 ])
 const props = defineProps({
-  format: {
-    type: String,
-    default: 'YYYY-MM-DD',
-  },
-  moda: {
-    // mode 会与外层 dropdown 的mode属性冲突， 什么原因？？？
-    type: Number,
-    default: 0, // 0 动态时间，1 静态时间
-  },
-  modeOnly: {
-    type: Number,
-  },
-  value: {
-    type: Array,
-  },
-  placeholder: {
-    type: String,
-    default: '请选择日期',
-  },
-  offset: {
-    type: Array,
-  },
-  extra: {
-    type: Object,
-    default: () => ({}),
-  },
-  utcOffset: {
-    type: String,
-    default: '+8',
-  },
+  // 单个面板
+  single: { type: Boolean },
+  // mode 会与外层 dropdown 的mode属性冲突， 什么原因？？？
+  // 0 动态时间，1 静态时间 },
+  moda: { type: Number, default: 0 },
+
+  // 只显示静态或动态时间
+  modeOnly: { type: Number },
+
+  // 值
+  value: { type: Array, default: () => [] },
+
+  // 格式化
+  format: { type: String, default: 'YYYY-MM-DD' },
+
+  // 值的格式化
+  valueFormat: { type: String, default: 'YYYY-MM-DD' },
+
+  // 显示时分秒
+  showTime: { type: Boolean },
+
+  // 时分秒的值
+  hms: { type: Array },
+
+  placeholder: { type: String, default: '请选择日期' },
+
+  // 偏移量值
+  offset: { type: Array },
+
+  extra: { type: Object, default: () => ({}) },
+
+  utcOffset: { type: String, default: '+8' },
+
   // 一些配置参数
-  options: {
-    type: Object,
-    default: () => ({}),
-  },
+  options: { type: Object, default: () => ({}) },
 })
+
+// 是否显示时分秒
+const showTime = computed(() => props.showTime)
 
 // 当前时区偏移量
 const currentUtc = computed(() => +props.utcOffset)
 
 const utcOffsetTooltip = computed(() => {
   return `当前时区为: UTC${props.utcOffset}:00`
+})
+
+const pickerComponent = computed(() => {
+  return props.single ? SinglePicker : RangePicker
 })
 
 const id = ref(Date.now())
@@ -118,14 +155,7 @@ const offsetValue = ref()
 // 额外参数
 const extraValue = ref({})
 
-// 将字符串转为dayjs格式
-const _format2dayjs = (dates = []) => {
-  return dates.map(t => dayjs(t))
-}
-// 将dayjs格式转为字符串
-const _format2string = (dates = []) => {
-  return dates.map(t => t.format(props.format))
-}
+const hmsValue = ref([])
 
 // 根据当前日期获取偏移量
 const getOffsets = (dates = []) => {
@@ -134,8 +164,8 @@ const getOffsets = (dates = []) => {
   } else {
     const [s, e] = dates
 
-    const sDiff = getUtcDate(currentUtc.value).endOf('day').diff(s.endOf('day'), 'day')
-    const eDiff = getUtcDate(currentUtc.value).endOf('day').diff(e.endOf('day'), 'day')
+    const sDiff = getUtcDate(currentUtc.value).startOf('day').diff(s, 'day')
+    const eDiff = getUtcDate(currentUtc.value).startOf('day').diff(e, 'day')
 
     return [sDiff, eDiff]
   }
@@ -144,28 +174,45 @@ const getOffsets = (dates = []) => {
 // 根据偏移量获取默认日期
 const getByOffset = (offsets = []) => {
   const [s = 0, e = 0] = offsets
-  const start = getUtcDate(currentUtc.value).endOf('day').subtract(s, 'day')
-  const end = getUtcDate(currentUtc.value).endOf('day').subtract(e, 'day')
+  const start = getUtcDate(currentUtc.value)
+    .endOf('day')
+    .subtract(s, 'day')
+    .format(props.format)
+  const end = getUtcDate(currentUtc.value)
+    .endOf('day')
+    .subtract(e, 'day')
+    .format(props.format)
 
   return [start, end]
 }
 
+const pickerRef = ref(null)
 // 初始化
 const init = () => {
-  const { moda, modeOnly, offset, value, extra = {} } = props
+  pickerRef.value?.open?.()
+
+  const { moda, modeOnly, offset, value, hms = [], extra = {} } = props
 
   modeKey.value = modeOnly ?? moda
   offsetValue.value = offset ?? offsetValue.value
-
+  hmsValue.value = [...hms]
   extraValue.value = { ...extra }
 
   if (extra.dt) {
     modelValue.value = []
+  } else if (!!extra.until) {
+    // 自某日至昨日、今, [静态时间，动态时间] => ['2024-03-19', 0] => [静态时间, 静态时间] => ['2024-03-19', '2024-03-20']
+    // 使用 extra.until until_-1 | until_0 去处理
+    const endDate = getEndDateStr(
+      { type: 'day', offset: extra.until.split('_')[1] },
+      currentUtc.value
+    )
+
+    modelValue.value = [value[0], endDate]
   } else {
     // 静态
     if (moda === 1) {
-      modelValue.value = _format2dayjs(value.filter(Boolean))
-
+      modelValue.value = value.length === 1 ? [value[0], value[0]] : [...value]
       extraValue.value.current = undefined
       extraValue.value.isCustom = undefined
     } else {
@@ -175,15 +222,27 @@ const init = () => {
 
       if (current) {
         const [tp, of = 0] = current.split('_')
-        const s = getStartDate({ type: tp.toLowerCase(), offset: +of }, currentUtc.value)
-        const e = getEndDate({ type: tp.toLowerCase(), offset: +of }, currentUtc.value)
+        const s = getStartDateStr(
+          { type: tp.toLowerCase(), offset: +of },
+          currentUtc.value
+        )
+        const e = getEndDateStr(
+          { type: tp.toLowerCase(), offset: +of },
+          currentUtc.value
+        )
 
         modelValue.value = [s, e]
       } else {
         extraValue.value.current = undefined
-        modelValue.value = Array.isArray(offsetValue.value)
-          ? getByOffset(offsetValue.value)
-          : []
+        if (Array.isArray(offset)) {
+          modelValue.value = getByOffset(offset)
+        } else {
+          // 默认昨天
+          const yDay = dayjs().subtract(1, 'day')
+          const yDayStr = getUtcDate(currentUtc.value, yDay).format('YYYY-MM-DD')
+
+          modelValue.value = [yDayStr, yDayStr]
+        }
       }
     }
   }
@@ -191,23 +250,31 @@ const init = () => {
 
 /**
  * 主面板点击
+ * 清空 extra.current、isCustom、dt
  */
-const onPickerClick = () => {
-  // 清空 extra.current、isCustom、dt
+const onPickerChange = () => {
   extraValue.value.current = undefined
   extraValue.value.dt = undefined
   extraValue.value.isCustom = undefined
 }
 
-defineExpose({ init })
+// 重置面板
+const resetOpen = () => {
+  pickerRef.value?.close?.()
+}
+
+defineExpose({ init, resetOpen })
 
 watch(() => props.utcOffset, init)
 
 const onReset = () => {
+  modelValue.value = []
   offsetValue.value = []
-  nextTick(() => {
-    modelValue.value = []
-  })
+  hmsValue.value = []
+  extraValue.value.dt = undefined
+  extraValue.value.current = undefined
+  extraValue.value.isCustom = undefined
+  extraValue.value.until = undefined
 }
 
 // 预设快捷
@@ -220,13 +287,37 @@ const onPresetClick = item => {
   if (type === 'dt') {
     modelValue.value = []
     modelValue.offset = [0, 0]
-    extraValue.value.dt = true
+    extraValue.value.current = undefined
+    extraValue.value.until = undefined
   } else {
+    // 自某日至今、昨日
+    if (type === 'until') {
+      extraValue.value.current = undefined
+      extraValue.value.isCustom = undefined
+      extraValue.value.until = type + '_' + offset
+
+      if (!modelValue.value[0]) {
+        modelValue.value[0] = getUtcDate(currentUtc.value)
+          .endOf('day')
+          .subtract(1, 'day')
+          .format(props.format)
+      }
+
+      modelValue.value[1] = getUtcDate(currentUtc.value)
+        .endOf('day')
+        .subtract(Math.abs(offset), 'day')
+        .format(props.format)
+
+      return
+    }
+
+    extraValue.value.until = undefined
+
     // 自定义
     if (custom) {
       extraValue.value.current = type.toUpperCase() + '_' + offset
     } else {
-      // 静态
+      // 动态
       if (props.moda === 0) {
         if (type === 'week') {
           extraValue.value.current = 'WEEK_' + offset
@@ -236,17 +327,19 @@ const onPresetClick = item => {
           extraValue.value.current = undefined
         }
       } else {
-        // 动态
+        // 静态
         extraValue.value.current = undefined
       }
     }
 
-    const s = getStartDate({ type, offset }, currentUtc.value)
-    const e = getEndDate({ type, offset }, currentUtc.value)
+    const s = getStartDateStr({ type, offset }, currentUtc.value)
+    const e = getEndDateStr({ type, offset }, currentUtc.value)
 
     modelValue.value = [s, e]
   }
 }
+
+const validateItem = t => !!t
 
 // 描述文字
 const desc = computed(() => {
@@ -255,28 +348,61 @@ const desc = computed(() => {
   if (!modelValue.value || !modelValue.value.length) return props.placeholder
 
   const [start, end] = modelValue.value
+  const [sTime = '', eTime = ''] = hmsValue.value
   if (!start || !end) return props.placeholder
 
-  const startLabel = dayjs(start).format(props.format) ?? '开始时间'
-  const endLabel = dayjs(end).format(props.format) ?? '结束时间'
+  const startLabel = start + (props.showTime && !!sTime ? ' ' + sTime : '')
+  const endLabel = end + (props.showTime && !!eTime ? ' ' + eTime : '')
 
   return startLabel + ' ~ ' + endLabel
 })
 
 const ok = () => {
+  if (props.single) {
+    const value = modelValue.value.length ? [modelValue.value[0]] : undefined
+    const hms = [...hmsValue.value]
+
+    emits('update:moda', 1)
+    emits('update:value', value)
+    emits('update:hms', hms)
+
+    emits('ok', {
+      moda: 1,
+      value: value,
+      hms: hms,
+      extra: {
+        ...extraValue.value,
+        current: undefined,
+        isCustom: undefined,
+        until: undefined,
+      },
+    })
+
+    return
+  }
+
   const offsets = getOffsets(modelValue.value)
-  const dates = _format2string(modelValue.value)
+  const values = [...modelValue.value]
+  // 自某日至昨日、今, [静态时间，动态时间] => ['2024-03-19', 0]
+  if (!!extraValue.value.until) {
+    const endOffset = extraValue.value.until.split('_')[1]
+
+    values[1] = +endOffset
+    offsets[0] = values[0]
+  }
 
   offsetValue.value = offsets
 
-  emits('update:moda', modeKey.value)
+  emits('update:moda', +!!extraValue.value.until || modeKey.value)
   emits('update:offset', offsets)
-  emits('update:value', dates)
+  emits('update:value', values)
+  emits('update:hms', hmsValue.value)
   emits('update:extra', extraValue.value)
   emits('ok', {
     moda: modeKey.value,
     offset: offsets,
-    date: dates,
+    value: values,
+    hms: hmsValue.value,
     extra: extraValue.value,
   })
 }
@@ -287,7 +413,7 @@ const onCancel = () => {
 </script>
 
 <style lang="scss" scoped>
-section {
+.custom-picker-section {
   display: inline-flex;
   flex-direction: column;
   padding: 12px;
@@ -297,19 +423,27 @@ section {
     0 9px 28px 8px rgba(0, 0, 0, 0.05);
 }
 
-main,
+.main,
 .content {
   flex: 1;
 }
-main {
+.main {
+  position: relative;
   display: flex;
-  padding: 0 10px;
+  padding: 10px 10px 0;
+}
+.content {
+  margin-left: 10px;
 }
 
-footer {
+.footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin: 16px 10px 12px;
 }
+</style>
+
+<style lang="scss">
+@import './picker.scss';
 </style>

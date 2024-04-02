@@ -3,14 +3,22 @@ import { useRouter } from 'vue-router'
 import { downloadWithBlob } from 'common/utils/file'
 import dayjs from 'dayjs'
 
-import { exportById, postPublishById, postOfflineById, deleteById } from '@/apis/dataset'
+import {
+  exportById,
+  postPublishById,
+  postOfflineById,
+  deleteById,
+} from '@/apis/dataset'
 import { postFavorite, postUnFavorite } from '@/apis/favorite'
 
 export default function useMenus() {
   const router = useRouter()
 
   const getAnalysisHref = row => {
-    const routeRes = router.resolve({ name: 'DatasetAnalysis', params: { id: row.id } })
+    const routeRes = router.resolve({
+      name: 'DatasetAnalysis',
+      params: { id: row.id },
+    })
     if (!routeRes) return '/'
 
     return routeRes.href
@@ -47,7 +55,10 @@ export default function useMenus() {
    * @returns
    */
   const edit = row => {
-    const routeRes = router.resolve({ name: 'DatasetModify', params: { id: row.id } })
+    const routeRes = router.resolve({
+      name: 'DatasetModify',
+      params: { id: row.id },
+    })
     if (!routeRes) return
 
     window.open(routeRes.href, '_blank')

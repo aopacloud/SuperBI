@@ -2,6 +2,7 @@ package net.aopacloud.superbi.listener;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.aopacloud.superbi.cache.AuthorizeThreadLocalCache;
 import net.aopacloud.superbi.common.core.context.LoginContextHolder;
 import net.aopacloud.superbi.enums.AuthorizeStatusEnum;
 import net.aopacloud.superbi.enums.EventActionEnum;
@@ -64,6 +65,7 @@ public class DatasetAuthorizeListener {
             if (applies.isEmpty()) {
                 return;
             }
+            AuthorizeThreadLocalCache.remove();
             PermissionEnum permission = privilegeService.findDatasetMixedPermission(event.getDatasetId(), event.getUsername());
             switch (permission) {
                 case NONE:

@@ -1,7 +1,7 @@
 ﻿<template>
   <a-drawer title="全局筛选配置" width="700" :open="open" @close="cancel">
     <section class="page flex-column">
-      <main class="flex-1 flex">
+      <main class="flex-1 flex scroll">
         <FilterList
           ref="filterListRef"
           class="left-side"
@@ -115,7 +115,6 @@ const ok = async () => {
 <style lang="scss" scoped>
 .left-side {
   width: 250px;
-  padding-right: 16px;
 }
 .right-side {
   flex: 1;

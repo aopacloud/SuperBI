@@ -342,6 +342,8 @@ const globalDateConfig = reactive({
   mode: 1,
   offset: [],
   date: [],
+  hms: [],
+  showTime: true,
 })
 const onDetailUpdate = e => {
   detail.value = { ...detail.value, ...e }
