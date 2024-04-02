@@ -6,11 +6,11 @@
     <sql id="baseFields">id,`scope`,permission,username,role_id,dataset_id,privilege_type,operator,start_time,expire_duration,column_privilege,row_privilege,row_param,remark,deleted,create_time,update_time</sql>
 
     <sql id="userAllAuthorize">
-        select username,permission,dataset_id,privilege_type,start_time,expire_duration,column_privilege,row_privilege,create_time,if(expire_duration = 0 or  ( UNIX_TIMESTAMP(start_time) + expire_duration ) > UNIX_TIMESTAMP(now()),1,0) as is_actived, expired
+        select id,username,permission,dataset_id,privilege_type,start_time,expire_duration,column_privilege,row_privilege,create_time,if(expire_duration = 0 or  ( UNIX_TIMESTAMP(start_time) + expire_duration ) > UNIX_TIMESTAMP(now()),1,0) as is_actived, expired
         from bi_dataset_authorize
         where `scope` = 'USER' and deleted = 0
         union all
-        select r.username,a.permission,a.dataset_id,a.privilege_type,a.start_time,a.expire_duration,a.column_privilege,a.row_privilege,a.create_time,if(expire_duration = 0 or  ( UNIX_TIMESTAMP(start_time) + expire_duration ) > UNIX_TIMESTAMP(now()),1,0) as is_actived,expired
+        select a.id,r.username,a.permission,a.dataset_id,a.privilege_type,a.start_time,a.expire_duration,a.column_privilege,a.row_privilege,a.create_time,if(expire_duration = 0 or  ( UNIX_TIMESTAMP(start_time) + expire_duration ) > UNIX_TIMESTAMP(now()),1,0) as is_actived,expired
         from bi_dataset_authorize a join bi_auth_role_user r
             on  a.role_id = r.role_id
         where a.`scope` = 'ROLE' and a.deleted = 0

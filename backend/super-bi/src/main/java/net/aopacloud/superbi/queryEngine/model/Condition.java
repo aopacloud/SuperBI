@@ -20,6 +20,8 @@ public class Condition {
 
     private List<String> args;
 
+    private List<String> timeParts;
+
     private boolean useLatestPartitionValue = Boolean.FALSE;
 
     public boolean argIsEmpty() {

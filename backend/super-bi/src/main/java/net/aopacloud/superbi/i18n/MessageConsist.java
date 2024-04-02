@@ -44,4 +44,6 @@ public class MessageConsist {
     public static final String APPLY_PASS_DUPLICATE_ERROR = "apply.pass.duplicate.error";
 
     public static final String CAPTCHA_GENERATE_ERROR = "captcha_generate_error";
+
+    public static final String PARTITION_OUT_OF_RANGE = "partition.out.of.range";
 }
