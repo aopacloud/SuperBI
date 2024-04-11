@@ -3,6 +3,7 @@ package net.aopacloud.superbi.queryEngine.model;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import net.aopacloud.superbi.common.core.context.LoginContextHolder;
+import net.aopacloud.superbi.common.core.utils.bean.BeanUtils;
 import net.aopacloud.superbi.enums.EngineEnum;
 import net.aopacloud.superbi.model.dto.ConnectionParamDTO;
 import net.aopacloud.superbi.model.dto.DatasetDTO;
@@ -69,6 +70,11 @@ public class QueryContext {
         return queryContext;
     }
 
+    public QueryContext clone() {
+        QueryContext clone = new QueryContext();
+        BeanUtils.copyBeanProp(clone,this);
+        return clone;
+    }
 
     public String getTable() {
         return String.format("%s.%s", dataset.getConfig().getDbName(), dataset.getConfig().getTableName());

@@ -76,6 +76,7 @@
           :choosed="choosed"
           :columns="columns"
           :dataSource="dataSource"
+          :summaryRows="summaryRows"
           :compare="requestResponse.request.compare"
           :dataset="report.dataset"
           :options="requestResponse.layout"
@@ -106,6 +107,7 @@ import emittor from 'common/plugins/emittor'
 import { versionJs } from '@/versions'
 import { getStartDateStr, getEndDateStr } from 'common/components/DatePickers/utils'
 import dayjs from 'dayjs'
+import { isRenderTable } from '@/views/analysis/utils'
 
 const router = useRouter()
 
@@ -260,7 +262,13 @@ const columns = computed(() => {
     fieldNames: requestResponse.response.fieldNames,
   })
 })
+
+// 数据行
 const dataSource = computed(() => requestResponse.response.rows || [])
+
+// 汇总行
+const summaryRows = computed(() => requestResponse.response.summaryRows || [])
+
 // 副标题
 const subTitle = computed(() => {
   return versionJs.ViewsDashboard.displaySubTitle(
@@ -285,6 +293,7 @@ const fetchReportDetail = async () => {
       ...JSON.parse(queryParam),
       fromSource: 'dashboard',
     }
+
     requestResponse.layout = JSON.parse(layout)
     props.item.report = { ...rest }
 
@@ -424,6 +433,22 @@ const reload = async () => {
 // 下载的查询参数
 const downloadQueryParams = ref({})
 
+const payloadSummary = computed(() => {
+  const {
+    renderType,
+    table: { showSummary },
+  } = requestResponse.layout
+
+  // 非表格，无需请求汇总
+  if (!isRenderTable(renderType)) return
+
+  // 普通表格只有显示汇总行才请求汇总
+  if (renderType === 'table') return showSummary
+
+  // 其余都请求汇总
+  return true
+})
+
 const runQuery = async () => {
   try {
     loading.value = true
@@ -446,6 +471,7 @@ const runQuery = async () => {
       [p]: requestResponse.request[p].filter(filterFields),
       [i]: requestResponse.request[i].filter(filterFields),
       filters: queryFilters.value.filter(filterFields),
+      summary: payloadSummary.value,
     }
 
     const res = await postAnalysisQuery(requestParams)

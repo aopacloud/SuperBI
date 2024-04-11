@@ -29,8 +29,6 @@ public class QueryAnalysisModel implements AnalysisModel {
 
     private String table;
 
-    private String tableAlias;
-
     private List<Segment> where = Lists.newArrayList();
 
     private List<Segment> groupBy = Lists.newArrayList();

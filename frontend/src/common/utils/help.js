@@ -395,9 +395,9 @@ export function createSortByOrder(isUp = false, prop) {
  * @param {T} obj
  * @param {string[]} keys
  * @returns {T}
- * @example getByInlcudesKeys({id: 1, age: 2, address: 3}, ['id', 'age']) => {id: 1, age: 2}
+ * @example getByIncludesKeys({id: 1, age: 2, address: 3}, ['id', 'age']) => {id: 1, age: 2}
  */
-export const getByInlcudesKeys = (obj = {}, keys = []) => {
+export const getByIncludesKeys = (obj = {}, keys = []) => {
   if (keys.length === 0) return obj
 
   return keys.reduce((acc, key) => ((acc[key] = obj[key]), acc), {})
@@ -444,7 +444,11 @@ export function treeToList(tree = [], childrenKey = 'children') {
  * @param {string} childKey 子级key
  * @returns
  */
-export const listToTree = (list = [], parentKey = 'parentId', childKey = 'children') => {
+export const listToTree = (
+  list = [],
+  parentKey = 'parentId',
+  childKey = 'children'
+) => {
   const res = []
 
   for (let i = 0; i < list.length; i++) {
@@ -466,6 +470,37 @@ export const listToTree = (list = [], parentKey = 'parentId', childKey = 'childr
   }
 
   return res
+}
+
+export const listToTree2 = (list = [], id = 'id', parentId = 'parentId') => {
+  const { result = [], temp = {} } = list.reduce(
+    (acc, item) => {
+      acc.temp[item[id]] = item
+
+      if (typeof item[parentId] === 'undefined' || item[parentId] === null) {
+        acc.result.push(item)
+      }
+
+      return acc
+    },
+    {
+      result: [],
+      temp: {},
+    }
+  )
+
+  for (const id in temp) {
+    if (typeof temp[id][parentId] !== 'undefined') {
+      // 查找并附加子节点
+      const parent = temp[temp[id][parentId]]
+      if (!parent.children) {
+        parent.children = []
+      }
+      parent.children.push(temp[id])
+    }
+  }
+
+  return result
 }
 
 /**

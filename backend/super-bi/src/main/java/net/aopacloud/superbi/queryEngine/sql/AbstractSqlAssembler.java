@@ -16,6 +16,7 @@ import net.aopacloud.superbi.model.dto.DatasetDTO;
 import net.aopacloud.superbi.model.dto.DatasetExtraConfigDTO;
 import net.aopacloud.superbi.model.dto.DatasetFieldDTO;
 import net.aopacloud.superbi.model.dto.TablePartition;
+import net.aopacloud.superbi.queryEngine.TableMergeStage;
 import net.aopacloud.superbi.queryEngine.enums.*;
 import net.aopacloud.superbi.queryEngine.model.*;
 import net.aopacloud.superbi.queryEngine.sql.analytic.*;
@@ -42,11 +43,14 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
 
     protected QueryContext queryContext;
 
+    protected TableMergeStage tableStage;
+
     protected Map<String, DatasetFieldDTO> fieldMap;
 
-    public AbstractSqlAssembler(DatasetDTO dataset, TypeConverter typeConverter, QueryContext queryContext) {
+    public AbstractSqlAssembler(DatasetDTO dataset, TypeConverter typeConverter, TableMergeStage tableStage, QueryContext queryContext) {
         this.dataset = dataset;
         this.typeConverter = typeConverter;
+        this.tableStage = tableStage;
         this.queryContext = queryContext;
         fieldMap = dataset.getFields().stream().collect(Collectors.toMap(DatasetFieldDTO::getName, field -> field));
     }
@@ -78,19 +82,19 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
                         .addWhere(filters)
                         .addHaving(having)
                         .addGroupBy(dimensions)
-                        .setTable(queryContext.getTable())
+                        .setTable(getTable())
                         .setOrderBy(orderBy)
                         .setPaging(paging);
 
             case TOTAL:
-                return new TotalAnalysisModel().setTable(queryContext.getTable())
+                return new TotalAnalysisModel().setTable(getTable())
                         .setGroupBy(dimensions)
                         .setWhere(filters)
                         .setHaving(having);
 
             case SINGLE_FIELD:
                 SingleFieldAnalysisModel model = new SingleFieldAnalysisModel()
-                        .setTable(queryContext.getTable())
+                        .setTable(getTable())
                         .setField(dimensions.get(0))
                         .setPaging(paging);
 
@@ -111,16 +115,22 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
             case RATIO:
                 Compare compare = queryParam.getCompare();
                 List<RatioPart> ratioParts = parseRatioPart(compare, queryParam, dimensions);
+                List<Segment> ratioDimSegments = dimensions;
+                if(Objects.nonNull(compare.getDimensions())) {
+                    Set<String> ratioDimNameSet = compare.getDimensions().stream().map(Dimension::getName).collect(Collectors.toSet());
+                    ratioDimSegments = dimensions.stream().filter(dim -> ratioDimNameSet.contains(dim.getName())).collect(Collectors.toList());
+                }
 
-                return new RatioQueryAnalysisModel().setDimension(dimensions)
+                return new RatioQueryAnalysisModel().setDimensions(dimensions)
                         .setMeasures(measures)
                         .setWhere(filters)
                         .setHaving(having)
                         .setGroupBy(dimensions)
-                        .setTable(queryContext.getTable())
+                        .setTable(getTable())
                         .setOrderBy(orderBy)
                         .setPaging(paging)
-                        .setRatioParts(ratioParts);
+                        .setRatioParts(ratioParts)
+                        .setRatioDimensions(ratioDimSegments);
 
             case PREVIEW:
                 List<Segment> dimSegments = queryParam.getDataset().getFields().stream()
@@ -134,7 +144,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
                         .collect(Collectors.toList());
 
                 DatasetPreviewAnalysisModel previewAnalysisModel = new DatasetPreviewAnalysisModel()
-                        .setTable(queryContext.getTable())
+                        .setTable(getTable())
                         .setDimensions(dimSegments)
                         .setMeasures(measureSegments);
 
@@ -648,5 +658,14 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
 
     public DatasetDTO getDataset() {
         return dataset;
+    }
+
+
+    private String getTable() {
+        if(queryContext.getConnectionParam().isRealtime()) {
+            return tableStage.getRealTimeTable();
+        } else {
+            return tableStage.getTable();
+        }
     }
 }

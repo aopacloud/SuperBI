@@ -1,3 +1,10 @@
+/*
+ * @Author: huanghe Huang.He@olaola.chat
+ * @Date: 2024-04-03 16:04:59
+ * @LastEditors: huanghe Huang.He@olaola.chat
+ * @LastEditTime: 2024-04-07 14:02:53
+ * @FilePath: /dm-BDP-front/src/views/analysis/LayoutContent/components/Filter/utils.js
+ */
 import { displayDateFormat } from 'common/components/DatePickers/utils'
 import { operatorMap } from '@/views/dataset/config.field'
 
@@ -39,7 +46,7 @@ export const displayFilter = (field, { timeOffset = +8, format = 'YY/MM/DD' }) =
 
         return hasV
           ? operatorMap.DEFAULT[functionalOperator] + "'" + args.join('、') + "'"
-          : ''
+          : operatorMap.DEFAULT[functionalOperator]
       })
       .filter(Boolean)
       .join(logical === 'AND' ? '且' : '或')

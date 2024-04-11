@@ -18,4 +18,6 @@ public class DatasetFieldCheckResultVO {
 
     private String msg;
 
+    private String queryId;
+
 }

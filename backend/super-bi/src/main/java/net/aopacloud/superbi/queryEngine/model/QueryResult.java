@@ -22,6 +22,8 @@ public class QueryResult {
 
     private List<QueryColumn> columns = Lists.newArrayList();
 
+    private List<Object[]> summaryRows = Lists.newArrayList();
+
     private String sql;
 
     private String errorLog;

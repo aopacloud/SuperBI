@@ -92,7 +92,7 @@ import {
   defaultChartOptions,
 } from './defaultOptions'
 import useUserStore from '@/store/modules/user'
-import { getRandomKey } from 'common/utils/help'
+import { getRandomKey, getByIncludesKeys, deepClone } from 'common/utils/help'
 import { storagePrefix } from '@/settings'
 import { DASHBORD_TO_REPORT_NAME } from '@/views/dashboard/modify/config'
 import useAppStore from '@/store/modules/app'
@@ -413,6 +413,8 @@ const onFieldListDbclick = (e, category) => {
     prevChoosed.splice(preIndex, 1)
   }
   prevChoosed.push(e)
+
+  updateCompareDimensions(e)
 }
 
 // 选中的筛选条件
@@ -592,12 +594,46 @@ const updataComparOptions = list => {
     )
   }
 }
-watch(chooseIndexes, updateByChoosedIndex, { immmediate: true, deep: true })
+
+// 更新同环比对比维度
+const updateCompareDimensions = async list => {
+  await nextTick()
+
+  const old = compare.value?.dimensions
+
+  // 历史数据无对比维度字段
+  if (typeof old === 'undefined') return
+
+  list = Array.isArray(list) ? list : [list]
+
+  const newList = list
+    .map(item => getByIncludesKeys(item, ['name', 'dataType']))
+    .filter(t => old.every(i => i.name !== t.name))
+
+  compare.value.dimensions = [...old, ...newList]
+}
+
+const updateCompareDimensionsByChoosed = (list = []) => {
+  const old = compare.value?.dimensions
+
+  if (typeof old === 'undefined') return
+
+  compare.value.dimensions = old.filter(t => list.some(i => i.name === t.name))
+}
+
+// 更新维度
+const updateByChoosedDimension = (ls = []) => {
+  updateCompareDimensionsByChoosed(ls)
+}
+
+watch(chooseDimensions, updateByChoosedDimension, { deep: true })
+
+watch(chooseIndexes, updateByChoosedIndex, { immediate: true, deep: true })
 
 // 查询成功响应
 const requestResponse = ref({})
 const setRequestResponse = (e = {}) => {
-  requestResponse.value = e
+  requestResponse.value = deepClone(e)
 }
 
 const requestResponseUpdate = e => {
@@ -696,6 +732,7 @@ const updateChoosedFromChart = ({
 }
 
 provide('index', {
+  autoRun,
   timeOffset,
   permissions: {
     dataset: {
@@ -741,6 +778,9 @@ provide('index', {
   compare: {
     get: () => compare.value,
     set: setCompare,
+    update: {
+      dimensions: updateCompareDimensions,
+    },
   },
   paging: {
     get: key => {

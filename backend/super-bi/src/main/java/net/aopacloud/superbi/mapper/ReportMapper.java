@@ -22,4 +22,6 @@ public interface ReportMapper {
     Integer countByUsername(@Param("username") String username);
 
     void updateCreator(@Param("fromUsername") String fromUsername, @Param("toUsername") String toUsername);
+
+    List<ReportDTO> selectByDatasetId(@Param("datasetId") Long datasetId);
 }

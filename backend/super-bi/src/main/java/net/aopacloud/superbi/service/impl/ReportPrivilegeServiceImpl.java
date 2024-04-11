@@ -1,7 +1,6 @@
 package net.aopacloud.superbi.service.impl;
 
 import com.google.common.collect.Maps;
-import lombok.RequiredArgsConstructor;
 import net.aopacloud.superbi.constant.BiConsist;
 import net.aopacloud.superbi.enums.PermissionEnum;
 import net.aopacloud.superbi.model.dto.*;
@@ -15,7 +14,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 @Lazy
 public class ReportPrivilegeServiceImpl implements ReportPrivilegeService {
 
@@ -31,6 +29,15 @@ public class ReportPrivilegeServiceImpl implements ReportPrivilegeService {
     private final DatasetService datasetService;
 
     private final DashboardService dashboardService;
+
+    public ReportPrivilegeServiceImpl(DatasetPrivilegeService datasetPrivilegeService, DashboardShareService dashboardShareService, WorkspaceUserResourceService workspaceUserResourceService, SysUserService sysUserService, DatasetService datasetService, @Lazy DashboardService dashboardService) {
+        this.datasetPrivilegeService = datasetPrivilegeService;
+        this.dashboardShareService = dashboardShareService;
+        this.workspaceUserResourceService = workspaceUserResourceService;
+        this.sysUserService = sysUserService;
+        this.datasetService = datasetService;
+        this.dashboardService = dashboardService;
+    }
 
     @Override
     public List<ReportDTO> batchFillPrivilege(List<ReportDTO> reports, String username) {

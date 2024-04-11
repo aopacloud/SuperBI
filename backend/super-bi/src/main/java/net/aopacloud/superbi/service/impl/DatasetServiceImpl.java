@@ -14,6 +14,8 @@ import net.aopacloud.superbi.constant.BiConsist;
 import net.aopacloud.superbi.enums.*;
 import net.aopacloud.superbi.i18n.LocaleMessages;
 import net.aopacloud.superbi.i18n.MessageConsist;
+import net.aopacloud.superbi.listener.event.DatasetDeleteEvent;
+import net.aopacloud.superbi.listener.event.DatasetOfflineEvent;
 import net.aopacloud.superbi.mapper.*;
 import net.aopacloud.superbi.model.converter.DatasetConverter;
 import net.aopacloud.superbi.model.converter.DatasetFieldConverter;
@@ -30,6 +32,7 @@ import net.aopacloud.superbi.model.vo.DatasetVO;
 import net.aopacloud.superbi.model.vo.FolderNode;
 import net.aopacloud.superbi.service.*;
 import org.assertj.core.util.Strings;
+import org.springframework.context.ApplicationContext;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -76,6 +79,8 @@ public class DatasetServiceImpl implements DatasetService {
     private final MetaDataService metaDataService;
 
     private final WorkspaceUserResourceService workspaceUserResourceService;
+
+    private final ApplicationContext applicationContext;
 
     @Override
     public DatasetDTO findOneWithoutFields(Long id) {
@@ -302,6 +307,8 @@ public class DatasetServiceImpl implements DatasetService {
 
         datasetMapper.deleteById(id);
 
+        applicationContext.publishEvent(new DatasetDeleteEvent(datasetDTO, LoginContextHolder.getUsername()));
+
         return datasetDTO;
     }
 
@@ -352,6 +359,8 @@ public class DatasetServiceImpl implements DatasetService {
     @Override
     public void offline(Long id) {
         datasetMapper.updateStatus(id, StatusEnum.OFFLINE);
+        DatasetDTO datasetDTO = findOne(id);
+        applicationContext.publishEvent(new DatasetOfflineEvent(datasetDTO, LoginContextHolder.getUsername()));
     }
 
     @Override

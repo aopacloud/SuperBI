@@ -5,6 +5,7 @@ import com.google.common.collect.Maps;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.aopacloud.superbi.enums.EngineEnum;
+import net.aopacloud.superbi.queryEngine.enums.QueryTypeEnum;
 import net.aopacloud.superbi.queryEngine.executor.QueryExecutorFactory;
 import net.aopacloud.superbi.queryEngine.model.QueryContext;
 import net.aopacloud.superbi.queryEngine.model.QueryResult;
@@ -13,6 +14,9 @@ import net.aopacloud.superbi.queryEngine.schedule.QueryScheduler;
 import net.aopacloud.superbi.queryEngine.sql.SqlAssembler;
 import net.aopacloud.superbi.queryEngine.sql.SqlAssemblerFactory;
 import net.aopacloud.superbi.queryEngine.sql.analytic.AnalysisModel;
+import net.aopacloud.superbi.queryEngine.sql.analytic.QueryAnalysisModel;
+import net.aopacloud.superbi.queryEngine.sql.analytic.RatioSummaryAnalysisModel;
+import net.aopacloud.superbi.queryEngine.sql.analytic.SummaryAnalysisModel;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -35,18 +39,40 @@ public class QueryExecuteEngine {
 
     public QueryResult execute(QueryContext queryContext) {
 
-        if (Strings.isNullOrEmpty(queryContext.getSql())) {
-            SqlAssembler sqlAssembler = SqlAssemblerFactory.getSqlAssembler(queryContext);
-
-            AnalysisModel analysisModel = sqlAssembler.produce();
-            String sql = analysisModel.getSql();
-            queryContext.setSql(sql);
+        if(!Strings.isNullOrEmpty(queryContext.getSql())) {
+            log.info("sql: {}", queryContext.getSql());
+            QueryScheduler queryScheduler = getQueryScheduler(queryContext.getEngine());
+            return queryScheduler.submit(queryContext);
         }
-        log.info("sql: {}", queryContext.getSql());
+
+
+        SqlAssembler sqlAssembler = SqlAssemblerFactory.getSqlAssembler(queryContext);
+
+        AnalysisModel analysisModel = sqlAssembler.produce();
+        String sql = analysisModel.getSql();
+        queryContext.setSql(sql);
 
         QueryScheduler queryScheduler = getQueryScheduler(queryContext.getEngine());
+        QueryResult result = queryScheduler.submit(queryContext);
 
-        return queryScheduler.submit(queryContext);
+        if(queryContext.getQueryParam().getSummary()) {
+            QueryTypeEnum queryType = queryContext.getQueryParam().getType();
+            if (queryType == QueryTypeEnum.QUERY) {
+                SummaryAnalysisModel summaryAnalysisModel = new SummaryAnalysisModel((QueryAnalysisModel) analysisModel);
+                QueryContext summaryContext = queryContext.clone();
+                summaryContext.setSql(summaryAnalysisModel.getSql());
+                QueryResult summaryResult = queryScheduler.submit(summaryContext);
+                result.setSummaryRows(summaryResult.getRows());
+            }
+            if (queryType == QueryTypeEnum.RATIO) {
+                RatioSummaryAnalysisModel summaryAnalysisModel = new RatioSummaryAnalysisModel(analysisModel);
+                QueryContext summaryContext = queryContext.clone();
+                summaryContext.setSql(summaryAnalysisModel.getSql());
+                QueryResult summaryResult = queryScheduler.submit(summaryContext);
+                result.setSummaryRows(summaryResult.getRows());
+            }
+        }
+        return result;
     }
 
     /**

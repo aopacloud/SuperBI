@@ -29,4 +29,6 @@ public class ConnectionParamDTO {
 
     private String initSql;
 
+    private boolean realtime = Boolean.FALSE;
+
 }

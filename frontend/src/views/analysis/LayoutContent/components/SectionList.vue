@@ -56,7 +56,6 @@ import { categoryMap } from '@/views/dataset/config.field'
 import { getSectionListLabel } from '@/views/analysis/config'
 import { CATEGORY } from '@/CONST.dict'
 import { getRandomKey } from 'common/utils/help'
-import { versionJs } from '@/versions'
 
 const props = defineProps({
   dataset: {
@@ -76,15 +75,14 @@ const {
   dragedField: indexDragedField,
   choosed: indexChoosed,
   options: indexOptions,
+  compare: indexCompare,
   permissions,
 } = inject('index', {})
 
 // 数据集分析权限
 const hasDatasetAnalysis = computed(() => permissions.dataset.hasAnalysis())
 
-const renderType = computed(() => {
-  return indexOptions.get('renderType')
-})
+const renderType = computed(() => indexOptions.get('renderType'))
 
 const multipleValue = computed(() => {
   const { category, dataSource } = props
@@ -165,6 +163,7 @@ const onDragover = evt => {
     }
   }
 }
+
 const onDrop = evt => {
   const payload = evt.dataTransfer.getData('dragging-field-data')
 
@@ -184,6 +183,7 @@ const onDrop = evt => {
   }
 
   props.dataSource.push({ ...item, _id: getRandomKey() })
+  indexCompare.update.dimensions(item)
   // 清空拖拽覆盖字段
   indexDragedField.setDragover()
 }
@@ -200,18 +200,22 @@ onUnmounted(dragoverWatcher)
 const onMultipleOk = value => {
   // 延迟赋值，否则会有闪烁
   setTimeout(() => {
+    const list = props.dataSource
     const choosed = value.map(t => {
       const item = datasetFields.value.find(f => f.name === t)
       // 已选中的过滤项
-      const pre = props.dataSource.find(d => d.name === item.name)
+      const pre = list.find(d => d.name === item.name)
 
       return { ...item, ...pre, _id: getRandomKey() }
     })
 
     if (props.category === CATEGORY.INDEX) {
-      choosedSet(props.category, props.dataSource.concat(choosed))
+      choosedSet(props.category, list.concat(choosed))
     } else {
       choosedSet(props.category, choosed)
+
+      const diff = choosed.filter(t => list.every(item => item.name !== t.name))
+      indexCompare.update.dimensions(diff)
     }
   }, 20)
 }

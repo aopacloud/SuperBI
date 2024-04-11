@@ -29,6 +29,10 @@ public interface ReportService {
 
     Integer countByUsername(String username);
 
+    Boolean isActive(Long id);
+
     void handOver(String fromUsername, String toUsername);
+
+    List<ReportDTO> findByDataset(Long datasetId);
 
 }

@@ -51,8 +51,6 @@ public class DashboardServiceImpl implements DashboardService {
 
     private final DashboardComponentMapper dashboardComponentMapper;
 
-    private final DashboardFilterMapper dashboardFilterMapper;
-
     private final FolderService folderService;
 
     private final DashboardShareService dashboardShareService;
@@ -65,7 +63,10 @@ public class DashboardServiceImpl implements DashboardService {
 
     private final DashboardComponentConverter dashboardComponentConverter;
 
-    private final ReportMapper reportMapper;
+//    private final ReportMapper reportMapper;
+
+    private final ReportService reportService;
+
     @Override
     public List<DashboardDTO> search(DashboardQuery dashboardQuery) {
 
@@ -207,9 +208,7 @@ public class DashboardServiceImpl implements DashboardService {
                 component.setDashboardId(dashboard.getId());
                 component.setVersion(dashboard.getLastEditVersion());
                 dashboardComponentMapper.insert(dashboardComponentConverter.toEntity(component));
-                if (component.getType() == ComponentTypeEnum.FILTER.name()) {
-                    saveOrUpdateFilter(component);
-                }
+
             });
 
             addResource(dashboardDTO.getFolderId(), dashboard.getId());
@@ -237,9 +236,7 @@ public class DashboardServiceImpl implements DashboardService {
                 DashboardComponent component = dashboardComponentConverter.toEntity(componentDTO);
                 dashboardComponentMapper.insert(component);
                 componentDTO.setId(component.getId());
-                if (componentDTO.getType() == ComponentTypeEnum.FILTER.name()) {
-                    saveOrUpdateFilter(componentDTO);
-                }
+
             });
 
             return findOne(id, dashboardDTO.getLastEditVersion());
@@ -263,28 +260,14 @@ public class DashboardServiceImpl implements DashboardService {
     public List<DashboardComponentDTO> findComponentByDashboard(DashboardDTO dashboard, Integer version) {
 
         List<DashboardComponent> components = dashboardComponentMapper.selectByDashboardAndVersion(dashboard.getId(), version);
-        return components.stream().map(component -> {
-            DashboardComponentDTO dashboardComponentDTO = dashboardComponentConverter.entityToDTO(component);
-            if (dashboardComponentDTO.getType() == ComponentTypeEnum.FILTER.name()) {
-                List<DashboardFilter> dashboardChartFilters = dashboardFilterMapper.selectByComponent(dashboardComponentDTO.getId());
-                dashboardComponentDTO.setDashboardFilters(dashboardChartFilters);
-                return dashboardComponentDTO;
-            }
-            return dashboardComponentDTO;
-        }).collect(Collectors.toList());
-    }
 
-    @Override
-    public void saveOrUpdateFilter(DashboardComponentDTO componentDTO) {
-        List<DashboardFilter> dashboardFilters = componentDTO.getDashboardFilters();
-        if (dashboardFilters != null && !dashboardFilters.isEmpty()) {
-            dashboardFilterMapper.deleteByChart(componentDTO.getId());
-            dashboardFilters.stream().map(dashboardFilter -> {
-                        dashboardFilter.setComponentId(componentDTO.getId());
-                        return dashboardFilter;
-                    })
-                    .forEach(chartFilter -> dashboardFilterMapper.insert(chartFilter));
-        }
+        return components.stream().filter(component -> {
+            if (!ComponentTypeEnum.REPORT.name().equals(component.getType())) {
+                return Boolean.FALSE;
+            }
+
+            return reportService.isActive(component.getReportId());
+        }).map(dashboardComponentConverter::entityToDTO).collect(Collectors.toList());
     }
 
     @Override
@@ -347,7 +330,7 @@ public class DashboardServiceImpl implements DashboardService {
 
         Set<Long> reportIds = dashboard.getDashboardComponents().stream().filter(item -> ComponentTypeEnum.REPORT.name().equals(item.getType())).map(DashboardComponentDTO::getReportId).collect(Collectors.toSet());
 
-        Set<Long> datasetIds = reportIds.stream().map(reportMapper::selectById).map(Report::getDatasetId).collect(Collectors.toSet());
+        Set<Long> datasetIds = reportIds.stream().map(reportService::findOne).map(ReportDTO::getDatasetId).collect(Collectors.toSet());
         return datasetIds;
     }
 }
