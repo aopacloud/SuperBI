@@ -26,39 +26,35 @@ import java.util.stream.Collectors;
 @Accessors(chain = true)
 public class RatioQueryAnalysisModel implements AnalysisModel {
 
-    private List<Segment> dimension = Lists.newArrayList();
+    protected List<Segment> dimensions = Lists.newArrayList();
 
-    private List<Segment> measures = Lists.newArrayList();
+    protected List<Segment> measures = Lists.newArrayList();
 
-    private String table;
+    protected String table;
 
-    private List<Segment> where = Lists.newArrayList();
+    protected List<Segment> where = Lists.newArrayList();
 
-    private List<Segment> groupBy = Lists.newArrayList();
+    protected List<Segment> groupBy = Lists.newArrayList();
 
-    private List<Segment> having = Lists.newArrayList();
+    protected List<Segment> having = Lists.newArrayList();
 
-    private List<Segment> orderBy = Lists.newArrayList();
+    protected List<Segment> orderBy = Lists.newArrayList();
 
-    private Segment paging;
+    protected Segment paging;
 
-    private List<RatioPart> ratioParts;
+    protected List<RatioPart> ratioParts;
+
+    protected List<Segment> ratioDimensions;
 
     @Override
     public String getSql() {
 
-        QueryAnalysisModel originSubQuery = new QueryAnalysisModel()
-                .addDimensions(dimension).addMeasure(measures)
-                .addWhere(where)
-                .addHaving(having)
-                .addGroupBy(dimension)
-                .setTable(table)
-                .setWithPaging(Boolean.FALSE);
+        AnalysisModel originSubQuery = getOriginSubQuery();
 
-        List<QueryAnalysisModel> ratioSubQueries = ratioParts.stream().map(this::getRatioSubQuery).collect(Collectors.toList());
+        List<AnalysisModel> ratioSubQueries = ratioParts.stream().map(this::getRatioSubQuery).collect(Collectors.toList());
 
         // select
-        List<String> outSideSelection = dimension.stream().map(dim -> String.format("t1.%s", dim.getAlias())).collect(Collectors.toList());
+        List<String> outSideSelection = dimensions.stream().map(dim -> String.format("t1.%s", dim.getAlias())).collect(Collectors.toList());
 
         for (Segment measure: measures) {
             outSideSelection.add(String.format("t1.%s", measure.getAlias()));
@@ -80,12 +76,12 @@ public class RatioQueryAnalysisModel implements AnalysisModel {
 
         for(int i = 0 ; i < ratioSubQueries.size(); i++) {
             String tableAlias = String.format("t%d", i +2);
-            QueryAnalysisModel subQuery = ratioSubQueries.get(i);
+            AnalysisModel subQuery = ratioSubQueries.get(i);
 
             sql.append(" left join ").append("( ").append(subQuery.getSql()).append(") ").append(tableAlias);
             sql.append(" on ");
 
-            List<String> onFields = dimension.stream().map(dim -> String.format(" t1.%s = %s.%s ", dim.getAlias(),tableAlias, dim.getAlias())).collect(Collectors.toList());
+            List<String> onFields = ratioDimensions.stream().map(dim -> String.format(" t1.%s = %s.%s ", dim.getAlias(),tableAlias, dim.getAlias())).collect(Collectors.toList());
             sql.append(Joiner.on(" and ").join(onFields));
         }
 
@@ -98,12 +94,22 @@ public class RatioQueryAnalysisModel implements AnalysisModel {
         return sql.toString();
     }
 
+    protected AnalysisModel getOriginSubQuery(){
+        QueryAnalysisModel originSubQuery = new QueryAnalysisModel()
+                .addDimensions(dimensions).addMeasure(measures)
+                .addWhere(where)
+                .addHaving(having)
+                .addGroupBy(dimensions)
+                .setTable(table)
+                .setWithPaging(Boolean.FALSE);
+        return originSubQuery;
+    }
 
-    private QueryAnalysisModel getRatioSubQuery(RatioPart part) {
+    protected AnalysisModel getRatioSubQuery(RatioPart part) {
 
         Segment joinOnSegment = part.getJoinOnSegment();
-        List<Segment> ratioDimension = dimension.stream().filter(dim -> !dim.getName().equals(joinOnSegment.getName())).collect(Collectors.toList());
-        ratioDimension.add(joinOnSegment);
+
+        List<Segment> ratioDimension = dimensions.stream().map(dim -> dim.getName().equals(joinOnSegment.getName()) ? joinOnSegment : dim).collect(Collectors.toList());
 
         Map<String, Segment> measureMap = measures.stream().collect(Collectors.toMap(m -> m.getAlias(), m -> m));
         List<Segment> ratioSegments = part.getRatioMeasures().stream().map(ratioMeasure -> measureMap.get(ratioMeasure.getId())).filter(segment -> !Objects.isNull(segment)).collect(Collectors.toList());

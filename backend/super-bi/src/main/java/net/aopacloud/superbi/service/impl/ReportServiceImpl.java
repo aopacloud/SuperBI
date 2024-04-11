@@ -8,6 +8,7 @@ import net.aopacloud.superbi.common.core.exception.ServiceException;
 import net.aopacloud.superbi.common.core.web.page.PageVO;
 import net.aopacloud.superbi.constant.BiConsist;
 import net.aopacloud.superbi.enums.PermissionEnum;
+import net.aopacloud.superbi.enums.StatusEnum;
 import net.aopacloud.superbi.i18n.LocaleMessages;
 import net.aopacloud.superbi.i18n.MessageConsist;
 import net.aopacloud.superbi.mapper.DashboardMapper;
@@ -186,7 +187,29 @@ public class ReportServiceImpl implements ReportService {
     }
 
     @Override
+    public Boolean isActive(Long id) {
+
+        Report report = reportMapper.selectById(id);
+        if (Objects.isNull(report)) {
+            return Boolean.FALSE;
+        }
+
+        DatasetDTO datasetDTO = datasetService.findOneWithoutFields(report.getDatasetId());
+
+        if(Objects.isNull(datasetDTO) || datasetDTO.getStatus() != StatusEnum.ONLINE) {
+            return Boolean.FALSE;
+        }
+
+        return Boolean.TRUE;
+    }
+
+    @Override
     public void handOver(String fromUsername, String toUsername) {
         reportMapper.updateCreator(fromUsername, toUsername);
+    }
+
+    @Override
+    public List<ReportDTO> findByDataset(Long datasetId) {
+        return reportMapper.selectByDatasetId(datasetId);
     }
 }

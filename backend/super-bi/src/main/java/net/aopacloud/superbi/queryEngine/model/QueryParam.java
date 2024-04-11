@@ -45,6 +45,8 @@ public class QueryParam {
 
     private Compare compare;
 
+    private Boolean summary = Boolean.FALSE;
+
     @JsonIgnore
     public Set<String> getUsedFieldName() {
         Set<String> fieldNames = Sets.newHashSet();

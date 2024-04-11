@@ -24,4 +24,6 @@ public class Compare {
     private String timeField;
 
     private List<RatioMeasure> measures;
+
+    private List<Dimension> dimensions;
 }

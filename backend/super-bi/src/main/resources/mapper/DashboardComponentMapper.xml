@@ -29,7 +29,8 @@
     <select id="selectReportNameByDashboard" resultType="java.lang.String">
         select r.name
         from bi_dashboard_component c
-        join bi_report r on c.report_id = r.id
+        join bi_report r on c.report_id = r.id and r.deleted = 0
+        join bi_dataset d on r.dataset_id = d.id and d.deleted = 0 and d.status='ONLINE'
         where c.dashboard_id = #{dashboardId} and c.version = #{version}
     </select>
     <select id="countDashboardByReport" resultType="java.lang.Integer">

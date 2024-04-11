@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="net.aopacloud.superbi.mapper.ReportMapper">
+<mapper namespace="net.aopacloud.superbi.mapper.ReportMapper" >
     <resultMap id="BaseResultMap" type="net.aopacloud.superbi.model.entity.Report">
         <id column="id" jdbcType="INTEGER" property="id"/>
         <result column="workspace_id" jdbcType="INTEGER" property="workspaceId"/>
@@ -92,10 +92,13 @@
         select
         <include refid="Base_Column_List"/>
         from bi_report
-        where id = #{id,jdbcType=INTEGER}
+        where id = #{id,jdbcType=INTEGER} and deleted = 0
     </select>
     <select id="countByUsername" resultType="java.lang.Integer">
         select count(*) from bi_report where deleted = 0 and creator = #{username}
+    </select>
+    <select id="selectByDatasetId" resultType="net.aopacloud.superbi.model.dto.ReportDTO">
+        select <include refid="Base_Column_List"/> from bi_report where dataset_id = #{datasetId} and deleted = 0
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id"
@@ -122,9 +125,8 @@
     <update id="updateCreator">
         update bi_report set creator=#{toUsername} where creator = #{fromUsername} and deleted = 0
     </update>
-    <delete id="deleteById" parameterType="java.lang.Long">
-        delete
-        from bi_report
-        where id = #{id,jdbcType=INTEGER}
-    </delete>
+    <update id="deleteById" parameterType="java.lang.Long">
+        update  bi_report set deleted = #{id}
+        where id = #{id}
+    </update>
 </mapper>

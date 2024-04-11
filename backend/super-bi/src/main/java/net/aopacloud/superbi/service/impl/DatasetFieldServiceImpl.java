@@ -75,7 +75,7 @@ public class DatasetFieldServiceImpl implements DatasetFieldService {
         context.setConnectionParam(connection);
 
         QueryResult queryResult = queryExecuteEngine.execute(context);
-
+        result.setQueryId(queryResult.getQueryId());
         if (queryResult.getStatus() == QueryStatusEnum.SUCCESS) {
             result.setPass(Boolean.TRUE);
         } else {

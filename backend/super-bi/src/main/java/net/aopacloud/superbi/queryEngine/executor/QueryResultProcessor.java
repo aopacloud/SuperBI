@@ -16,7 +16,16 @@ public class QueryResultProcessor {
 
     public static QueryResult process(QueryResult queryResult) {
 
-        List<Object[]> data = queryResult.getRows();
+        List<Object[]> rows = queryResult.getRows();
+        process(rows);
+
+        List<Object[]> summaryRows = queryResult.getSummaryRows();
+        process(summaryRows);
+
+        return queryResult;
+    }
+
+    public static void process(List<Object[]> data) {
         for (Object[] cells : data) {
             for (int i = 0; i < cells.length; i++) {
                 Object cell = cells[i];
@@ -25,7 +34,6 @@ public class QueryResultProcessor {
                 }
             }
         }
-        return queryResult;
     }
 
 }

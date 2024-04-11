@@ -28,8 +28,6 @@ public interface DashboardService {
 
     void delete(Long id);
 
-    void saveOrUpdateFilter(DashboardComponentDTO componentDTO);
-
     void offline(Long id);
 
     void online(Long id);
