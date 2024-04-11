@@ -73,7 +73,7 @@
 
         <!-- 指标插槽 -->
         <template #[CATEGORY.INDEX]="{ column, row }">
-          {{ formatIndexDisplay(row[column.field], column) }}
+          {{ displayIndex(row, column) }}
         </template>
 
         <!-- 同环比插槽 -->
@@ -89,18 +89,7 @@
         <!-- 表尾汇总 -->
         <template #footerSummary>
           <div class="summary-text">
-            <b style="margin-right: 4px">汇总:</b>
-            <span
-              :class="['all', { active: summaryScope === 'ALL' }]"
-              @click="toggleSummaryScope('ALL')"
-              >全部
-            </span>
-            <span> / </span>
-            <span
-              :class="['page', { active: summaryScope === 'PAGE' }]"
-              @click="toggleSummaryScope('PAGE')"
-              >当前页
-            </span>
+            <b>汇总</b>
           </div>
         </template>
         <template #[footerIndexSummarySlot]="{ column }">
@@ -110,10 +99,10 @@
             :dataset="dataset"
             :field="column.params.field"
             :compare="config.compare"
-            :target="getVsTarget(column.field, summaryMap)"
-            :origin="summaryMap[column.field]" />
+            :target="getVsTarget(column.field, bottomSummaryMap)"
+            :origin="bottomSummaryMap[column.field]" />
           <span v-else>
-            {{ formatIndexDisplay(summaryMap[column.field], column) }}
+            {{ formatIndexDisplay(bottomSummaryMap[column.field], column) }}
           </span>
         </template>
 
@@ -170,7 +159,7 @@ import {
   formatterOptions,
 } from '@/views/dataset/config.field'
 import { PAGER_SIZES, SORT_PREFFIX } from './components/config'
-import { getByPager, getCompareDisplay, getFixedPlace, getSummary } from './utils'
+import { getByPager, getCompareDisplay, getFixedPlace } from './utils'
 import {
   CELL_HEADER_PADDING,
   CELL_BODY_PADDING,
@@ -182,12 +171,22 @@ import {
   createSortByOrder,
   formatDtWithOption,
 } from '../utils/index'
-import { getWordWidth, deepClone, debounce } from '@/common/utils/help'
+import { getWordWidth } from '@/common/utils/help'
 import { upcaseFirst } from 'common/utils/string'
-import { flat } from '@/common/utils/array'
+import { flat } from 'common/utils/array'
 import { TREE_ROW_KEY, TREE_ROW_PARENT_KEY } from '../utils/createGroupTable'
+import { isRenderTable } from '@/views/analysis/utils'
+
+defineOptions({
+  name: 'ChartTable',
+})
 
 const props = defineProps({
+  renderType: {
+    type: String,
+    default: 'table',
+    validate: t => isRenderTable(t),
+  },
   size: {
     type: String,
     default: 'mini',
@@ -206,6 +205,10 @@ const props = defineProps({
   options: {
     type: Object,
     default: () => ({}),
+  },
+  summaryRows: {
+    type: Array,
+    default: () => [],
   },
 })
 
@@ -290,15 +293,13 @@ watch(
       originSortedList.value = props.dataSource.slice()
     }
 
-    // 排序需要重置展开行
-    initList().then(resetExpandRowKeys)
-    updateColumnWidth()
+    renderTable()
   },
   { deep: true }
 )
 
 // 设置列固定
-const setColumnFixed = () => {
+const setColumnFixed = async () => {
   rColumns.value = rColumns.value.map((col, i, arr) => {
     return {
       ...col,
@@ -343,11 +344,15 @@ const getSummaryColumnWidth = (column, summaryMap, field) => {
 }
 
 // 更新列宽度
-const updateColumnWidth = () => {
+const updateColumnWidth = async () => {
   if (tableConfig.value.layout === 'auto') {
     rColumns.value = rColumns.value.map((col, i) => {
       const originField = col.params.field
-      const summaryWidth = getSummaryColumnWidth(col, summaryMap.value, originField)
+      const summaryWidth = getSummaryColumnWidth(
+        col,
+        bottomSummaryMap.value,
+        originField
+      )
 
       if (col._width) {
         // 同环比的汇总列
@@ -418,7 +423,11 @@ const updateColumnWidth = () => {
       // 表头宽度
       const titleWidth =
         getWordWidth(col.title) + CELL_HEADER_PADDING + treeExpandIconWith
-      const summaryWidth = getSummaryColumnWidth(col, summaryMap.value, originField)
+      const summaryWidth = getSummaryColumnWidth(
+        col,
+        bottomSummaryMap.value,
+        originField
+      )
 
       return Math.max(titleWidth, contentMaxWidth, summaryWidth, col._width ?? 0)
     })
@@ -440,7 +449,7 @@ const updateColumnWidth = () => {
 watch(
   tableConfig.value.fixed,
   () => {
-    setColumnFixed()
+    setColumnFixed().then(renderColumns).then(initExpandRowKeys)
   },
   { deep: true }
 )
@@ -449,7 +458,7 @@ watch(
 watch(
   () => tableConfig.value.layout,
   () => {
-    updateColumnWidth()
+    updateColumnWidth().then(renderColumns).then(initExpandRowKeys)
   }
 )
 
@@ -466,8 +475,7 @@ const pager = reactive({
 watch(
   [() => pager.current, () => pager.size],
   ([current, size]) => {
-    initList().then(initExpandRowKeys)
-    updateColumnWidth()
+    renderTable()
   },
   { deep: true }
 )
@@ -492,10 +500,8 @@ const onPagerShowSizeChange = (_, pageSize) => {
 const originSortedList = shallowRef([])
 // 渲染数据
 const list = ref([])
-// 列缓存 - list 会处理为扁平，无法计算分组表格的汇总
-const listBak = ref([])
-// 初始化list
-const initList = async () => {
+// 渲染表格
+const renderTable = async () => {
   const l = showPager.value
     ? getByPager(originSortedList.value, {
         current: pager.current,
@@ -503,45 +509,43 @@ const initList = async () => {
       })
     : originSortedList.value
 
-  listBak.value = l
   list.value = !isGroupTable.value ? l : flat(l)
 
-  return shouldExpandRowKeys.value
+  // 更新列宽
+  updateColumnWidth()
+  // 渲染列
+  renderColumns()
+  // 渲染行
+  renderList()
 }
 
 // 表头渲染
 const columnsLoading = ref(false)
-const renderColumns = cols => {
-  // 不使用防抖不用判断列的渲染状态
-  // || columnsLoading.value
+const renderColumns = async () => {
   if (!vTableRef.value) return
 
   columnsLoading.value = true
-  vTableRef.value.reloadColumn(cols).then(r => {
+  vTableRef.value.reloadColumn(rColumns.value).then(r => {
     setTimeout(() => {
       columnsLoading.value = false
     })
   })
 }
-// 数据加载时会计算列宽，重新渲染列，使用防抖会在表格间切换瞬间表头撕裂
-// const renderColumnsDebounced = debounce(renderColumns, 1000, false)
-watch(rColumns, renderColumns)
 
 // 数据渲染
 const listLoading = ref(false)
-const renderList = ls => {
+const renderList = async () => {
   if (!vTableRef.value) return
 
   if (isGroupTable.value) listLoading.value = true
 
-  vTableRef.value.reloadData(ls).then(r => {
+  vTableRef.value.reloadData(list.value).then(r => {
+    initExpandRowKeys()
     setTimeout(() => {
       listLoading.value = false
     })
   })
 }
-const renderListDebounce = debounce(renderList, 10, false)
-watch(list, renderListDebounce)
 
 // 初始化
 const init = () => {
@@ -558,9 +562,8 @@ const init = () => {
 
   rColumns.value = columns
 
-  initList().then(initExpandRowKeys)
   setColumnFixed()
-  updateColumnWidth()
+  renderTable()
 }
 
 // 排序数据
@@ -572,7 +575,13 @@ const sortedList = (arr = []) => {
 // 监听数据源
 watch([() => props.dataSource, () => props.columns], init)
 // 监听格式化配置
-watch(formatterConfig, updateColumnWidth, { deep: true })
+watch(
+  formatterConfig,
+  () => {
+    updateColumnWidth().then(renderColumns)
+  },
+  { deep: true }
+)
 
 // 表头设置高亮
 const isColumnSettingActive = column => {
@@ -643,18 +652,18 @@ const resetExpandRowKeys = () => {
   expandTreeRow(shouldExpandRowKeys.value)
 }
 // 初始化树的展开行
-const initExpandRowKeys = (shouldExpandKeys = []) => {
+const initExpandRowKeys = () => {
+  const shouldKeys = shouldExpandRowKeys.value
+
   if (!isGroupTable.value) {
     expandRowKeys.value = []
   } else {
     if (expandRowKeys.value.length) {
-      const oldRowKeys = expandRowKeys.value.filter(t =>
-        shouldExpandKeys.includes(t)
-      )
+      const oldRowKeys = expandRowKeys.value.filter(t => shouldKeys.includes(t))
 
-      expandRowKeys.value = !oldRowKeys.length ? shouldExpandKeys : oldRowKeys
+      expandRowKeys.value = !oldRowKeys.length ? shouldKeys : oldRowKeys
     } else {
-      expandRowKeys.value = shouldExpandKeys
+      expandRowKeys.value = shouldKeys
     }
 
     isTreeExpandAll.value = expandRowKeys.value.length > 0
@@ -769,10 +778,8 @@ const displayGroupName = (row, column) => {
   const value = row[renderName]
 
   if (!isGroupTable.value || !treeNode) return value
-
   const groupField = params.fields[row._level_]
   const dataType = groupField.dataType
-
   if (dataType.includes('TIME')) {
     return formatDtWithOption(value, groupField)
   } else {
@@ -780,9 +787,14 @@ const displayGroupName = (row, column) => {
   }
 }
 
+const displayIndex = (row, column) => {
+  return formatIndexDisplay(row[column.field], column)
+}
+
 // 格式化显示
 const formatIndexDisplay = (value, column) => {
   const { field: fieldName, params } = column
+
   const originField = params.field
 
   if (originField.category !== CATEGORY.INDEX) return value
@@ -838,52 +850,34 @@ const footerPropertySummarySlot = shallowRef(
   'footer' + upcaseFirst(CATEGORY.PROPERTY)
 )
 
-/**
- * 汇总范围
- * ALL: 全部
- * PAGE: 当前页
- */
-const summaryScope = ref('ALL')
-const toggleSummaryScope = scope => {
-  summaryScope.value = scope
-}
-
 // 汇总数据
-const summaryMap = computed(() => {
-  // 只有指标需要被汇总计算
-  const summaryColumns = props.columns
-    .filter(t => t.params.field.category === CATEGORY.INDEX)
-    .reduce((acc, col) => {
-      if (config.compare.merge && col.params.field._isVs) {
-        // 同环比字段时pop了原字段所属的列，此处需要先push进来计算同环比原字段的汇总
-        const [targetField] = col.field.split(VS_FIELD_SUFFIX)
+const bottomSummaryMap = computed(() => {
+  if (!showSummary.value) return {}
 
-        if (acc.every(t => t.field !== targetField)) {
-          acc.push({
-            ...col,
-            field: targetField,
-          })
-        }
+  const columns = rColumns.value.reduce((acc, col, i) => {
+    const { field, fields } = col.params
+
+    if (fields) {
+      // 对比字段就合并
+      if (field._isVs) {
+        return acc.concat(fields.concat(field))
+      } else {
+        return acc.concat(fields)
       }
+    } else {
+      return acc.concat(field)
+    }
 
-      acc.push(col)
+    // return acc.concat(field._isVs && fields ? fields.concat(field) : fields || field)
+  }, [])
 
-      return acc
-    }, [])
+  const [first = []] = props.summaryRows
 
-  const keys = summaryColumns.map(t => t.field)
+  return first.reduce((acc, col, i) => {
+    acc[columns[i]?.renderName] = col
 
-  // 汇总的数据范围
-  const summaryList =
-    summaryScope.value === 'ALL' ? originSortedList.value : listBak.value
-
-  return {
-    ...getSummary({
-      keys,
-      columns: summaryColumns,
-      list: summaryList,
-    }),
-  }
+    return acc
+  }, {})
 })
 </script>
 

@@ -5,11 +5,14 @@ import {
   listDataToTreeByKeys,
   summaryTree,
   updateColumnsWithCompare,
+  createSummaryTreeMap,
 } from '../Table/utils'
 
 export const TREE_ROW_KEY = '_ROW_ID_' // 分组行数据key
 export const TREE_ROW_PARENT_KEY = '_PARENT_ROW_ID_' // 分组父级行数据key
 export const TREE_GROUP_NAME = '_GROUP_NAME_' // 分组显示字段
+export const GROUP_NAME = 'GROUP_NAME' // 分组名
+export const SUMMARY_GROUP_NAME_JOIN = '__' // 汇总分组连接符
 
 // 转换列数据
 const transformFields = fields => {
@@ -43,6 +46,7 @@ const transformFields = fields => {
 export default function createTableData({
   originFields = [],
   originData = [],
+  summaryRows = [],
   datasetFields = [],
   compare,
   config = {},
@@ -55,15 +59,14 @@ export default function createTableData({
     transformFields(fields)
 
   // 对象数据
-  const dataList = originData.map(row =>
-    row.reduce((a, b, i) => {
-      const { renderName } = fields[i]
-
-      a[renderName] = i < groupLength ? b || '-' : b
-
-      return a
-    }, {})
-  )
+  const dataList = originData
+    .map(row => row.map((t, i) => (t === '' && i < groupLength ? '-' : t)))
+    .map(row =>
+      row.reduce((a, b, i) => {
+        a[fields[i].renderName] = b
+        return a
+      }, {})
+    )
 
   // 分组字段
   const groupField = mergeGroupFields()
@@ -71,14 +74,16 @@ export default function createTableData({
   // 将字段信息转为列信息
   let columns = [groupField, ...indexFields].map(transformFieldToColumn)
 
-  // 树结构
-  const treeData = listDataToTreeByKeys(
-    dataList,
-    groupFields.map(t => t.renderName)
-  )
+  // 汇总数据
+  const cellSummaryRows = summaryRows.slice(+config.showSummary)
+  const summaryMap = createSummaryTreeMap(cellSummaryRows, fields)
 
-  // 计算汇总
-  const list = summaryTree(treeData, columns)
+  // 树结构
+  const treeData = listDataToTreeByKeys({
+    list: dataList,
+    keys: groupFields.map(t => t.renderName),
+    summaryMap,
+  })
 
   // 对比合并显示
   if (config.compare?.merge) {
@@ -92,7 +97,7 @@ export default function createTableData({
 
   return {
     columns,
-    list,
+    list: treeData,
     groupTable: true,
   }
 }

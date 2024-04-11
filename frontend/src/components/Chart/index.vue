@@ -2,12 +2,12 @@
   <div class="chart-view" style="flex: 1; overflow: auto">
     <keep-alive>
       <RTable
-        v-if="
-          ['table', 'groupTable', 'intersectionTable'].includes(options.renderType)
-        "
+        v-if="isRenderTable(options.renderType)"
         ref="tableRef"
+        :renderType="options.renderType"
         :columns="renderColumns"
         :data-source="list"
+        :summaryRows="summaryRows"
         :options="tableConfig" />
 
       <Statistic
@@ -31,6 +31,11 @@ import createPieChart from './utils/createPieChart'
 import createStatistic from './utils/createStatistic'
 import createGroupTable from './utils/createGroupTable'
 import { CATEGORY } from '@/CONST.dict'
+import { isRenderTable } from '@/views/analysis/utils'
+
+defineOptions({
+  name: 'Chart',
+})
 
 const props = defineProps({
   loading: {
@@ -41,13 +46,17 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
+  // 字段列
+  columns: {
+    type: Array,
+    default: () => [],
+  },
   // 数据
   dataSource: {
     type: Array,
     default: () => [],
   },
-  // 字段列
-  columns: {
+  summaryRows: {
     type: Array,
     default: () => [],
   },
@@ -188,8 +197,10 @@ const initTable = () => {
   const createFn = tableConfig.value.isGroupTable ? createGroupTable : createTable
 
   const { columns, list: tList } = createFn({
-    originData: dataSource,
     originFields: originColumns,
+    originData: dataSource,
+    summaryRows:
+      props.options.renderType !== 'table' ? props.summaryRows : undefined,
     compare: props.compare,
     choosed: props.choosed,
     config: tableConfig.value,

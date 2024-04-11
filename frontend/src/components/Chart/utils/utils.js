@@ -243,7 +243,7 @@ export const generateDataMap = ({
  * @returns {Array<T>}
  */
 export function generateGrid({ splited, chart, fields = [], grid = {} }) {
-  if (!splited) {
+  if (!splited || fields.length < 2) {
     chart.resize({ width: 'auto', height: 'auto' })
 
     return { ...grid }

@@ -70,3 +70,12 @@ export const transformColumns = ({ fields = [], fieldNames = [] } = {}) => {
     }
   })
 }
+
+/**
+ * 渲染表格
+ * @param {string} type 渲染类型
+ * @returns {boolean}
+ */
+export const isRenderTable = type => {
+  return ['table', 'groupTable', 'intersectionTable'].includes(type)
+}

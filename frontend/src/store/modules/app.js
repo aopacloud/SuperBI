@@ -3,6 +3,11 @@ import { setDocumentTitle } from '@/utils'
 import { storagePrefix, defaultActiveTimeOffset } from '@/settings'
 import { versionJs } from '@/versions'
 
+const initialWorkspaceId =
+  sessionStorage.getItem(storagePrefix + 'workspaceId') ||
+  localStorage.getItem(storagePrefix + 'workspaceId') ||
+  undefined
+
 const useAppStore = defineStore('app', {
   state: () => ({
     // 应用信息
@@ -19,7 +24,8 @@ const useAppStore = defineStore('app', {
     // 所有空间列表
     workspaceList: [],
     // 当前空间ID
-    workspaceId: +localStorage.getItem(storagePrefix + 'workspaceId') ?? undefined,
+    workspaceId: +initialWorkspaceId,
+
     // 当前空间详情
     workspaceItem: {},
 
@@ -80,11 +86,16 @@ const useAppStore = defineStore('app', {
 
       // 无任何空间访问权限
       if (!list.length) {
-        this.setUnAccessableInfo(`未开通系统权限，${versionJs.Permission.contactText}`)
+        this.setUnAccessableInfo(
+          `未开通系统权限，${versionJs.Permission.contactText}`
+        )
         this.setUnAccessable(true)
       } else {
         // 无当前（缓存）空间访问权限
-        if (this.workspaceId && !list.some(item => item.id === this.workspaceId)) {
+        if (
+          +initialWorkspaceId &&
+          !list.some(item => item.id === +initialWorkspaceId)
+        ) {
           this.setUnAccessableInfo(
             `未开通当前空间的访问权限，${versionJs.Permission.contactText}`
           )
@@ -98,6 +109,7 @@ const useAppStore = defineStore('app', {
       this.workspaceId = id
 
       localStorage.setItem(storagePrefix + 'workspaceId', id)
+      sessionStorage.setItem(storagePrefix + 'workspaceId', id)
     },
 
     // 设置当前空间
