@@ -1,7 +1,11 @@
 ﻿<template>
   <section class="content">
     <!-- 字段拖入容器 -->
-    <ContentHeader :dataset="dataset" :dimensions="dimensions" :indexes="indexes" :filters="filters" />
+    <ContentHeader
+      :dataset="dataset"
+      :dimensions="dimensions"
+      :indexes="indexes"
+      :filters="filters" />
 
     <!-- 看板过滤项 -->
     <DashboardFtilers style="margin-bottom: 10px" />
@@ -45,10 +49,12 @@
   <!-- 同环比 -->
   <BasisRatioModal
     v-model:open="basisRatioModalOpen"
-    :data-source="indexes"
-    v-model:type="compare.type"
-    :target="dimensions.find(t => t.name === compare.timeField || toContrastFiled(t))"
-    :value="compare.measures"
+    :target="
+      dimensions.find(t => t.name === compare.timeField || toContrastFiled(t))
+    "
+    :dimensions="dimensions"
+    :measures="indexes"
+    :compare="compare"
     @ok="onBasisRatioOk"
     @close="onBasisRatioClose" />
 
@@ -142,11 +148,12 @@ const basisRatioModalOpen = ref(false)
 const onBasisRatio = () => {
   basisRatioModalOpen.value = true
 }
-const onBasisRatioOk = ({ target = {}, fields = [], type } = {}) => {
+const onBasisRatioOk = (target = {}, { type, measures = [], dimensions } = {}) => {
   const paylaod = {
     type,
     timeField: target.name,
-    measures: fields,
+    measures: measures,
+    dimensions,
   }
 
   indexCompare.set(paylaod)

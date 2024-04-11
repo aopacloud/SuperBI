@@ -1,4 +1,10 @@
-﻿export const datasetJson = {
+﻿export const summaryRows = [
+  ['2024-03-25', '', 1, 11],
+  ['2024-03-26', '', 2, 22],
+  ['', '', 100, 200],
+]
+
+export const datasetJson = {
   id: 625,
   name: '测试数据集_预发_0913',
   description: '',
@@ -1123,14 +1129,16 @@
       fieldExpression: 'consume_num_1d_005',
       sourceFieldName: 'consume_num_1d_005',
       operation: 'SUM',
-      displayName: '最近一天房间内礼物消费数量，2022-11-30分区生效，2022-12-01日生效',
+      displayName:
+        '最近一天房间内礼物消费数量，2022-11-30分区生效，2022-12-01日生效',
       category: 'MEASURE',
       dataType: 'NUMBER',
       originDataType: 'NUMBER',
       databaseDataType: 'Int64',
       dataFormat: 'ORIGINAL',
       customFormatConfig: '{}',
-      description: '最近一天房间内礼物消费数量，2022-11-30分区生效，2022-12-01日生效',
+      description:
+        '最近一天房间内礼物消费数量，2022-11-30分区生效，2022-12-01日生效',
       datasetId: 9478,
       hideStatus: 0,
       sortBy: 49,
@@ -1146,14 +1154,16 @@
       fieldExpression: 'consume_num_1d_006',
       sourceFieldName: 'consume_num_1d_006',
       operation: 'SUM',
-      displayName: '最近一天内房间外礼物消费数量，2022-11-30分区生效，2022-12-01日生效',
+      displayName:
+        '最近一天内房间外礼物消费数量，2022-11-30分区生效，2022-12-01日生效',
       category: 'MEASURE',
       dataType: 'NUMBER',
       originDataType: 'NUMBER',
       databaseDataType: 'Int64',
       dataFormat: 'ORIGINAL',
       customFormatConfig: '{}',
-      description: '最近一天内房间外礼物消费数量，2022-11-30分区生效，2022-12-01日生效',
+      description:
+        '最近一天内房间外礼物消费数量，2022-11-30分区生效，2022-12-01日生效',
       datasetId: 9478,
       hideStatus: 0,
       sortBy: 50,
@@ -1679,7 +1689,8 @@
           name: 'consume_num_1d_003',
           dataType: 'NUMBER',
           databaseDataType: 'Int64',
-          description: '使用优惠券消费的礼物数量，2022-11-30分区生效，2022-12-01日生效',
+          description:
+            '使用优惠券消费的礼物数量，2022-11-30分区生效，2022-12-01日生效',
           withPermission: true,
           dataEnable: 1,
         },
@@ -1695,7 +1706,8 @@
           name: 'consume_num_1d_005',
           dataType: 'NUMBER',
           databaseDataType: 'Int64',
-          description: '最近一天房间内礼物消费数量，2022-11-30分区生效，2022-12-01日生效',
+          description:
+            '最近一天房间内礼物消费数量，2022-11-30分区生效，2022-12-01日生效',
           withPermission: true,
           dataEnable: 1,
         },

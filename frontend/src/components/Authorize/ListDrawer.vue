@@ -105,7 +105,11 @@ const onTabChange = () => {
   userPager.current = 1
   groupPager.current = 1
 
-  fetchData()
+  if (isUser.value) {
+    fetchAuthorizeUsers()
+  } else {
+    fetchAuthorizeGroups()
+  }
 }
 
 const keyword = ref('')

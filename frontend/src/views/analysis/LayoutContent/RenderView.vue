@@ -33,8 +33,9 @@
     <Chart
       v-else
       :choosed="choosed"
-      :dataSource="rows"
       :columns="columns"
+      :dataSource="rows"
+      :summaryRows="summaryRows"
       :compare="compare"
       :dataset="dataset"
       :options="options" />
@@ -69,10 +70,8 @@ const props = defineProps({
 // 查询开始
 const queryStarted = ref(false)
 
-const { requestResponse: indexRequestResponse, permissions: indexPermissions } = inject(
-  'index',
-  {}
-)
+const { requestResponse: indexRequestResponse, permissions: indexPermissions } =
+  inject('index', {})
 
 const hasDatasetAnalysis = computed(() => indexPermissions.dataset.hasAnalysis())
 
@@ -108,6 +107,7 @@ const createColumns = () => {
 // 查询响应
 const responseRes = computed(() => indexRequestResponse.get('response'))
 const rows = computed(() => responseRes.value.rows || [])
+const summaryRows = computed(() => responseRes.value.summaryRows || [])
 
 const queryStatus = ref('')
 watch(

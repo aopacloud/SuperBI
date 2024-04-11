@@ -4,9 +4,36 @@
       <a-form-item label="对比日期" style="margin-bottom: 5px">
         {{ target.name || '-' }}
       </a-form-item>
-      <a-form-item label="对比字段" v-bind="validateInfos.fields">
+
+      <a-form-item label="对比维度">
+        <a-select
+          style="width: calc(100% - 70px)"
+          placeholder="请选择对比维度"
+          mode="multiple"
+          show-search
+          optionLabelProp="label"
+          :filterOption="filterOption"
+          v-model:value="dimensionsFields">
+          <a-select-option
+            v-for="t in dimensionsList"
+            :key="t.name"
+            :value="t.name"
+            :label="t.displayName"
+            :disabled="t.disabled">
+            {{ t.displayName + '(' + t.name + ')' }}
+          </a-select-option>
+        </a-select>
+
+        <a-tooltip
+          title="对比维度默认与计算原值的维度相同，若改变对比维度，可能会出现数据歧义，请谨慎操作">
+          <InfoCircleFilled
+            style="margin-left: 12px; font-size: 16px; color: rgba(0, 0, 0, 0.45)" />
+        </a-tooltip>
+      </a-form-item>
+
+      <a-form-item label="对比字段" v-bind="validateInfos.measures">
         <a-button
-          v-if="!formState.fields.length"
+          v-if="!formState.measures.length"
           block
           type="dashed"
           style="height: 30px; padding: 0"
@@ -23,14 +50,14 @@
           </div>
           <div
             class="field-item"
-            v-for="(item, i) in formState.fields"
+            v-for="(item, i) in formState.measures"
             :key="item._id">
             <span class="cell name" :title="item.label">
               <a-select
                 placeholder="请选择字段"
                 v-model:value="item.name"
                 @change="e => onFieldNameChange(e, item)">
-                <a-select-option v-for="f in fields" :key="f.name">
+                <a-select-option v-for="f in measuresList" :key="f.name">
                   {{ f.displayName }}
                 </a-select-option>
               </a-select>
@@ -79,7 +106,7 @@
 <script setup>
 import { h, ref, reactive, watch, computed, toRaw } from 'vue'
 import { Form } from 'ant-design-vue'
-import { MinusOutlined, PlusOutlined } from '@ant-design/icons-vue'
+import { MinusOutlined, PlusOutlined, InfoCircleFilled } from '@ant-design/icons-vue'
 import {
   ratioOptions,
   dateGroupTypeMap,
@@ -87,10 +114,10 @@ import {
   DEFAULT_RATIO_TYPE,
   COMPARE_RATIO_PERIOD,
 } from '@/views/analysis/config'
-import { getRandomKey, deepClone, getByInlcudesKeys } from 'common/utils/help'
+import { getRandomKey, getByIncludesKeys } from 'common/utils/help'
 
 const useForm = Form.useForm
-const emits = defineEmits(['update:open', 'update:value', 'ok', 'close'])
+const emits = defineEmits(['update:open', 'ok', 'close'])
 const props = defineProps({
   open: {
     type: Boolean,
@@ -101,8 +128,12 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
+  dimensions: {
+    type: Array,
+    default: () => [],
+  },
   // 可对比字段
-  dataSource: {
+  measures: {
     type: Array,
     default: () => [],
   },
@@ -118,15 +149,27 @@ const props = defineProps({
         'YEAR_ON_YEAR',
       ].includes(s),
   },
-  value: {
-    type: Array,
-    default: () => [],
+  compare: {
+    type: Object,
+    default: () => ({}),
   },
 })
 
-// 可对比的字段
-const fields = computed(() =>
-  props.dataSource.filter(item => {
+// 可对比的维度
+const dimensionsList = computed(() => {
+  return props.dimensions.map(t => {
+    return {
+      ...t,
+      disabled: t.dataType.includes('TIME'),
+    }
+  })
+})
+const filterOption = (input, option) =>
+  option.children()[0]['children'].indexOf(input.toLowerCase()) >= 0
+
+// 可对比的指标
+const measuresList = computed(() =>
+  props.measures.filter(item => {
     if (
       (item.dataType === 'TEXT' || item.type === 'TIME') &&
       ['4', '5'].includes(item.summaryMethod)
@@ -160,17 +203,21 @@ const getOptions2 = field => {
 }
 
 const init = () => {
-  const oldCompareType = props.type || DEFAULT_RATIO_TYPE
+  const { type = DEFAULT_RATIO_TYPE, measures = [], dimensions = [] } = props.compare
 
-  formState.type = oldCompareType
-  formState.target = props.target
-  formState.fields = props.value.map(t => {
+  formState.type = type
+  formState.measures = measures.map(t => {
     return {
       ...t,
-      ratioType: t.ratioType || oldCompareType,
-      period: t.period || COMPARE_RATIO_PERIOD.DEFAULT,
+      ratioType: t.ratioType || type,
+      period: t.period ?? COMPARE_RATIO_PERIOD.DEFAULT,
     }
   })
+  if (typeof props.compare.dimensions === 'undefined') {
+    formState.dimensions = [...props.dimensions]
+  } else {
+    formState.dimensions = dimensions
+  }
 }
 
 watch(
@@ -181,15 +228,24 @@ watch(
 )
 
 const onFieldNameChange = (name, field) => {
-  const item = fields.value.find(t => t.name === name)
+  const item = measuresList.value.find(t => t.name === name)
 
   field.aggregator = item.aggregator
 }
 
 const formState = reactive({
-  type: props.type,
-  target: props.target,
-  fields: [],
+  type: DEFAULT_RATIO_TYPE,
+  dimensions: [],
+  measures: [],
+})
+
+const dimensionsFields = computed({
+  get() {
+    return formState.dimensions.map(t => t.name)
+  },
+  set(values = []) {
+    formState.dimensions = values.map(t => props.dimensions.find(f => f.name === t))
+  },
 })
 
 const getUniqueByKey = (list = [], key) => {
@@ -197,7 +253,7 @@ const getUniqueByKey = (list = [], key) => {
 }
 
 const formRules = reactive({
-  fields: [
+  measures: [
     {
       required: true,
       message: '对比字段不能为空',
@@ -241,35 +297,38 @@ const { resetFields, validate, validateInfos } = useForm(formState, formRules)
 
 const insert = i => {
   if (typeof i === 'undefined') {
-    formState.fields.push({
-      ...fields.value[0],
+    formState.measures.push({
+      ...measuresList.value[0],
       name: undefined,
       ratioType: DEFAULT_RATIO_TYPE,
       period: COMPARE_RATIO_PERIOD.DEFAULT,
       _id: getRandomKey(6),
     })
   } else {
-    const item = formState.fields[i]
+    const item = formState.measures[i]
 
-    formState.fields.splice(i + 1, 0, { ...item, _id: getRandomKey(6) })
+    formState.measures.splice(i + 1, 0, { ...item, _id: getRandomKey(6) })
   }
 }
 
 const del = i => {
-  formState.fields.splice(i, 1)
+  formState.measures.splice(i, 1)
 }
 
 const ok = () => {
   validate()
     .then(() => {
-      const fields = formState.fields
+      const dimensions = formState.dimensions.map(t =>
+        getByIncludesKeys(t, ['name', 'dataType'])
+      )
+
+      const measures = formState.measures
         .filter(t => !!t.name)
         .map(t =>
-          getByInlcudesKeys(t, ['name', 'aggregator', 'ratioType', 'period'])
+          getByIncludesKeys(t, ['name', 'aggregator', 'ratioType', 'period'])
         )
-      console.log('fields', fields)
 
-      emits('ok', { ...toRaw(formState), fields })
+      emits('ok', props.target, { ...toRaw(formState), dimensions, measures })
       cancel()
     })
     .catch(error => {

@@ -70,7 +70,7 @@ import { CATEGORY } from '@/CONST.dict'
 import { IS_NOT_NULL, IS_NULL } from '@/views/dataset/config.field'
 import { postAnalysisQuery } from '@/apis/analysis'
 import { repeatIndex } from '@/views/analysis/utils'
-import { getByInlcudesKeys } from 'common/utils/help'
+import { getByIncludesKeys } from 'common/utils/help'
 import dayjs from 'dayjs'
 import { versionJs } from '@/versions'
 import { toContrastFiled, queryTotalOptions } from '@/views/analysis/config'
@@ -78,6 +78,7 @@ import {
   getStartDateStr,
   getEndDateStr,
 } from '@/common/components/DatePickers/utils'
+import { isRenderTable } from '../utils'
 
 const emits = defineEmits([
   'run-loading',
@@ -271,6 +272,9 @@ const mergeDashbaordFilters = (filters = []) => {
   ]
 }
 
+// 渲染类型
+const renderType = computed(() => indexOptions.get('renderType'))
+
 const run = async from => {
   if (!hasDatasetAnalysis.value) return
 
@@ -322,9 +326,20 @@ const run = async from => {
     // 查询分页
     const paging = indexPaging.get()
 
+    // 表格参数
+    const tableOptions = indexOptions.get('table')
+
+    // 是否请求汇总
+    const summary = isRenderTable(renderType.value)
+      ? renderType.value === 'table'
+        ? tableOptions?.showSummary
+        : true
+      : undefined
+
     const paylaod = {
       datasetId: dataset.value.id,
       fromSource: 'temporary', // dashboard 从看板查询, report 保存图表查询, temporary 临时查询
+      summary,
       compare,
       sorts,
       paging,
@@ -356,7 +371,10 @@ const run = async from => {
       message.warn('查询错误')
     }
 
-    emits('querySuccess', { request: queryPayload, response: res })
+    emits('querySuccess', {
+      request: queryPayload,
+      response: res,
+    })
   } catch (error) {
     console.error('图表分析错误', error)
   } finally {
@@ -369,7 +387,7 @@ defineExpose({ run })
 
 // 校验字段选中
 const validateChoosed = (choosed = {}) => {
-  const type = indexOptions.get('renderType')
+  const type = renderType.value
   const choosedProperty = choosed[CATEGORY.PROPERTY]
   const choosedIndex = choosed[CATEGORY.INDEX]
 
@@ -381,8 +399,7 @@ const validateChoosed = (choosed = {}) => {
   }
 
   // 表格只需有维度、指标中的一个就行
-  if (type === 'table' || type === 'groupTable' || type === 'intersectionTable')
-    return true
+  if (isRenderTable(type)) return true
 
   // 指标卡和饼图值支持一个指标
   if (type === 'statistic' || type === 'pie') {
@@ -455,7 +472,7 @@ const transformChoosed = (choosedMap = {}) => {
 const transformRequiredKeys = (choosedMap = {}) => {
   return {
     [CATEGORY.PROPERTY]: choosedMap[CATEGORY.PROPERTY].map(t =>
-      getByInlcudesKeys(t, [
+      getByIncludesKeys(t, [
         'name',
         'expression',
         'displayName',
@@ -466,7 +483,7 @@ const transformRequiredKeys = (choosedMap = {}) => {
       ])
     ),
     [CATEGORY.INDEX]: choosedMap[CATEGORY.INDEX].map(t =>
-      getByInlcudesKeys(t, [
+      getByIncludesKeys(t, [
         'name',
         'expression',
         'displayName',
@@ -475,7 +492,7 @@ const transformRequiredKeys = (choosedMap = {}) => {
       ])
     ),
     [CATEGORY.FILTER]: choosedMap[CATEGORY.FILTER].map(t =>
-      getByInlcudesKeys(t, [
+      getByIncludesKeys(t, [
         'name',
         'filterType',
         'dataType',

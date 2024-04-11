@@ -7,6 +7,8 @@ import {
   TREE_GROUP_NAME,
   TREE_ROW_KEY,
   TREE_ROW_PARENT_KEY,
+  SUMMARY_GROUP_NAME_JOIN,
+  GROUP_NAME,
 } from '@/components/Chart/utils/createGroupTable.js'
 import { CELL_HEADER_PADDING, CELL_BODY_PADDING, CELL_MIN_WIDTH } from './config'
 
@@ -187,7 +189,14 @@ export function updateColumnsWithCompare({
       acc.push(cur)
     } else {
       if (!hasDelOriginField) {
-        acc.pop()
+        const preCol = acc.pop()
+
+        // 将上一列的字段加上对比字段字段中
+        if (!cur.params.fields) {
+          cur.params.fields = []
+        }
+
+        cur.params.fields.push(preCol.params.field)
 
         hasDelOriginField = true
       }
@@ -234,13 +243,19 @@ export function updateColumnsWithCompare({
  * @param {Array} keys 键数组，用于指定列表数据中哪些键作为树结构的层级划分依据。
  * @returns {Array} 转换后的树形结构数据。
  */
-export function listDataToTreeByKeys(list = [], keys = []) {
+export function listDataToTreeByKeys({ list = [], keys = [], summaryMap = {} }) {
   // 创建树节点的函数
-  const createTreeNode = ({ key, parentId, children = new Map(), _level_ = 0 }) => {
+  const createTreeNode = ({
+    key,
+    parentId,
+    children = new Map(),
+    _level_ = 0,
+    ...res
+  }) => {
     // 返回一个构造好的树节点对象
     return {
       // 树节点的唯一标识
-      [TREE_GROUP_NAME]: key,
+      [TREE_GROUP_NAME]: key || '-', // 不能为空字符串
       // 为每个树节点生成一个唯一的行键
       [TREE_ROW_KEY]: getRandomKey(6),
       // 父节点的键
@@ -249,6 +264,7 @@ export function listDataToTreeByKeys(list = [], keys = []) {
       _level_,
       // 子节点列表
       children,
+      ...res,
     }
   }
 
@@ -269,19 +285,29 @@ export function listDataToTreeByKeys(list = [], keys = []) {
 
       // 在当前节点的子节点中查找是否存在对应键值的节点
       let child = node.children.get(keyValue)
-
       // 如果不存在，则创建该节点
       if (!child) {
+        const groupName =
+          typeof node[GROUP_NAME] !== 'undefined'
+            ? node[GROUP_NAME] + SUMMARY_GROUP_NAME_JOIN + keyValue
+            : keyValue
+
+        // 获取父节点的汇总数据
+        const summary = summaryMap[groupName]
+
         // 创建子节点
         child = createTreeNode({
+          _level_: node._level_ + 1,
           key: keyValue,
           parentId: i === 0 ? undefined : node[TREE_ROW_KEY],
-          _level_: node._level_ + 1,
+          [GROUP_NAME]: groupName,
+          ...summary,
         })
         // 如果是最后一级，则将当前数据合并到子节点中，否则只保留子节点
         if (isLastGroup) {
-          delete child.children
           child = { ...child, ...data }
+
+          delete child.children
         }
         // 将新创建的子节点添加到当前节点的子节点列表中
         node.children.set(keyValue, child)
@@ -303,8 +329,64 @@ export function listDataToTreeByKeys(list = [], keys = []) {
     }
   }
 
-  const result = [...root.children].map(getValueFromMap)
-
   // 返回根节点的子节点，即为转换后的树形结构
+  return [...root.children].map(getValueFromMap)
+}
+
+/**
+ * 生成汇总map
+ * @param {String<>} row 行数据
+ * @param {String<>} columns 列数据
+ * @returns
+ */
+export const createSummaryMap = (row = [], columns = []) =>
+  row.reduce((acc, col, i) => {
+    acc[columns[i].renderName] = col
+
+    return acc
+  }, {})
+
+/**
+ * 生成树节点路径汇总map
+ * @param {String<>} row 行数据
+ * @param {String<>} columns 列数据
+ * @returns
+ */
+export const createSummaryTreeMap = (rows = [], columns = []) => {
+  if (!rows.length) return {}
+
+  const result = {}
+  const groupFields = columns.filter(t => t.category === CATEGORY.PROPERTY),
+    iFields = columns.filter(t => t.category === CATEGORY.INDEX),
+    groupL = groupFields.length
+  const newRows = rows.map(t =>
+    t.map((c, i) => {
+      if (i >= groupFields.length) return c
+
+      if (c === '') {
+        c = '-'
+      } else if (c === '-') {
+        c = ''
+      }
+
+      return c
+    })
+  )
+
+  newRows.forEach(row => {
+    const path = row
+      .slice(0, groupL - 1)
+      .filter(t => t !== '')
+      .join(SUMMARY_GROUP_NAME_JOIN)
+
+    const rest = row.slice(groupL)
+
+    result[path] = rest.reduce((a, v, i) => {
+      a[iFields[i].renderName] = v
+
+      return a
+    }, {})
+  })
+
   return result
 }

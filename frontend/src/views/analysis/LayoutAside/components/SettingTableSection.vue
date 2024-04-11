@@ -2,12 +2,16 @@
   <SettingSectionLayout class="table-section" title="表格设置">
     <a-collapse expand-icon-position="end">
       <a-collapse-panel header="列宽" key="layout">
-        <a-radio-group v-model:value="modelValue.layout" :options="tableLayoutOptions">
+        <a-radio-group
+          v-model:value="modelValue.layout"
+          :options="tableLayoutOptions">
         </a-radio-group>
       </a-collapse-panel>
 
       <a-collapse-panel header="文字位置" key="align">
-        <a-radio-group v-model:value="modelValue.align" :options="tableAlignOptions" />
+        <a-radio-group
+          v-model:value="modelValue.align"
+          :options="tableAlignOptions" />
       </a-collapse-panel>
 
       <a-collapse-panel header="冻结" key="fixed">
@@ -42,7 +46,11 @@
       </a-collapse-panel>
 
       <a-collapse-panel header="汇总行">
-        <a-checkbox v-model:checked="modelValue.showSummary">显示</a-checkbox>
+        <a-checkbox
+          v-model:checked="modelValue.showSummary"
+          @change="onShowSummaryChange"
+          >显示
+        </a-checkbox>
       </a-collapse-panel>
 
       <a-collapse-panel
@@ -75,10 +83,14 @@ const props = defineProps({
   },
 })
 
-const indexInject = inject('index')
+const {
+  autoRun,
+  compare: indexCompare,
+  requestResponse: indexRequestResponse,
+} = inject('index', {})
 
 const compareDisabled = computed(() => {
-  const compare = indexInject.compare.get() || {}
+  const compare = indexCompare.get() || {}
 
   return compare.measures?.length ? false : true
 })
@@ -115,6 +127,15 @@ watch(
   },
   { deep: true }
 )
+
+const request = computed(() => indexRequestResponse.get('request'))
+const onShowSummaryChange = e => {
+  const checked = e.target.checked
+  // 上一次查询显示了汇总行则不处理
+  if (request.value.summary) return
+
+  checked && autoRun()
+}
 </script>
 
 <style lang="scss" scoped>

@@ -5,19 +5,18 @@
       <DoubleLeftOutlined v-else />
     </div>
 
-    <div v-show="settingOpen" class="setting" :class="{ disabled: !hasDatasetAnalysis }">
-      <SettingTypeSection
-        v-model:type="options.renderType"
-        @change="onRenderTypeChange" />
+    <div
+      v-show="settingOpen"
+      class="setting"
+      :class="{ disabled: !hasDatasetAnalysis }">
+      <SettingTypeSection :type="options.renderType" @change="onRenderTypeChange" />
 
       <Divider style="margin: 10px 0" />
 
       <template v-if="options.renderType !== 'statistic'">
         <keep-alive>
           <SettingTableSection
-            v-if="
-              ['table', 'groupTable', 'intersectionTable'].includes(options.renderType)
-            "
+            v-if="isRenderTable(options.renderType)"
             v-model:options="options.table"
             v-model:compare="options.compare" />
           <SettingChartSection
@@ -32,12 +31,13 @@
 </template>
 
 <script setup>
-import { ref, watch, watchEffect } from 'vue'
+import { ref, watch, inject, watchEffect, computed } from 'vue'
 import { Divider } from 'ant-design-vue'
 import { DoubleRightOutlined, DoubleLeftOutlined } from '@ant-design/icons-vue'
 import SettingTypeSection from './components/SettingTypeSection.vue'
 import SettingTableSection from './components/SettingTableSection.vue'
 import SettingChartSection from './components/SettingChartSection.vue'
+import { isRenderTable } from '../utils'
 
 const emits = defineEmits(['update:options'])
 const props = defineProps({
@@ -48,6 +48,8 @@ const props = defineProps({
   hasDatasetAnalysis: Boolean,
 })
 
+const { autoRun, requestResponse } = inject('index')
+
 // 设置侧边栏显示
 const settingOpen = ref(true)
 const handleSettingCollapse = () => {
@@ -57,11 +59,41 @@ const handleSettingCollapse = () => {
 // 展示类型
 const renderType = ref('table')
 
+// 查询请求
+const request = computed(() => requestResponse.get('request'))
+
+// 查询结果
+const response = computed(() => requestResponse.get('response'))
+
 const onRenderTypeChange = e => {
+  props.options.renderType = e
   if (e === 'bar' || e === 'line') {
     ;(props.options.chart.axis || []).forEach(item => {
       item.chartType = e
     })
+  }
+
+  // 上一次查询结果未请求成功
+  if (response.value.status !== 'SUCCESS') return
+
+  // 上一次查询请求是否汇总
+  const prevRequestIsSummery = request.value.summary
+  // 当前配置是否显示汇总行
+  const currentIsSummary = props.options.table.showSummary
+
+  if (isRenderTable(e)) {
+    if (e === 'table') {
+      // 普通表格的不显示汇总行，不重新查询
+      if (!currentIsSummary) return
+      // 上一次查询了汇总
+      if (prevRequestIsSummery) return
+
+      autoRun()
+    } else {
+      if (prevRequestIsSummery) return
+
+      autoRun()
+    }
   }
 }
 </script>
