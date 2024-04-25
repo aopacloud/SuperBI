@@ -38,8 +38,9 @@ SuperBI 是一款交互简单、分析高效、操作灵活、查询快速的多
 </table>
 
 ## SuperBI 交流群
+QQ群：308705126
 
-<img src="doc/img/wechat.png" width="300"/>
+TG群：https://t.me/+Er1LUDQsc4QyM2Q1
 
 ## 快速上手
 
