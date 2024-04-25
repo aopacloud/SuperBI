@@ -39,8 +39,9 @@ Key features include:
 </table>
 
 ## SuperBI Discussion Group
+QQ Group: 308705126
 
-<img src="doc/img/wechat.png" width="300"/>
+TG Group: https://t.me/+Er1LUDQsc4QyM2Q1
 
 ## Quick Start
 
