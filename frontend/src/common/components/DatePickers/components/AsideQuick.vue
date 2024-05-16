@@ -1,6 +1,6 @@
 ﻿<template>
-  <div>
-    <ul class="list">
+  <div :style="{ width: single ? '90px' : '165px' }">
+    <ul :class="['list', { single }]">
       <li
         class="item"
         v-for="item in presetsList"
@@ -45,6 +45,8 @@ import { getStartDateStr, getEndDateStr } from '../utils'
 const emits = defineEmits(['click'])
 const props = defineProps({
   id: Number,
+  // 单个面板
+  single: { type: Boolean },
   value: {
     type: Array,
     default: () => [],
@@ -81,7 +83,7 @@ const presetsList = computed(() => {
 
       if (t.hidden) {
         if (typeof t.hidden === 'function') {
-          return !t.hidden()
+          return !t.hidden(props)
         }
 
         return !Boolean(t.hidden)
@@ -184,6 +186,13 @@ const itemClick = item => {
   margin: 0;
   font-size: 12px;
   text-align: center;
+  &.single {
+    height: initial;
+    flex-direction: column;
+    .item {
+      line-height: 30px;
+    }
+  }
 }
 
 .item {

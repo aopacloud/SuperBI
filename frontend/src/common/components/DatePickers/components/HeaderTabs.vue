@@ -19,7 +19,7 @@
 
     <div class="extra">
       <div class="desc">
-        <slot name="desc">2023-08-17</slot>
+        <slot name="desc">{{ value }}</slot>
 
         <CloseCircleOutlined
           v-show="value && value.length"

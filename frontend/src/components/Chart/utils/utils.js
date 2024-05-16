@@ -1,5 +1,5 @@
 ﻿import { CATEGORY } from '@/CONST.dict.js'
-import { createIsEqualFromKey } from 'common/utils/help'
+import { createIsEqualFromKey, getDiffColor } from 'common/utils/help'
 import { lightenColor } from 'common/utils/color'
 import { toDigit, toThousand, toPercent } from 'common/utils/number'
 import { colors, CHART_GRID_HEIGHT } from 'common/components/Charts/utils/default.js'
@@ -9,10 +9,10 @@ import {
   formatFieldDisplay,
   createSortByOrder,
 } from './index.js'
-import { versionJs } from '@/versions'
+import { isDateField } from '@/views/dataset/utils'
 
 // 连接分组的字符(唯一，需要做分割)
-export const GROUP_SPLIT = '§º§'
+export const GROUP_SPLIT = '§'
 // 拼接指标name的字符
 export const YNAME_SPLIT = '/'
 
@@ -29,7 +29,7 @@ export function getStrLength(val) {
  */
 export function getDiffvalue(origin, target, mode) {
   if (mode === 2) {
-    const v = toPercent((target - origin) / origin, 2)
+    const v = toPercent((target - origin) / Math.abs(origin), 2)
 
     return parseInt(v) > 0 ? '+' + v : v
   } else if (mode === 1) {
@@ -84,7 +84,7 @@ export function getChartSize(chart) {
  */
 export const transformOriginBySort = ({ originFields = [], originData = [] }) => {
   const xIndex = originFields.findIndex(
-    t => t.category === CATEGORY.PROPERTY && versionJs.ViewsAnalysis.isDateField(t)
+    t => t.category === CATEGORY.PROPERTY && isDateField(t)
   )
   const fields = originFields.slice()
 
@@ -592,7 +592,7 @@ export function tooltipFormat({
         typeof value === 'undefined'
           ? '-'
           : formatFieldDisplay(value, originField, datasetFields)
-      let preValue = value
+      let targetValue = value
 
       // 是否对比字段
       const isVs = originField._isVs
@@ -601,23 +601,19 @@ export function tooltipFormat({
         // 字段的原始name
         const [fieldOriginRenderName] = originField.renderName.split(VS_FIELD_SUFFIX)
 
-        preValue = listMap[fieldOriginRenderName]['data'][0].value
-      }
-
-      const getStyle = (origin, target) => {
-        return target === origin ? '' : target > origin ? '#67C23A' : '#F56C6C'
+        targetValue = listMap[fieldOriginRenderName]['data'][0].value
       }
 
       if (isVs) {
         if (compareMode === 2) {
           displayValue += `
-          <span style="color: ${getStyle(preValue, value)}">
-            (${getDiffvalue(preValue, value, compareMode)})
+          <span style="color: ${getDiffColor(value, targetValue)}">
+            (${getDiffvalue(value, targetValue, compareMode)})
           </span>`
         } else if (compareMode === 1) {
           displayValue += `
-          <span style="color: ${getStyle(preValue, value)}">
-            (${getDiffvalue(preValue, value, compareMode)})
+          <span style="color: ${getDiffColor(value, targetValue)}">
+            (${getDiffvalue(value, targetValue, compareMode)})
           </span>`
         }
       }

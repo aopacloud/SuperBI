@@ -8,6 +8,7 @@
         :columns="renderColumns"
         :data-source="list"
         :summaryRows="summaryRows"
+        :summaryMap="summaryMap"
         :options="tableConfig" />
 
       <Statistic
@@ -30,6 +31,7 @@ import createChart from './utils/createChart'
 import createPieChart from './utils/createPieChart'
 import createStatistic from './utils/createStatistic'
 import createGroupTable from './utils/createGroupTable'
+import createIntersectionTable from './utils/createIntersectionTable'
 import { CATEGORY } from '@/CONST.dict'
 import { isRenderTable } from '@/views/analysis/utils'
 
@@ -92,13 +94,29 @@ const renderType = computed(() => props.options.renderType)
 const tableConfig = computed(() => {
   const { renderType, table, compare } = props.options
 
+  let isGroupTable = false
+
+  if (renderType === 'groupTable') {
+    // 分组类型且分组(维度字段)数量大于1
+    isGroupTable =
+      props.columns.filter(t => t.category === CATEGORY.PROPERTY).length > 1
+  } else if (renderType === 'intersectionTable') {
+    // 交叉表格类型，行分组数量大于1
+    isGroupTable =
+      props.columns.filter(
+        t =>
+          t.category === CATEGORY.PROPERTY &&
+          (typeof t._group === 'undefined' || t._group === 'row')
+      ).length > 1
+  } else {
+    isGroupTable = false
+  }
+
   return {
     ...table,
     dataset: props.dataset,
     compare,
-    isGroupTable:
-      renderType === 'groupTable' &&
-      props.columns.filter(t => t.category === CATEGORY.PROPERTY).length > 1,
+    isGroupTable,
   }
 })
 // 图表配置
@@ -112,7 +130,7 @@ const chartConfig = computed(() => {
 
 // 渲染
 const render = () => {
-  console.log('--------  Components/Chart init  --------')
+  console.info('--------  Components/Chart init  --------')
   const t = renderType.value
 
   if (['bar', 'line', 'pie'].includes(t)) {
@@ -120,9 +138,7 @@ const render = () => {
       ChartInstance.value = chartRef.value?.getInstance()
     }
 
-    setTimeout(() => {
-      initChart()
-    })
+    setTimeout(initChart)
   } else if (t === 'statistic') {
     initStatistic()
   } else {
@@ -131,15 +147,10 @@ const render = () => {
 }
 
 // 源数据改变，重新绘制
-watch(
-  [() => props.dataSource, () => props.columns],
-  () => {
-    nextTick(() => {
-      render()
-    })
-  },
-  { immediate: true, deep: true }
-)
+watch([() => props.dataSource, () => props.columns], () => nextTick(render), {
+  immediate: true,
+  deep: true,
+})
 
 watch(renderType, (type, oldType) => {
   if (!type) return
@@ -150,9 +161,7 @@ watch(renderType, (type, oldType) => {
     ChartInstance.value?.clear()
   }
 
-  nextTick(() => {
-    render()
-  })
+  nextTick(render)
 })
 
 // 图表配置改变
@@ -169,15 +178,7 @@ watch(
 )
 
 // 同环比配置变化需要更新列, 重新渲染表格
-watch(
-  () => props.options.compare?.merge,
-  (n, o) => {
-    if (!tableRef.value || n === o) return
-
-    initTable()
-  },
-  { deep: true }
-)
+watch(() => props.options.compare, render, { deep: true })
 
 const renderColumns = ref([])
 const list = ref([])
@@ -189,14 +190,24 @@ const chartOptions = ref({})
 // 指标卡配置
 const statisticOption = reactive({})
 
+const summaryMap = ref()
 // 生成表格
 const initTable = () => {
   const { dataSource, columns: originColumns } = props
 
-  // 分组表格且分组字段列长度为1时，渲染为普通表格
-  const createFn = tableConfig.value.isGroupTable ? createGroupTable : createTable
+  const tableRenderMap = {
+    table: createTable,
+    groupTable: createGroupTable,
+    intersectionTable: createIntersectionTable,
+  }
 
-  const { columns, list: tList } = createFn({
+  const createFn = tableRenderMap[renderType.value]
+
+  const {
+    columns,
+    list: tList,
+    summaryMap: summary,
+  } = createFn({
     originFields: originColumns,
     originData: dataSource,
     summaryRows:
@@ -209,6 +220,7 @@ const initTable = () => {
 
   renderColumns.value = columns
   list.value = tList
+  summaryMap.value = summary
 }
 
 // 生成指标卡

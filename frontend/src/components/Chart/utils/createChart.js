@@ -1,3 +1,4 @@
+import { message } from 'ant-design-vue'
 import { CATEGORY } from '@/CONST.dict.js'
 import { deepClone } from 'common/utils/help'
 import { merge } from 'common/utils/object'
@@ -22,7 +23,13 @@ import {
   generateSeries,
 } from './utils'
 import { transformFieldsByVs, formatDtWithOption } from './index.js'
-import { versionJs } from '@/versions'
+import { isDateField } from '@/views/dataset/utils'
+import { chartTypeMap } from '@/views/analysis/LayoutAside/config'
+
+export const MAX_GROUP_COUNT = 1000
+
+export const MAX_COUNT_MESSAGE = t =>
+  `当前条件分组过多，不适合使用${chartTypeMap[t]['label']}, 请切换至其他图表`
 
 /**
  * 创建图表配置
@@ -44,7 +51,12 @@ export default function createChart({
   config = {},
   extraChartOptions = {},
 }) {
-  const { axis = [], legend = {}, splited = false, compare: compareOption = {} } = config
+  const {
+    axis = [],
+    legend = {},
+    splited = false,
+    compare: compareOption = {},
+  } = config
 
   // 处理字段、数据
   const { fields: fieldsSorted, data } = transformOriginBySort({
@@ -53,9 +65,11 @@ export default function createChart({
   })
 
   // 处理对比字段
-  const fields = transformFieldsByVs({ fields: fieldsSorted, compare }).map((t, i) => {
-    return { ...t, yAxisIndex: i }
-  })
+  const fields = transformFieldsByVs({ fields: fieldsSorted, compare }).map(
+    (t, i) => {
+      return { ...t, yAxisIndex: i }
+    }
+  )
 
   // 维度字段
   const xFields = fields.filter(t => t.category === CATEGORY.PROPERTY)
@@ -63,7 +77,7 @@ export default function createChart({
   const yFields = fields.filter(t => t.category === CATEGORY.INDEX)
 
   // 以时间字段(或者第一个字段)为x轴，
-  let x = xFields.find(t => versionJs.ViewsAnalysis.isDateField(t))
+  let x = xFields.find(isDateField)
   if (!x) x = xFields[0]
   // 初始化边界错误
   if (!x) return
@@ -80,6 +94,12 @@ export default function createChart({
     data,
     group: groupFields,
   })
+
+  if (groupFields.length && Object.keys(dataMap).length > MAX_GROUP_COUNT) {
+    message.warn(MAX_COUNT_MESSAGE(chartType))
+
+    throw Error('当前数据分组超出限制')
+  }
 
   // 将dt维度按照分组格式化显示
   if (fieldsSorted[0].dataType.includes('TIME')) {

@@ -5,7 +5,12 @@
     </aside>
     <main class="content">
       <a-space class="left">
-        <span>{{ detail.name }}</span>
+        <span>
+          {{ detail.name }}
+          <a-tooltip v-if="detail.description" :title="detail.description">
+            <InfoCircleOutlined />
+          </a-tooltip>
+        </span>
         <!-- 编辑 -->
         <a-button
           v-if="hasWritePermission && mode === 'EDIT'"
@@ -26,7 +31,9 @@
       <div class="right tools" style="margin-left: auto">
         <a-space>
           <a-badge
-            v-if="mode === 'READONLY' && detail.lastEditVersion > (detail.version || 0)"
+            v-if="
+              mode === 'READONLY' && detail.lastEditVersion > (detail.version || 0)
+            "
             color="blue"
             text="有保存的最新版本，可点击“编辑”前往查看" />
 
@@ -38,6 +45,10 @@
             :globalDateConfig="globalDateConfig"
             @reset="resetGlobalDate">
           </ViewsDashboardLHeaderGlobalDate>
+
+          <AutoRefresh
+            :detail="detail"
+            :writeable="hasWritePermission && mode === 'EDIT'" />
 
           <a-tooltip title="图表">
             <div class="tools-item" @click="toReport">
@@ -101,7 +112,10 @@
           </template>
 
           <!-- 更多操作 -->
-          <a-dropdown v-if="hasManagePermission" trigger="click" :loading="actionLoading">
+          <a-dropdown
+            v-if="hasManagePermission"
+            trigger="click"
+            :loading="actionLoading">
             <div class="tools-item">
               <keep-alive>
                 <LoadingOutlined v-if="actionLoading" />
@@ -163,17 +177,24 @@ import {
   MoreOutlined,
   AppstoreOutlined,
   LoadingOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons-vue'
 import useAppStore from '@/store/modules/app'
 import ModifyModal from './components/ModifyModal.vue'
+import AutoRefresh from './components/AutoRefresh.vue'
 import ShareDrawer from '@/views/dashboard/components/ShareDrawer.vue'
 import { MoveDrawer } from '@/components/DirTree'
-import { postSave, putUpdate, postPublishById, postOfflineById } from '@/apis/dashboard'
+import {
+  postSave,
+  putUpdate,
+  postPublishById,
+  postOfflineById,
+} from '@/apis/dashboard'
 import { message } from 'ant-design-vue'
-import { displayDateFormat } from 'common/components/DatePickers/utils'
 import { deepCloneByJson } from '@/common/utils/help'
 import useUserStore from '@/store/modules/user'
 import { versionVue } from '@/versions'
+import { moveDirectory } from '@/apis/directory'
 
 const {
   ComponentsTimeoffsetPreview,
@@ -228,7 +249,7 @@ const router = useRouter()
 const appStore = useAppStore()
 const userStore = useUserStore()
 
-const workspaceId = computed(() => appStore.workspaceId)
+const workspaceId = computed(() => props.detail.workspaceId || appStore.workspaceId)
 
 // 编辑权限
 const hasWritePermission = computed(() => {
@@ -310,12 +331,6 @@ const toReport = () => {
 
   window.open(routeRes.href, '_blank')
 }
-
-const displayGlobalDate = computed(() => {
-  return displayDateFormat({ ...props.globalDateConfig, format: 'YYYY-MM-DD' }).join(
-    ' - '
-  )
-})
 
 const resetGlobalDate = () => {
   props.globalDateConfig.offset = []
@@ -399,7 +414,7 @@ const validate = () => {
   return true
 }
 
-const transfromPayload = (list = []) => {
+const transformPayload = (list = []) => {
   return deepCloneByJson(list).map(item => {
     delete item._loaded
 
@@ -417,6 +432,22 @@ const transfromPayload = (list = []) => {
   })
 }
 
+const move = dId => {
+  try {
+    const payload = {
+      position: 'DASHBOARD',
+      type: 'ALL',
+      workspaceId: workspaceId.value,
+      targetId: dId,
+      folderId: props.detail.folderId,
+    }
+
+    return moveDirectory(payload)
+  } catch (error) {
+    console.error('更新文件夹位置失败', error)
+  }
+}
+
 const saveLoading = ref(false)
 const save = async () => {
   if (!validate()) return Promise.reject('校验错误')
@@ -427,16 +458,19 @@ const save = async () => {
     const payload = {
       ...props.detail,
       workspaceId: workspaceId.value,
-      dashboardComponents: transfromPayload(props.layoutComponents),
+      dashboardComponents: transformPayload(props.layoutComponents),
     }
 
     const fn = !props.detail.id
       ? () => postSave(payload)
       : () => putUpdate(props.detail.id, payload)
-    const { id, version, status, lastEditVersion, permission } = await fn()
+    const { id, version, status, lastEditVersion, permission, folder } = await fn()
 
     emits('update-detail', { id, version, status, lastEditVersion, permission })
     message.success('保存成功')
+
+    // 当前位置与保存的位置不一致
+    if (folder.id !== props.detail.folderId) move(id)
   } catch (error) {
     console.error('看板保存错误', error)
     return Promise.reject()
@@ -451,7 +485,9 @@ const rePublish = async () => {
     publishLoading.value = true
 
     await save()
-    const { version, status, lastEditVersion } = await postPublishById(props.detail.id)
+    const { version, status, lastEditVersion } = await postPublishById(
+      props.detail.id
+    )
 
     emits('update-detail', { version, status, lastEditVersion })
     emits('published', { version, status, lastEditVersion })

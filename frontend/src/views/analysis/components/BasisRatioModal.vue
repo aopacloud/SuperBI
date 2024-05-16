@@ -2,7 +2,20 @@
   <a-modal title="同环比设置" :open="open" :width="700" @cancel="cancel">
     <a-form :label-col="{ span: 4 }" :wrapper-col="{ span: 20 }">
       <a-form-item label="对比日期" style="margin-bottom: 5px">
-        {{ target.name || '-' }}
+        <a-select
+          placeholder="请选择对比日期"
+          show-search
+          optionLabelProp="label"
+          :filterOption="filterOption"
+          v-model:value="formState.timeField"
+          @change="onTargetChange">
+          <a-select-option
+            v-for="t in dimensionsList"
+            :key="t.name"
+            :label="t.displayName">
+            {{ t.displayName }}
+          </a-select-option>
+        </a-select>
       </a-form-item>
 
       <a-form-item label="对比维度">
@@ -17,7 +30,6 @@
           <a-select-option
             v-for="t in dimensionsList"
             :key="t.name"
-            :value="t.name"
             :label="t.displayName"
             :disabled="t.disabled">
             {{ t.displayName + '(' + t.name + ')' }}
@@ -52,7 +64,7 @@
             class="field-item"
             v-for="(item, i) in formState.measures"
             :key="item._id">
-            <span class="cell name" :title="item.label">
+            <div class="cell name" :title="item.label">
               <a-select
                 placeholder="请选择字段"
                 v-model:value="item.name"
@@ -61,16 +73,23 @@
                   {{ f.displayName }}
                 </a-select-option>
               </a-select>
-            </span>
+            </div>
             <div class="cell val">
               <a-space-compact block>
-                <a-select style="width: 90px" v-model:value="item.ratioType">
+                <a-select
+                  style="width: 90px"
+                  placeholder="请选择类型"
+                  v-model:value="item.ratioType"
+                  @change="onRatioTypeChange(item)">
                   <a-select-option v-for="t in options" :key="t.value">
                     {{ t.label }}
                   </a-select-option>
                 </a-select>
 
-                <a-select style="flex: 1" v-model:value="item.period">
+                <a-select
+                  style="flex: 1; overflow: hidden"
+                  placeholder="请选择周期"
+                  v-model:value="item.period">
                   <a-select-option v-for="t in getOptions2(item)" :key="t.value">
                     {{ t.label }}
                   </a-select-option>
@@ -112,9 +131,11 @@ import {
   dateGroupTypeMap,
   DEFAULT_DATE_GROUP,
   DEFAULT_RATIO_TYPE,
-  COMPARE_RATIO_PERIOD,
+  GROUP_MINUTE,
 } from '@/views/analysis/config'
-import { getRandomKey, getByIncludesKeys } from 'common/utils/help'
+import { getByIncludesKeys } from 'common/utils/help'
+import { getRandomKey } from 'common/utils/string'
+import { toContrastFiled } from '@/views/analysis/config'
 
 const useForm = Form.useForm
 const emits = defineEmits(['update:open', 'ok', 'close'])
@@ -123,11 +144,7 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
-  // 被对比字段
-  target: {
-    type: Object,
-    default: () => ({}),
-  },
+
   dimensions: {
     type: Array,
     default: () => [],
@@ -160,7 +177,7 @@ const dimensionsList = computed(() => {
   return props.dimensions.map(t => {
     return {
       ...t,
-      disabled: t.dataType.includes('TIME'),
+      disabled: formState.timeField === t.name,
     }
   })
 })
@@ -180,37 +197,43 @@ const measuresList = computed(() =>
   })
 )
 
-// 当前同环比
-const compareType = ref('')
-
-// 选中的列表
-const list = ref([])
-
 // 根据对比日期的聚合方式筛选对比类型
 const options = computed(() => {
-  const optionKeys = Object.keys(
-    dateGroupTypeMap[props.target.dateTrunc || DEFAULT_DATE_GROUP]
-  )
+  const { dateTrunc = '' } = formState.target
+  const _dateTrunc = dateTrunc.startsWith(GROUP_MINUTE) ? GROUP_MINUTE : dateTrunc
+  const optionKeys = Object.keys(dateGroupTypeMap[_dateTrunc || DEFAULT_DATE_GROUP])
 
   return ratioOptions.filter(o => optionKeys.includes(o.value))
 })
 
 const getOptions2 = field => {
   const { ratioType = DEFAULT_RATIO_TYPE } = field
-  const dateTrunc = props.target.dateTrunc || DEFAULT_DATE_GROUP
+  const { dateTrunc = DEFAULT_DATE_GROUP } = formState.target
+  const _dateTrunc = dateTrunc.startsWith(GROUP_MINUTE) ? GROUP_MINUTE : dateTrunc
 
-  return dateGroupTypeMap[dateTrunc][ratioType]
+  return dateGroupTypeMap[_dateTrunc][ratioType] || []
 }
 
 const init = () => {
-  const { type = DEFAULT_RATIO_TYPE, measures = [], dimensions = [] } = props.compare
+  const {
+    timeField,
+    type = DEFAULT_RATIO_TYPE,
+    measures = [],
+    dimensions = [],
+  } = props.compare
 
+  formState.target =
+    props.dimensions.find(t => t.name === timeField) ||
+    props.dimensions.find(toContrastFiled)
+  formState.timeField = formState.target.name
   formState.type = type
   formState.measures = measures.map(t => {
+    const ratioType = t.ratioType || type
+    const opts = getOptions2({ ratioType })
     return {
       ...t,
-      ratioType: t.ratioType || type,
-      period: t.period ?? COMPARE_RATIO_PERIOD.DEFAULT,
+      ratioType,
+      period: t.period || opts[0]?.value,
     }
   })
   if (typeof props.compare.dimensions === 'undefined') {
@@ -233,11 +256,37 @@ const onFieldNameChange = (name, field) => {
   field.aggregator = item.aggregator
 }
 
+const onRatioTypeChange = item => {
+  const { period } = item
+  if (!period) return
+
+  const options2 = getOptions2(item)
+  if (options2.every(t => t.value !== period)) {
+    item.period = options2[0]?.value
+  }
+}
+
 const formState = reactive({
   type: DEFAULT_RATIO_TYPE,
+  target: {},
+  timeField: undefined,
   dimensions: [],
   measures: [],
 })
+
+const onTargetChange = e => {
+  formState.target = dimensionsList.value.find(t => t.name === e)
+  // 重置对比字段配置
+  formState.measures.forEach(item => {
+    // 更新类型
+    if (options.value.every(t => t.value !== item.ratioType)) {
+      item.ratioType = DEFAULT_RATIO_TYPE
+    }
+    // 更新周期
+    const periodOptions = getOptions2({ ratioType: DEFAULT_RATIO_TYPE })
+    item.period = periodOptions[0]?.value
+  })
+}
 
 const dimensionsFields = computed({
   get() {
@@ -248,10 +297,6 @@ const dimensionsFields = computed({
   },
 })
 
-const getUniqueByKey = (list = [], key) => {
-  return [...new Set(list.map(t => t[key]))]
-}
-
 const formRules = reactive({
   measures: [
     {
@@ -261,7 +306,7 @@ const formRules = reactive({
         if (!value?.length) {
           return Promise.reject(rule.message)
         } else {
-          if (value.every(t => !t.name)) {
+          if (value.every(t => !t.name || !t.period)) {
             return Promise.reject(rule.message)
           } else {
             return Promise.resolve()
@@ -272,7 +317,6 @@ const formRules = reactive({
     {
       message: '对比配置重复',
       validator: (rule, value) => {
-        console.log('0', 0)
         if (!value.length) return Promise.resolve()
 
         const strArr = value
@@ -297,11 +341,13 @@ const { resetFields, validate, validateInfos } = useForm(formState, formRules)
 
 const insert = i => {
   if (typeof i === 'undefined') {
+    const periodOptions = getOptions2({ ratioType: DEFAULT_RATIO_TYPE })
+
     formState.measures.push({
       ...measuresList.value[0],
       name: undefined,
       ratioType: DEFAULT_RATIO_TYPE,
-      period: COMPARE_RATIO_PERIOD.DEFAULT,
+      period: periodOptions[0]?.value,
       _id: getRandomKey(6),
     })
   } else {
@@ -328,7 +374,7 @@ const ok = () => {
           getByIncludesKeys(t, ['name', 'aggregator', 'ratioType', 'period'])
         )
 
-      emits('ok', props.target, { ...toRaw(formState), dimensions, measures })
+      emits('ok', { ...toRaw(formState), dimensions, measures })
       cancel()
     })
     .catch(error => {
@@ -360,6 +406,7 @@ $table-color: #e8e8e8;
 
   .cell {
     flex: 1;
+    overflow: auto;
     padding: 6px 12px;
   }
 

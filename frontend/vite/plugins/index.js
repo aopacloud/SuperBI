@@ -6,6 +6,7 @@ import createSetupExtend from './setup-extend'
 import antDesignVueResolver from './ant-design-vue-resolver'
 import vxeTableResolver from './vxe-table-resolver'
 import vueJsx from './vue-jsx'
+import SvgIcon from './svg-icon'
 // 修复 defineOptions 报错
 import DefineOptions from 'unplugin-vue-define-options/vite'
 import createVisualizer from './visualizer'
@@ -18,6 +19,7 @@ export default function createVitePlugins(viteEnv, isBuild = false) {
   vitePlugins.push(antDesignVueResolver())
   vitePlugins.push(vxeTableResolver())
   vitePlugins.push(vueJsx())
+  vitePlugins.push(SvgIcon())
 
   if (isBuild) {
     if (viteEnv.VITE_BUILD_COMPRESS) {

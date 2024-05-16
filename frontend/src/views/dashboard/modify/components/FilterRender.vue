@@ -37,7 +37,7 @@
           <CloseOutlined
             v-if="modelValue.date && modelValue.date.length"
             style="font-size: 10px; color: rgba(0, 0, 0, 0.45); cursor: pointer"
-            @click="removeDate" />
+            @click.stop="removeDate" />
         </template>
       </a-input>
     </DatePicker>
@@ -248,7 +248,9 @@ const removeDate = () => {
   modelValue.value.date = []
   modelValue.value.offset = []
   modelValue.value.hms = undefined
-  modelValue.value.extra.until = undefined
+  if (modelValue.value.extra) {
+    modelValue.value.extra.until = undefined
+  }
 }
 const displayDate = ({ date = [], mode, extra = {}, offset = [], hms }) => {
   if (extra.dt) return '有数的一天'

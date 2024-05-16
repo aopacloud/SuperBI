@@ -31,6 +31,18 @@ export default defineStore('resource', {
         this.setLoaded(true)
       }
     },
+
+    // 仅更新权限资源
+    async updateResourceByWorkspaceId(workspaceId) {
+      try {
+        const updatePermissionResource =
+          versionJs.StoreModulesResource.fetchPermissionByWorkspaceId
+
+        return updatePermissionResource.bind(this)(workspaceId)
+      } catch (error) {
+        console.error('资源列表更新失败', error)
+      }
+    },
     // 设置路由
     setRoutes(resouces) {
       // 注册路由

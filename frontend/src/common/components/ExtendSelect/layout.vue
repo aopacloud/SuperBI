@@ -62,6 +62,10 @@
 <script setup>
 import { ref, watch, shallowRef, computed, useSlots, watchEffect } from 'vue'
 
+defineOptions({
+  name: 'ExtendSelectLayout',
+})
+
 const emits = defineEmits(['update:value', 'change'])
 const props = defineProps({
   // 值

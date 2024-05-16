@@ -67,9 +67,9 @@ import {
   LoadingOutlined,
 } from '@ant-design/icons-vue'
 import { CATEGORY } from '@/CONST.dict'
-import { IS_NOT_NULL, IS_NULL } from '@/views/dataset/config.field'
+import { IS_NOT_NULL, IS_NULL, isTime_HHMMSS } from '@/views/dataset/config.field'
 import { postAnalysisQuery } from '@/apis/analysis'
-import { repeatIndex } from '@/views/analysis/utils'
+import { repeatIndex, sortDimension } from '@/views/analysis/utils'
 import { getByIncludesKeys } from 'common/utils/help'
 import dayjs from 'dayjs'
 import { versionJs } from '@/versions'
@@ -79,6 +79,7 @@ import {
   getEndDateStr,
 } from '@/common/components/DatePickers/utils'
 import { isRenderTable } from '../utils'
+import { isDateField } from '@/views/dataset/utils'
 
 const emits = defineEmits([
   'run-loading',
@@ -192,7 +193,7 @@ const transferChoosedFilters = filterItem => {
     conditions: [cond1],
   } = filterItem
 
-  if (!versionJs.ViewsAnalysis.isDateField(filterItem)) return filterItem
+  if (!isDateField(filterItem)) return filterItem
 
   const { timeType, args, timeParts, _this, _until } = cond1
 
@@ -220,7 +221,7 @@ const transferChoosedFilters = filterItem => {
       {
         ...cond1,
         timeType: !!_until ? 'EXACT' : timeType,
-        timeParts: dataType === 'TIME_YYYYMMDD_HHMMSS' ? timeParts : undefined,
+        timeParts: isTime_HHMMSS(dataType) ? timeParts : undefined,
         args,
       },
     ],
@@ -461,9 +462,12 @@ const transformChoosed = (choosedMap = {}) => {
   const indexRepeated = repeatIndex(choosedMap[CATEGORY.INDEX], item => {
     indexChoosed.remove(item)
   })
+  // 维度分组排序
+  const dimensionSorted = sortDimension(choosedMap[CATEGORY.PROPERTY], true)
 
   return {
-    ...choosedMap,
+    // ...choosedMap,
+    [CATEGORY.PROPERTY]: dimensionSorted,
     [CATEGORY.INDEX]: indexRepeated,
     [CATEGORY.FILTER]: mergeDashbaordFilters(choosedMap[CATEGORY.FILTER]),
   }
@@ -480,6 +484,7 @@ const transformRequiredKeys = (choosedMap = {}) => {
         'dateTrunc',
         'firstDayOfWeek',
         'viewModel',
+        '_group', // 行维度、列维度
       ])
     ),
     [CATEGORY.INDEX]: choosedMap[CATEGORY.INDEX].map(t =>
@@ -489,6 +494,8 @@ const transformRequiredKeys = (choosedMap = {}) => {
         'displayName',
         'dataType',
         'aggregator',
+        '_quick', // 指标快速计算
+        '_quantile', // 自定义分位数
       ])
     ),
     [CATEGORY.FILTER]: choosedMap[CATEGORY.FILTER].map(t =>

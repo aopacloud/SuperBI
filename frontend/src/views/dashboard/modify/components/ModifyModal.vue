@@ -1,11 +1,16 @@
 ﻿<template>
-  <a-modal title="看板编辑" :maskClosable="false" :open="open" @cancel="cancel" @ok="ok">
+  <a-modal
+    title="看板编辑"
+    :maskClosable="false"
+    :open="open"
+    @cancel="cancel"
+    @ok="ok">
     <a-form :labelCol="{ span: 4 }" :wrapper-col="{ span: 19 }">
       <a-form-item label="名称" v-bind="validateInfos.name">
         <a-input placeholder="请输入名称" v-model:value="formState.name" />
       </a-form-item>
       <a-form-item label="备注">
-        <a-input placeholder="请输入备注" />
+        <a-input placeholder="请输入备注" v-model:value="formState.description" />
       </a-form-item>
       <a-form-item label="位置" v-bind="validateInfos.folderId">
         <a-tree-select
@@ -91,22 +96,22 @@ const init = () => {
 
 const formState = reactive({
   name: undefined,
-  remark: undefined,
+  description: undefined,
   folderId: undefined,
 })
-const formRuls = reactive({
+const formRules = reactive({
   name: [{ required: true, message: '名称不能为空' }],
   folderId: [{ required: true, message: '位置不能为空' }],
 })
-const { validateInfos, resetFields, validate } = Form.useForm(formState, formRuls)
+const { validateInfos, resetFields, validate } = Form.useForm(formState, formRules)
 
 const cancel = () => {
   emits('update:open', false)
   emits('cancel')
 }
 const ok = () => {
-  validate().then(res => {
-    emits('ok', res)
+  validate().then(() => {
+    emits('ok', toRaw(formState))
     cancel()
   })
 }

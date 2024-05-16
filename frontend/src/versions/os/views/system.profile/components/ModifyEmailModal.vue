@@ -124,10 +124,6 @@ const submit = async payload => {
     submitLoading.value = false
   }
 }
-
-const onFinish = e => {
-  console.log('e', e)
-}
 </script>
 
 <style lang="scss" scoped></style>

@@ -1,14 +1,10 @@
 ﻿import { h } from 'vue'
-import Icon, {
-  TableOutlined,
-  BarChartOutlined,
-  LineChartOutlined,
+import {
   PieChartOutlined,
-  FieldNumberOutlined,
   TrademarkCircleOutlined,
   RadarChartOutlined,
 } from '@ant-design/icons-vue'
-import GroupTableIcon from './icon/GroupTableIcon.vue'
+import { YYYYMMDD_HHMMSS } from '@/views/dataset/config.field'
 
 // 字段类型
 export const fieldTypeMap = {
@@ -36,7 +32,7 @@ export const fieldTypeMap = {
     icon: '日期',
     color: '#f2c96b',
   },
-  TIME_YYYYMMDD_HHMMSS: {
+  [YYYYMMDD_HHMMSS]: {
     icon: '日期',
     color: '#f2c96b',
   },
@@ -54,44 +50,31 @@ export const fieldTypeMap = {
 export const chartTypeMap = {
   table: {
     label: '表格',
-    color: '#666666',
-    icon: TableOutlined,
+    icon: () => h(<SvgIcon name='明细表' />),
   },
   groupTable: {
     label: '分组表格',
-    color: '#666666',
-    icon: () => h(GroupTableIcon),
+    icon: () => h(<SvgIcon name='分组表' />),
   },
-  // intersectionTable: {
-  //   label: '交叉表格',
-  //   color: '#666666',
-  //   icon: () =>
-  //     h(
-  //       <img
-  //         style='width: 22px; height: 22px;vertical-align: -5px;'
-  //         src={intersectionTableImg}
-  //       />
-  //     ),
-  // },
+  intersectionTable: {
+    label: '交叉表格',
+    icon: () => h(<SvgIcon name='交叉表' />),
+  },
   bar: {
     label: '柱状图',
-    color: '#666666',
-    icon: BarChartOutlined,
+    icon: () => h(<SvgIcon name='簇型柱图' />),
   },
   line: {
     label: '折线图',
-    color: '#666666',
-    icon: LineChartOutlined,
+    icon: () => h(<SvgIcon name='折线图' />),
   },
   pie: {
     label: '饼图',
-    color: '#666666',
-    icon: PieChartOutlined,
+    icon: () => h(<SvgIcon name='饼图' />),
   },
   statistic: {
     label: '统计数值',
-    color: '#666666',
-    icon: FieldNumberOutlined,
+    icon: () => h(<SvgIcon name='指标卡' />),
   },
 }
 

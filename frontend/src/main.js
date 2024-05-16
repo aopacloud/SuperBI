@@ -10,8 +10,6 @@ import directive from './directive' // directive
 import plugins from './plugins' // plugins
 import emittor from 'common/plugins/emittor'
 
-// svg图标
-
 import './permission' // permission control
 
 document.title = import.meta.env.VITE_APP_TITLE
@@ -33,6 +31,11 @@ app.use(router)
 app.use(store)
 app.use(directive)
 app.use(plugins)
+
+// 生成svg图标
+import 'virtual:svg-icons-register' // 生成雪碧图
+import SvgIcon from '@/components/SvgIcon/index.vue'
+app.component(SvgIcon.name, SvgIcon) // 全局注册SvgIcon
 
 // 按需加载 vxe-table
 import { Grid, Table, Column, Icon } from 'vxe-table'

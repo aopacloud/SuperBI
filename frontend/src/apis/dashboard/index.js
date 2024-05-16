@@ -232,3 +232,16 @@ export const getDasboardsByReportId = params =>
     url: '/dashboard/byReport',
     params,
   })
+
+/**
+ * 更新看板自动刷新配置
+ * @param {number} id
+ * @param {RequestPayload} data
+ * @returns
+ */
+export const postRefreshIntervalById = (id, data) =>
+  request({
+    url: `/dashboard/${id}/refreshInterval`,
+    method: 'post',
+    data,
+  })

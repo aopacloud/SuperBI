@@ -9,7 +9,7 @@
       :offset="field.conditions[0].args"
       :value="field.conditions[0].args"
       :hms="field.conditions[0].timeParts"
-      :showTime="field.dataType === 'TIME_YYYYMMDD_HHMMSS'"
+      :showTime="isTime_HHMMSS(field.dataType)"
       :extra="{
         dt: field.conditions[0].useLatestPartitionValue,
         current: field.conditions[0]._this,
@@ -35,11 +35,12 @@
 import { ref, computed, watch, nextTick, inject } from 'vue'
 import { FilterOutlined } from '@ant-design/icons-vue'
 import { RELATION } from '@/CONST.dict'
-import { NOT_IN, IN } from '@/views/dataset/config.field'
+import { NOT_IN, IN, isTime_HHMMSS } from '@/views/dataset/config.field'
 import FilterText from './Text.vue'
 import FilterDate from 'common/components/DatePickers/PickerPanel.vue'
 
 defineOptions({
+  name: 'FilterVue',
   inheritAttrs: false,
 })
 

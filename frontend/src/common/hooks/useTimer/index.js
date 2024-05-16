@@ -1,46 +1,61 @@
-﻿/**
- * TODO
- */
+import { onMounted, onBeforeUnmount, ref } from 'vue'
 
-import { ref, onMounted, onUnmounted } from 'vue'
+export default function useTimer(
+  callback,
+  { immediate = false, frequency = 0 } = {}
+) {
+  let timer = ref(null)
 
-// 按照惯例，组合式函数名以“use”开头
-export default function useTimer(interval = 1000, step = 1000) {
-  // 被组合式函数封装和管理的状态
-  const value = ref(0)
-  let timer = null
+  let run = () => {
+    if (immediate) {
+      run = () => {
+        Promise.resolve(callback).then(() => {
+          timer = setTimeout(run, frequency)
+        })
+      }
+    } else {
+      run = () => {
+        timer = setTimeout(() => {
+          Promise.resolve(callback).then(run)
+        }, frequency)
+      }
+    }
+
+    run()
+  }
+
+  const start = () => {
+    if (typeof callback !== 'function') {
+      throw TypeError('useTimer callback must be a function')
+    }
+
+    run()
+  }
 
   const stop = () => {
-    clearInterval(timer)
     clearTimeout(timer)
     timer = null
   }
 
-  const reset = () => {
-    stop()
-
-    value.value = 0
-  }
-
-  const runTimeout = () => {
-    if (timer) {
+  const handler = () => {
+    if (document.visibilityState === 'hidden') {
+      // 页面不可见时
       stop()
+    } else {
+      start()
     }
-
-    timer = setTimeout(() => {
-      value.value += step
-      runTimeout()
-    }, interval)
   }
 
-  const runInterval = () => {
-    timer = setInterval(() => {
-      value.value += step
-    }, interval)
+  onMounted(() => {
+    window.addEventListener('visibilitychange', handler)
+  })
+
+  onBeforeUnmount(() => {
+    window.removeEventListener('visibilitychange', handler)
+  })
+
+  return {
+    start,
+    stop,
   }
-
-  onUnmounted(stop)
-
-  // 通过返回值暴露所管理的状态
-  return { value, stop, reset, runTimeout, runInterval }
 }

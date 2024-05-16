@@ -11,9 +11,14 @@
         {{ dataset.name || '-' }}
       </div>
 
-      <a v-if="dataset.docUrl" class="doc" target="_blank" :href="dataset.docUrl">
-        <InfoCircleOutlined />
-      </a>
+      <a-tooltip v-if="dataset.description" :title="dataset.description">
+        <a
+          class="doc"
+          target="_blank"
+          :href="dataset.docUrl ? dataset.docUrl : null">
+          <InfoCircleOutlined />
+        </a>
+      </a-tooltip>
 
       <a-dropdown trigger="click" v-model:open="dropdownOpen">
         <EllipsisOutlined style="margin-left: auto" @click="dropdownOpen = true" />

@@ -23,18 +23,17 @@
       @querySuccess="onQuerySuccess" />
 
     <main class="main">
-      <a-spin :spinning="runLoading">
-        <keep-alive>
-          <RenderView
-            v-if="viewComponent === 'render'"
-            :dataset="dataset"
-            :choosed="choosed"
-            :compare="compare"
-            :options="options" />
+      <keep-alive>
+        <RenderView
+          v-if="viewComponent === 'render'"
+          :loading="runLoading"
+          :dataset="dataset"
+          :choosed="choosed"
+          :compare="compare"
+          :options="options" />
 
-          <HistoryView v-else @revert="onHistoryQuery" />
-        </keep-alive>
-      </a-spin>
+        <HistoryView v-else @revert="onHistoryQuery" />
+      </keep-alive>
     </main>
   </section>
 
@@ -49,9 +48,6 @@
   <!-- 同环比 -->
   <BasisRatioModal
     v-model:open="basisRatioModalOpen"
-    :target="
-      dimensions.find(t => t.name === compare.timeField || toContrastFiled(t))
-    "
     :dimensions="dimensions"
     :measures="indexes"
     :compare="compare"
@@ -120,6 +116,10 @@ const requestResponse = computed(() => indexRequestResponse.get())
 // 查询loading
 const runLoading = ref(false)
 const onRunLoading = running => {
+  // 查询时，清空上一次的结果
+  if (running) {
+    indexRequestResponse.set()
+  }
   runLoading.value = running
 }
 
@@ -148,10 +148,10 @@ const basisRatioModalOpen = ref(false)
 const onBasisRatio = () => {
   basisRatioModalOpen.value = true
 }
-const onBasisRatioOk = (target = {}, { type, measures = [], dimensions } = {}) => {
+const onBasisRatioOk = ({ timeField, type, measures = [], dimensions } = {}) => {
   const paylaod = {
     type,
-    timeField: target.name,
+    timeField,
     measures: measures,
     dimensions,
   }

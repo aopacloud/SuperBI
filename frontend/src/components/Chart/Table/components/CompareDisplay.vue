@@ -33,6 +33,9 @@ const props = defineProps({
     type: [Number, String],
     default: 0,
   },
+  dTarget: {
+    type: [Number, String],
+  },
   compare: {
     type: Object,
     default: () => ({
@@ -43,7 +46,10 @@ const props = defineProps({
 })
 
 const displayTarget = computed(() => {
-  return formatFieldDisplay(props.target, props.field, props.dataset.fields)
+  return (
+    props.dTarget ||
+    formatFieldDisplay(props.target, props.field, props.dataset.fields)
+  )
 })
 
 // 显示值

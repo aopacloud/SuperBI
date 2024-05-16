@@ -1,6 +1,6 @@
 ﻿<template>
   <section class="custom-picker-section">
-    <header class="header" v-if="!single">
+    <header class="header">
       <HeaderTabs
         :tabOnly="modeOnly"
         :value="modelValue"
@@ -10,11 +10,10 @@
       </HeaderTabs>
     </header>
 
-    <main class="main" :style="{ padding: single ? 0 : '' }">
+    <main class="main">
       <AsideQuick
-        v-if="!single"
         class="aside"
-        style="width: 165px"
+        :single="single"
         :options="options"
         :id="id"
         :showTime="showTime"
@@ -27,7 +26,6 @@
         class="content"
         :style="{
           paddingBottom: showTime && !single ? '40px' : '',
-          marginLeft: single ? 0 : '',
         }">
         <component
           ref="pickerRef"
@@ -44,27 +42,24 @@
       </div>
     </main>
 
-    <a-tooltip
-      v-if="single && showTime"
-      arrowPointAtCenter
-      placement="topLeft"
-      :title="utcOffsetTooltip">
-      <InfoCircleOutlined
-        style="position: absolute; bottom: 26px; left: 30px; font-size: 16px" />
-    </a-tooltip>
-
-    <footer v-else class="footer" :style="{ margin: single ? '12px 0 0' : '' }">
+    <footer
+      class="footer"
+      :style="{ margin: single && showTime ? '-12px 10px 0px' : '' }">
       <div class="left flex-inline">
         <a-tooltip arrowPointAtCenter placement="topLeft" :title="utcOffsetTooltip">
-          <InfoCircleOutlined style="margin-right: 16px; font-size: 16px" />
+          <InfoCircleOutlined
+            style="position: relative; font-size: 16px"
+            :style="{ top: single && showTime ? '-10px' : '' }" />
         </a-tooltip>
-        <div :id="`pick-custom-placeholder-${id}`"></div>
+        <div
+          v-if="!single"
+          :id="`pick-custom-placeholder-${id}`"
+          style="margin-left: 16px"></div>
       </div>
-      <a-space>
-        <a-button :size="single ? 'small' : ''" @click="onCancel">取消</a-button>
-        <a-button :size="single ? 'small' : ''" type="primary" @click="ok">
-          确定
-        </a-button>
+
+      <a-space v-if="!single || !showTime">
+        <a-button @click="onCancel">取消</a-button>
+        <a-button type="primary" @click="ok">确定</a-button>
       </a-space>
     </footer>
   </section>
@@ -173,7 +168,7 @@ const getOffsets = (dates = []) => {
 
 // 根据偏移量获取默认日期
 const getByOffset = (offsets = []) => {
-  const [s = 0, e = 0] = offsets
+  const [s = 1, e = 1] = offsets // 默认昨天
   const start = getUtcDate(currentUtc.value)
     .endOf('day')
     .subtract(s, 'day')
@@ -235,7 +230,9 @@ const init = () => {
       } else {
         extraValue.value.current = undefined
         if (Array.isArray(offset)) {
-          modelValue.value = getByOffset(offset)
+          modelValue.value = getByOffset(
+            offset.length === 1 ? [offset[0], offset[0]] : [...offset]
+          )
         } else {
           // 默认昨天
           const yDay = dayjs().subtract(1, 'day')
@@ -339,8 +336,6 @@ const onPresetClick = item => {
   }
 }
 
-const validateItem = t => !!t
-
 // 描述文字
 const desc = computed(() => {
   if (extraValue.value.dt) return '有数的一天'
@@ -349,26 +344,45 @@ const desc = computed(() => {
 
   const [start, end] = modelValue.value
   const [sTime = '', eTime = ''] = hmsValue.value
-  if (!start || !end) return props.placeholder
 
-  const startLabel = start + (props.showTime && !!sTime ? ' ' + sTime : '')
-  const endLabel = end + (props.showTime && !!eTime ? ' ' + eTime : '')
+  if (!start) {
+    return props.placeholder
+  } else {
+    const startLabel = start + (props.showTime && !!sTime ? ' ' + sTime : '')
 
-  return startLabel + ' ~ ' + endLabel
+    if (props.single) {
+      return startLabel
+    } else {
+      if (!end) return props.placeholder
+
+      const endLabel = end + (props.showTime && !!eTime ? ' ' + eTime : '')
+      return startLabel + ' ~ ' + endLabel
+    }
+  }
 })
 
 const ok = () => {
+  const offsets = getOffsets(modelValue.value)
+  const values = [...modelValue.value]
+  const moda = +!!extraValue.value.until || modeKey.value
+
+  offsetValue.value = offsets
+
   if (props.single) {
     const value = modelValue.value.length ? [modelValue.value[0]] : undefined
+    const offset = offsets.length ? [offsets[0]] : undefined
     const hms = [...hmsValue.value]
 
-    emits('update:moda', 1)
+    emits('update:moda', moda)
+    emits('update:offset', offset)
     emits('update:value', value)
     emits('update:hms', hms)
+    emits('update:extra', extraValue.value)
 
     emits('ok', {
-      moda: 1,
+      moda: modeKey.value,
       value: value,
+      offset: offset,
       hms: hms,
       extra: {
         ...extraValue.value,
@@ -381,8 +395,6 @@ const ok = () => {
     return
   }
 
-  const offsets = getOffsets(modelValue.value)
-  const values = [...modelValue.value]
   // 自某日至昨日、今, [静态时间，动态时间] => ['2024-03-19', 0]
   if (!!extraValue.value.until) {
     const endOffset = extraValue.value.until.split('_')[1]
@@ -391,9 +403,7 @@ const ok = () => {
     offsets[0] = values[0]
   }
 
-  offsetValue.value = offsets
-
-  emits('update:moda', +!!extraValue.value.until || modeKey.value)
+  emits('update:moda', moda)
   emits('update:offset', offsets)
   emits('update:value', values)
   emits('update:hms', hmsValue.value)
@@ -440,7 +450,7 @@ const onCancel = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin: 16px 10px 12px;
+  margin: 12px 10px 0;
 }
 </style>
 

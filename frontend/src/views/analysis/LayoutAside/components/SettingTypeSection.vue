@@ -34,8 +34,10 @@ const chartListMap = shallowReactive(chartTypeMap)
 // 当前类型
 const cType = ref('table')
 const handleClick = type => {
+  if (cType.value !== type) {
+    emits('change', type)
+  }
   cType.value = type
-  emits('change', type)
 }
 // 监听 props 中的 type 变化
 watchEffect(() => {
@@ -49,12 +51,6 @@ watch(cType, t => {
 <style lang="scss" scoped>
 $item-size: 32px;
 
-.chart-list {
-  display: flex;
-  flex-wrap: wrap;
-  margin: 0;
-}
-
 .chart-item {
   display: inline-flex;
   width: $item-size;
@@ -64,14 +60,13 @@ $item-size: 32px;
   margin: 6px;
   border-radius: 4px;
   text-align: center;
-  font-size: 18px;
+  font-size: 24px;
   cursor: pointer;
   transition: all 0.2s;
 
   &.active {
     background-color: #1677ff;
     font-weight: 600;
-    color: #fff;
   }
 }
 </style>

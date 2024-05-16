@@ -2,14 +2,15 @@
   <VirtualList
     class="pane-list"
     :class="{ single: !multiple }"
+    :virtual="virtual"
     :data-source="dataSource"
     :item-height="25">
-    <template #item="{ item, index, $index }">
+    <template #default="{ item, index, $index }">
       <div
         class="pane-item"
         :class="{ active: isItemActive(item), disabled: item.disabled }"
         @click="itemClick(item)">
-        <slot name="item" v-bind="{ item, index, $index }">
+        <slot v-bind="{ item, index, $index, dataSource }">
           <div class="pane-item-content" style="padding: 0 12px">
             <a-checkbox
               v-if="multiple"
@@ -17,8 +18,11 @@
               :disabled="item.disabled"
               :checked="isItemActive(item)"
               @click.prevent />
+
             <div class="pane-item-label">
-              {{ item[labelField] }}
+              <slot name="itemLabel" v-bind="{ item, index, $index, dataSource }">
+                {{ item[labelField] }}
+              </slot>
             </div>
           </div>
         </slot>
@@ -30,6 +34,10 @@
 <script setup>
 import { ref, watch } from 'vue'
 import VirtualList from 'common/components/VirtualList/index.vue'
+
+defineOptions({
+  name: 'ExtendSelectPaneList',
+})
 
 const emits = defineEmits(['update:value'])
 const props = defineProps({
@@ -55,6 +63,10 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  virtual: {
+    type: Boolean,
+    default: undefined,
+  },
 })
 
 const modelValue = ref()
@@ -64,7 +76,11 @@ watch(
   value => {
     if (props.multiple) {
       modelValue.value =
-        typeof value === 'undefined' ? [] : Array.isArray(value) ? [...value] : [value]
+        typeof value === 'undefined'
+          ? []
+          : Array.isArray(value)
+          ? [...value]
+          : [value]
     } else {
       modelValue.value = Array.isArray(value) ? value[0] : value
     }

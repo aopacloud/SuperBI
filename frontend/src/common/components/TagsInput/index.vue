@@ -20,7 +20,7 @@
         v-model:value="inputVal"
         @keydown="onKeydown"
         @focus="emits('focus')"
-        @blur="emits('blur')" />
+        @blur="onBlur" />
 
       <CloseCircleOutlined v-if="tags.length" class="close-icon" @click="reset" />
     </div>
@@ -72,6 +72,14 @@ const props = defineProps({
 const inputRef = ref(null)
 const tags = ref([])
 const inputVal = ref()
+const onBlur = e => {
+  const value = e.target.value.trim()
+  if (!tags.value.length && value.length) {
+    tags.value = [value]
+  }
+
+  emits('blur')
+}
 
 const reset = () => {
   tags.value = []

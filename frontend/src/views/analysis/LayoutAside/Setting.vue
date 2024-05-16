@@ -38,6 +38,7 @@ import SettingTypeSection from './components/SettingTypeSection.vue'
 import SettingTableSection from './components/SettingTableSection.vue'
 import SettingChartSection from './components/SettingChartSection.vue'
 import { isRenderTable } from '../utils'
+import { CATEGORY } from '@/CONST.dict'
 
 const emits = defineEmits(['update:options'])
 const props = defineProps({
@@ -48,7 +49,7 @@ const props = defineProps({
   hasDatasetAnalysis: Boolean,
 })
 
-const { autoRun, requestResponse } = inject('index')
+const { choosed: indexChoosed, autoRun, requestResponse } = inject('index')
 
 // 设置侧边栏显示
 const settingOpen = ref(true)
@@ -65,14 +66,8 @@ const request = computed(() => requestResponse.get('request'))
 // 查询结果
 const response = computed(() => requestResponse.get('response'))
 
-const onRenderTypeChange = e => {
-  props.options.renderType = e
-  if (e === 'bar' || e === 'line') {
-    ;(props.options.chart.axis || []).forEach(item => {
-      item.chartType = e
-    })
-  }
-
+// 汇总处理
+const summaryHandler = e => {
   // 上一次查询结果未请求成功
   if (response.value.status !== 'SUCCESS') return
 
@@ -81,20 +76,46 @@ const onRenderTypeChange = e => {
   // 当前配置是否显示汇总行
   const currentIsSummary = props.options.table.showSummary
 
+  if (e === 'table') {
+    // 普通表格的不显示汇总行，不重新查询
+    if (!currentIsSummary) return
+    // 上一次查询了汇总
+    if (prevRequestIsSummery) return
+
+    autoRun()
+  } else {
+    if (prevRequestIsSummery) return
+
+    autoRun()
+  }
+}
+
+// 更新维度
+const updateDimensions = e => {
+  const list = indexChoosed.get(CATEGORY.PROPERTY)
+
+  indexChoosed.set(
+    CATEGORY.PROPERTY,
+    list.map(t => (delete t._group, t))
+  )
+}
+
+const onRenderTypeChange = e => {
   if (isRenderTable(e)) {
-    if (e === 'table') {
-      // 普通表格的不显示汇总行，不重新查询
-      if (!currentIsSummary) return
-      // 上一次查询了汇总
-      if (prevRequestIsSummery) return
-
-      autoRun()
-    } else {
-      if (prevRequestIsSummery) return
-
+    updateDimensions(e)
+    summaryHandler(e)
+    if (props.options.renderType === 'intersectionTable') {
       autoRun()
     }
+  } else {
+    if (e === 'bar' || e === 'line') {
+      ;(props.options.chart.axis || []).forEach(item => {
+        item.chartType = e
+      })
+    }
   }
+
+  props.options.renderType = e
 }
 </script>
 

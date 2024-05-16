@@ -1,5 +1,9 @@
 ﻿import { transformFieldsByVs } from './index.js'
-import { transformFieldToColumn, updateColumnsWithCompare } from '../Table/utils.js'
+import {
+  transformFieldToColumn,
+  updateColumnsWithCompare,
+  transformWithQuickIndex,
+} from '../Table/utils.js'
 
 export default function createTableData({
   originFields = [],
@@ -11,7 +15,9 @@ export default function createTableData({
   // 处理对比字段
   const fields = transformFieldsByVs({ fields: originFields, compare })
 
-  let columns = fields.map(transformFieldToColumn)
+  let columns = fields
+    .map(transformWithQuickIndex)
+    .map((field, index) => transformFieldToColumn({ field, index }))
 
   const list = originData.map(arr => {
     return arr.reduce((acc, pre, i) => {

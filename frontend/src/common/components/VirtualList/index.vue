@@ -14,10 +14,9 @@
           :data-origin-index="startIndex + index"
           :style="{ height: itemHeight + 'px', lineHeight: itemHeight + 'px' }">
           <slot
-            name="item"
-            v-bind="{ list, item: toRaw(item), index, $index: startIndex + index }"
-            >{{ item }}</slot
-          >
+            v-bind="{ list, item: toRaw(item), index, $index: startIndex + index }">
+            {{ item }}
+          </slot>
         </div>
       </div>
     </div>
@@ -28,6 +27,7 @@
 import { ref, computed, toRaw, onMounted } from 'vue'
 
 defineOptions({
+  name: 'VirtualList',
   inheritAttrs: false,
 })
 
@@ -49,6 +49,10 @@ const props = defineProps({
     type: Number,
     default: 20,
   },
+  virtual: {
+    type: Boolean,
+    default: true,
+  },
 })
 
 // 显示起始索引
@@ -59,6 +63,8 @@ const endIndex = ref(0)
 const keepBuffer = ref(0)
 
 const list = computed(() => {
+  if (!props.virtual) return [...props.dataSource]
+
   return props.dataSource.slice(
     startIndex.value,
     endIndex.value || props.keep + keepBuffer.value
@@ -82,6 +88,7 @@ const rootRef = ref(null)
 const init = () => {
   reset()
 
+  if (!props.virtual) return
   while (
     props.dataSource.length > list.value.length &&
     list.value.length * props.itemHeight < rootRef.value.clientHeight
@@ -91,6 +98,8 @@ const init = () => {
 }
 
 const onScroll = e => {
+  if (!props.virtual) return
+
   const curentItem = e.target.scrollTop / props.itemHeight
 
   startIndex.value = Math.floor(curentItem)

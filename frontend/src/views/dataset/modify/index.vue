@@ -4,7 +4,12 @@
       <header class="header flex justify-between align-center">
         <div class="header-left flex-inline align-center">
           <a-button type="text" @click="toBack"><LeftOutlined /></a-button>
-          {{ detail.name }}
+          <span>
+            {{ detail.name }}
+            <a-tooltip v-if="detail.description" :title="detail.description">
+              <InfoCircleOutlined />
+            </a-tooltip>
+          </span>
           <a-button
             size="small"
             type="text"
@@ -102,7 +107,11 @@
 import { computed, h, nextTick, onBeforeMount, ref, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { LeftOutlined, EditOutlined } from '@ant-design/icons-vue'
+import {
+  LeftOutlined,
+  EditOutlined,
+  InfoCircleOutlined,
+} from '@ant-design/icons-vue'
 import useAppStore from '@/store/modules/app'
 import useUserStore from '@/store/modules/user'
 import Aside from './components/Aside.vue'
@@ -118,6 +127,7 @@ import {
   putDataset,
   postPublishById,
 } from '@/apis/dataset'
+import { moveDirectory } from '@/apis/directory'
 
 const route = useRoute()
 const router = useRouter()
@@ -154,7 +164,7 @@ const hasManagePermission = computed(() => {
   }
 })
 
-const workspaceId = computed(() => appStore.workspaceId)
+const workspaceId = computed(() => detail.value.workspaceId || appStore.workspaceId)
 
 const toBack = () => {
   router.replace({ name: 'DatasetList' })
@@ -179,6 +189,10 @@ const fetchDetail = async id => {
     loading.value = true
 
     const res = await getLastVersionById(id)
+
+    if (res.workspaceId && res.workspaceId !== workspaceId.value) {
+      await appStore.setWorkspaceId(res.workspaceId, true)
+    }
 
     detailSuccess.value = true
 
@@ -245,6 +259,22 @@ const _transformFieldsPayload = (fields = []) => {
 const partitionTabRef = ref(null)
 const queryTabRef = ref(null)
 
+const move = dId => {
+  try {
+    const payload = {
+      position: 'DATASET',
+      type: 'ALL',
+      workspaceId: workspaceId.value,
+      targetId: dId,
+      folderId: detail.value.folderId,
+    }
+
+    return moveDirectory(payload)
+  } catch (error) {
+    console.error('更新文件夹位置失败', error)
+  }
+}
+
 // 保存
 const save = async () => {
   try {
@@ -280,7 +310,9 @@ const save = async () => {
       : () => postDataset(payload)
     const res = await fn()
 
-    message.success('保存成功')
+    if (detail.value.folderId !== res.folder.id) {
+      move(res.id)
+    }
 
     detail.value = {
       ...res,
@@ -289,6 +321,7 @@ const save = async () => {
           ? JSON.parse(res.extraConfig)
           : undefined,
     }
+    message.success('保存成功')
 
     return res.id
   } catch (error) {

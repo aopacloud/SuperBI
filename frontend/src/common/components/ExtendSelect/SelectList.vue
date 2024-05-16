@@ -6,10 +6,14 @@
       <PaneList
         v-bind="$attrs"
         :value="value"
-        @update:value="updateValue"
-        :data-source="dataSource">
-        <template #item="scopedData" v-if="$slots.item">
-          <slot name="item" v-bind="scopedData"> </slot>
+        :data-source="dataSource"
+        @update:value="updateValue">
+        <template #default="scopedData" v-if="$slots.item">
+          <slot name="item" v-bind="scopedData" />
+        </template>
+
+        <template #itemLabel="scopedData" v-if="$slots.itemLabel">
+          <slot name="itemLabel" v-bind="scopedData" />
         </template>
       </PaneList>
 

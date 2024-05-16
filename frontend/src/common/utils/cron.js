@@ -24,6 +24,10 @@ export const getCron = ({ frequency, hour, minute, week, month, datetime } = {})
     const days = month.join(',')
 
     return `0 ${minute} ${hour} ${days} * ?`
+  } else if (frequency === 'hourly') {
+    const hours = hour.join(',')
+
+    return `0 ${minute} ${hours} * * ?`
   } else {
     const [[year, month, day], [hour, minute]] = datetime
       .split(' ')
@@ -45,15 +49,17 @@ export const getCron = ({ frequency, hour, minute, week, month, datetime } = {})
  * @returns {string}
  */
 export const getNext = (
-  { frequency, onceValue, dailyValue, weeklyValue, monthlyValue } = {},
+  {
+    frequency,
+    onceValue,
+    minutelyValue,
+    hourlyValue,
+    dailyValue,
+    weeklyValue,
+    monthlyValue,
+  } = {},
   format = 'YYYY-MM-DD HH:mm'
 ) => {
-  // 当前时间
-  const now = dayjs()
-  const year = now.year(), // 年
-    month = now.month(), // 月
-    date = now.date() // 日
-
   // 仅一次时
   if (frequency === 'once') {
     return onceValue ? onceValue.format(format) : ' - '
@@ -63,38 +69,59 @@ export const getNext = (
     }
   }
 
+  // 当前时间
+  const now = dayjs()
+  const year = now.year(), // 年
+    month = now.month(), // 月
+    date = now.date() // 日
+
   // 下一次推送的时分（需要用来计算是不是今天）
   let [nextHour, nextMinute] = dailyValue
     .format('HH:mm')
     .split(':')
     .map(n => +n) // 转化为数字
 
-  // 下一次推送的年月日
-  let nextYear = year, // 下次推送年
-    nextMonth = month, // 下次推送月
-    nextDate = date // 下次推送日
-
-  let time = ''
+  let time = ' - '
 
   // 下次推送的日期
   let nextPush = dayjs()
-    .year(nextYear)
-    .month(nextMonth)
-    .date(nextDate)
+    .year(year)
+    .month(month)
+    .date(date)
     .hour(nextHour)
     .minute(nextMinute)
 
   // 判断是否需要下一个周期
   const shouldNext = () => nextPush.isBefore(now)
 
-  if (frequency === 'daily') {
+  if (frequency === 'hourly') {
+    if (!hourlyValue?.length) return time
+
+    nextPush = now.minute(minutelyValue)
+
+    const hour = now.hour()
+    const hours = [...hourlyValue].sort((a, b) => a - b)
+    const nextHour = hours.find(h => {
+      if (shouldNext()) {
+        return h > hour
+      } else {
+        return h >= hour
+      }
+    })
+
+    nextPush = nextPush.hour(nextHour || hours[0])
+
+    if (shouldNext()) {
+      nextPush = nextPush.date(nextPush.date() + 1)
+    }
+  } else if (frequency === 'daily') {
     if (shouldNext()) {
       const d = nextPush.date()
       nextPush = nextPush.date(d + 1)
     }
   } else {
     if (!monthlyValue.length && !weeklyValue.length) {
-      return ' - '
+      return time
     }
 
     if (frequency === 'monthly') {

@@ -28,6 +28,11 @@ export const categoryMap = {
     color: '#1677ff',
     icon: '',
   },
+  [CATEGORY.PROPERTY_COLUMN]: {
+    name: '维度',
+    color: '#1677ff',
+    icon: '',
+  },
   [CATEGORY.INDEX]: {
     name: '指标',
     color: '#24ba88',
@@ -46,6 +51,37 @@ export const SUMMARY_PROPERTY_DEFAULT = 'COUNT'
 export const SUMMARY_INDEX_DEFAULT = 'SUM'
 // 默认汇总方式
 export const SUMMARY_DEFAULT = 'EMPTY'
+
+// 分位数的前缀
+export const QUANTILE_PREFIX = 'QUANTILE_'
+
+// 分位数
+export const quantileOptions = [
+  { label: '99分位数', value: QUANTILE_PREFIX + '99' },
+  { label: '95分位数', value: QUANTILE_PREFIX + '95' },
+  { label: '90分位数', value: QUANTILE_PREFIX + '90' },
+  { label: '85分位数', value: QUANTILE_PREFIX + '85' },
+  { label: '75分位数', value: QUANTILE_PREFIX + '75' },
+  { label: '50分位数', value: QUANTILE_PREFIX + '50' },
+  { label: '25分位数', value: QUANTILE_PREFIX + '25' },
+  { label: '5分位数', value: QUANTILE_PREFIX + '5' },
+  { label: '自定义', value: QUANTILE_PREFIX },
+]
+
+// 快速计算
+export const quickCalculateOptions = [
+  { label: '占比', value: 'ratio' },
+  { label: '组内占比', value: 'ratio_group' },
+  { label: '排名', value: 'rank' },
+  { label: '组内排名', value: 'rank_group' },
+  // { label: '累计值', value: 'total', tooltip: '只有时间类型的分组可被累计' },
+  // {
+  //   label: '组内累计值',
+  //   value: 'total_group',
+  //   tooltip: '只有时间类型的分组可被累计',
+  // },
+  { label: '无', value: undefined },
+]
 
 // 汇总方式
 export const summaryOptions = [
@@ -126,6 +162,11 @@ export const operatorMap = {
   },
 }
 
+// 日期类型时分秒
+export const YYYYMMDD_HHMMSS = 'TIME_YYYYMMDD_HHMMSS'
+
+export const isTime_HHMMSS = dateType => dateType === YYYYMMDD_HHMMSS
+
 // 数据类型
 export const dataTypeOptions = [
   { label: '文本', value: 'TEXT', icon: 'icon-text', color: '#84bedb' },
@@ -138,7 +179,10 @@ export const dataTypeOptions = [
     children: [
       { label: '默认', value: '' },
       { label: 'YY-MM-DD', value: 'YYYYMMDD' },
-      { label: 'YY-MM-DD HH:MM:SS', value: 'YYYYMMDD_HHMMSS' },
+      {
+        label: 'YY-MM-DD HH:MM:SS',
+        value: YYYYMMDD_HHMMSS.split('_').slice(1).join('_'),
+      },
     ],
   },
 ]
@@ -228,44 +272,5 @@ export const formatterByCustom = (num, config) => {
     return numberUtils.toDigit(num, digit, thousand)
   } else {
     return numberUtils.toPercent(num, digit, thousand)
-  }
-}
-
-// 显示自定义格式文本
-export const displayCustomFormatterLabel = e => {
-  if (e === undefined) return '自定义'
-
-  const _e = typeof e === 'object' ? e : JSON.parse(e)
-  const { type, digit } = _e
-  const typeStr = type === 0 ? '数字' : '百分比'
-
-  return `${typeStr}保留${digit}位小数`
-}
-
-/**
- * 获取字段的格式icon
- * @param {string} type
- * @returns
- */
-export const getFieldTypeIcon = type => {
-  const tp = Array.isArray(type) ? type[0] : type
-  const item = dataTypeOptions.find(t => t.value === tp)
-
-  if (!item) {
-    if (tp && tp.startsWith('TIME')) {
-      const res = dataTypeOptions.find(t => t.value === 'TIME')
-
-      return {
-        icon: res.icon,
-        color: res.color,
-      }
-    } else {
-      return {}
-    }
-  } else {
-    return {
-      icon: item.icon,
-      color: item.color,
-    }
   }
 }

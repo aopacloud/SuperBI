@@ -2,6 +2,7 @@
   <div
     ref="tagRef"
     :class="['tag', hasColor && 'has-color']"
+    :data-id="tag._id"
     :data-color="color"
     :style="style">
     <div v-if="!showPopover" class="tag-name">
@@ -11,11 +12,8 @@
     <template v-else>
       <a-dropdown
         trigger="click"
-        :overlayStyle="{
-          width: category === CATEGORY.FILTER ? '' : '140px',
-          minWidth: 'initial',
-        }"
-        :overlayClassName="category === CATEGORY.FILTER ? 'filter-dropdown' : ''"
+        :overlayStyle="dropdownOverlayStyle"
+        :overlayClassName="category + '-dropdown'"
         v-model:open="open">
         <div class="tag-dropdown--trigger" :class="{ open: open }">
           <div class="tag-name">
@@ -23,13 +21,16 @@
           </div>
 
           <div class="tag-extra">
+            <span v-if="category === CATEGORY.PROPERTY">
+              {{ displayPropertyDateGroup(tag) }}
+            </span>
             <span
-              v-if="category === CATEGORY.INDEX"
+              v-else-if="category === CATEGORY.INDEX"
               :title="displayIndexAggregator(tag)">
               {{ displayIndexAggregator(tag) }}
             </span>
             <span
-              v-if="category === CATEGORY.FILTER"
+              v-else-if="category === CATEGORY.FILTER"
               :title="displayFilter(tag, { timeOffset })">
               {{ displayFilter(tag, { timeOffset }) }}
             </span>
@@ -81,12 +82,15 @@ import {
   SUMMARY_PROPERTY_DEFAULT,
   SUMMARY_INDEX_DEFAULT,
   operatorMap,
+  QUANTILE_PREFIX,
 } from '@/views/dataset/config.field'
+import { isDateField } from '@/views/dataset/utils'
 import {
-  displayDateFormat,
-  getStartDateStr,
-  getEndDateStr,
-} from 'common/components/DatePickers/utils'
+  dateGroupOptions,
+  dateGroupOptions_HHMMSS,
+  GROUP_MINUTE,
+} from '@/views/analysis/config'
+import { getStartDateStr, getEndDateStr } from 'common/components/DatePickers/utils'
 import dayjs from 'dayjs'
 
 const props = defineProps({
@@ -115,6 +119,19 @@ const style = computed(() => {
     backgroundColor: props.color,
   }
 })
+
+const dropdownOverlayStyle = computed(() => {
+  const c = props.category
+  const isP = c === CATEGORY.PROPERTY
+  const isI = c === CATEGORY.INDEX
+  const isF = c === CATEGORY.FILTER
+
+  return {
+    width: isP ? '140px' : isI ? '170px' : '',
+    minWidth: 'initial',
+  }
+})
+
 const showPopover = computed(() => {
   return (
     (props.category === CATEGORY.PROPERTY && props.tag.dataType?.includes('TIME')) ||
@@ -238,7 +255,7 @@ onMounted(() => {
 const getSummaryOptions = (category, dataType) => {
   let result = []
   if (category === CATEGORY.INDEX) {
-    result = summaryOptions
+    result = summaryOptions.concat({ label: '分位数', value: QUANTILE_PREFIX })
   } else {
     const isTextOrTime = dataType === 'TEXT' || dataType.includes('TIME')
     const isNumber = dataType === 'NUMBER'
@@ -254,15 +271,37 @@ const getSummaryOptions = (category, dataType) => {
   return result
 }
 
+// 显示日期分组
+const displayPropertyDateGroup = field => {
+  if (!isDateField(field)) return
+
+  let { dateTrunc } = field
+  if (!dateTrunc) return
+
+  if (dateTrunc.includes(GROUP_MINUTE)) dateTrunc = GROUP_MINUTE
+
+  const dateGroups = [...dateGroupOptions, ...dateGroupOptions_HHMMSS]
+  const opt = dateGroups.find(t => t.value === dateTrunc)
+  return opt?.label
+}
+
 // 聚合显示文本
 const displayIndexAggregator = field => {
   const { category, dataType, aggregator } = field
   if (!aggregator) return
 
   const options = getSummaryOptions(category, dataType)
-  const item = options.find(t => t.value === aggregator)
+  const item = options.find(t => {
+    if (t.value === aggregator) return true
 
-  return item?.label
+    if (aggregator.startsWith(QUANTILE_PREFIX)) return t.value === QUANTILE_PREFIX
+
+    return false
+  })
+  if (!item) return aggregator
+
+  const [_, number] = aggregator.split(item.value)
+  return number + item.label
 }
 
 // 所有的操作符
@@ -358,5 +397,13 @@ const open = ref(false)
   cursor: pointer;
   opacity: 0;
   transition: all 0.2s;
+}
+</style>
+
+<style lang="scss">
+.MEASURE-dropdown {
+  .ant-dropdown-menu-submenu-selected .ant-dropdown-menu-submenu-title {
+    color: inherit !important;
+  }
 }
 </style>

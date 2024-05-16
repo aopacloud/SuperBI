@@ -9,7 +9,7 @@
       </span>
     </div>
     <div class="list" :style="listStyle">
-      <div class="item" v-for="(item, index) in list">
+      <div class="item" v-for="(item, index) in list" :key="index">
         <Row
           v-if="item.children && item.children.length"
           :level="level + 1"
@@ -48,7 +48,7 @@
 <script setup>
 import { ref, computed, watch, watchEffect, nextTick, inject } from 'vue'
 import RowItem from './RowItem.vue'
-import { getRandomKey } from 'common/utils/help'
+import { getRandomKey } from 'common/utils/string'
 import { RELATION } from '@/CONST.dict'
 
 const getRowItem = () => {
