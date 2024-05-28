@@ -691,9 +691,9 @@ INSERT INTO bdp_super_bi.bi_sys_menu (name,name_en,parent_id,app_path,sort,icon,
      ('数据源','Datasource',0,'/super-bi',4,NULL,'/datasource',0,NULL,'','2023-12-05 16:23:05','','2023-12-20 17:15:32'),
      ('空间管理','workspace',0,'/super-bi',5,NULL,'/system/workspace',1,NULL,'','2023-12-05 16:16:16','','2023-12-20 17:15:26'),
      ('授权中心','Authorize Center',0,'/super-bi',6,NULL,'/authority',1,NULL,'','2023-12-05 16:17:11','','2023-12-20 17:15:30'),
-     ('我的申请','Apply',5,'/super-bi',1,NULL,'/authority/apply',1,NULL,'','2023-12-05 16:21:34','','2023-12-20 17:15:31'),
-     ('我的审批','Approve',5,'/super-bi',2,NULL,'/authority/approve',1,NULL,'','2023-12-05 16:22:30','','2023-12-20 17:15:32'),
-     ('申请管理','Manage',5,'/super-bi',3,NULL,'/authority/manage',1,NULL,'','2023-12-05 16:23:05','','2023-12-20 17:15:32');
+     ('我的申请','Apply',6,'/super-bi',1,NULL,'/authority/apply',1,NULL,'','2023-12-05 16:21:34','','2023-12-20 17:15:31'),
+     ('我的审批','Approve',6,'/super-bi',2,NULL,'/authority/approve',1,NULL,'','2023-12-05 16:22:30','','2023-12-20 17:15:32'),
+     ('申请管理','Manage',6,'/super-bi',3,NULL,'/authority/manage',1,NULL,'','2023-12-05 16:23:05','','2023-12-20 17:15:32');
 
 INSERT INTO bi_sys_admin(username) VALUES ('Admin');
 
