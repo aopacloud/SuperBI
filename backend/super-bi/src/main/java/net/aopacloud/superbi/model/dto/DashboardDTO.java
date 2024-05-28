@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import net.aopacloud.superbi.enums.PermissionEnum;
 import net.aopacloud.superbi.enums.StatusEnum;
+import net.aopacloud.superbi.enums.Visibility;
 
 import java.util.Date;
 import java.util.List;
@@ -39,7 +40,11 @@ public class DashboardDTO {
 
     private Integer lastEditVersion;
 
+    private Integer refreshIntervalSeconds;
+
     private Integer deleted;
+
+    private Visibility visibility;
 
     private Date createTime;
 

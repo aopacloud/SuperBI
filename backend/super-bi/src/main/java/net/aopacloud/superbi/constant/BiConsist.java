@@ -25,6 +25,7 @@ public class BiConsist {
     public static final DateTimeFormatter YYYY_MM_DD_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     public static final DateTimeFormatter YYYY_MM_DD_HH_MM_SS_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    public static final DateTimeFormatter HH_MM_SS_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     public static final int QUERY_THREAD_NUM = 20;
 
@@ -64,6 +65,8 @@ public class BiConsist {
     public final static String DEFAULT_PARTITION_NAME = "dt";
 
     public final static Integer DEFAULT_PAGE_NUM = 1;
+
+    public final static String TIME_START_OF_DAY = "00:00:00";
 
     public final static Integer DEFAULT_PAGE_SIZE = 10;
 

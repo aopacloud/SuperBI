@@ -2,7 +2,6 @@ package net.aopacloud.superbi.model.vo;
 
 import lombok.Data;
 import net.aopacloud.superbi.enums.*;
-import net.aopacloud.superbi.queryEngine.enums.AggregatorEnum;
 
 import java.util.Date;
 
@@ -32,7 +31,7 @@ public class DatasetFieldVO {
 
     private String sourceFieldName;
 
-    private AggregatorEnum aggregator;
+    private String aggregator;
 
     private DataTypeEnum dataType;
 
@@ -48,7 +47,7 @@ public class DatasetFieldVO {
 
     private String description;
 
-    private FieldStatusEnum status;
+    private FieldStatusEnum status = FieldStatusEnum.VIEW;
 
     private Integer sort;
 

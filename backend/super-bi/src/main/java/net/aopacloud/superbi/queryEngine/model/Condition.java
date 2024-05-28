@@ -1,6 +1,7 @@
 package net.aopacloud.superbi.queryEngine.model;
 
 import lombok.Data;
+import lombok.experimental.Accessors;
 import net.aopacloud.superbi.queryEngine.enums.TimeTypeEnum;
 import net.aopacloud.superbi.queryEngine.sql.operator.FunctionalOperatorEnum;
 
@@ -12,6 +13,7 @@ import java.util.List;
  * @description:
  */
 @Data
+@Accessors(chain = true)
 public class Condition {
 
     private FunctionalOperatorEnum functionalOperator;

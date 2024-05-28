@@ -9,10 +9,7 @@ import net.aopacloud.superbi.queryEngine.model.RatioMeasure;
 import net.aopacloud.superbi.queryEngine.model.RatioPart;
 import net.aopacloud.superbi.queryEngine.sql.Segment;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -109,18 +106,25 @@ public class RatioQueryAnalysisModel implements AnalysisModel {
 
         Segment joinOnSegment = part.getJoinOnSegment();
 
-        List<Segment> ratioDimension = dimensions.stream().map(dim -> dim.getName().equals(joinOnSegment.getName()) ? joinOnSegment : dim).collect(Collectors.toList());
+        Set<String> ratioDimSet = ratioDimensions.stream().map(Segment::getName).collect(Collectors.toSet());
+
+        List<Segment> ratioDimension = dimensions.stream().map(dim -> dim.getName().equals(joinOnSegment.getName()) ? joinOnSegment : dim)
+                .filter(dim -> ratioDimSet.contains(dim.getName()))
+                .collect(Collectors.toList());
 
         Map<String, Segment> measureMap = measures.stream().collect(Collectors.toMap(m -> m.getAlias(), m -> m));
         List<Segment> ratioSegments = part.getRatioMeasures().stream().map(ratioMeasure -> measureMap.get(ratioMeasure.getId())).filter(segment -> !Objects.isNull(segment)).collect(Collectors.toList());
 
-        Segment ratioTimeRange = part.getTimeRange();
+        List<Segment> ratioTimeRanges = part.getTimeRanges();
+
+        Set<String> ratioTimeFieldSet = ratioTimeRanges.stream().map(Segment::getName).collect(Collectors.toSet());
+
         List<Segment> ratioWhere = where.stream()
-                .filter(item -> Objects.isNull(ratioTimeRange) || !ratioTimeRange.getName().equals(item.getName()))
+                .filter(item -> !ratioTimeFieldSet.contains(item.getName()))
                 .collect(Collectors.toList());
 
-        if (Objects.nonNull(ratioTimeRange)) {
-            ratioWhere.add(ratioTimeRange);
+        if (Objects.nonNull(ratioTimeRanges) && !ratioTimeRanges.isEmpty()) {
+            ratioWhere.addAll(ratioTimeRanges);
         }
 
         QueryAnalysisModel ratioSubQuery = new QueryAnalysisModel()

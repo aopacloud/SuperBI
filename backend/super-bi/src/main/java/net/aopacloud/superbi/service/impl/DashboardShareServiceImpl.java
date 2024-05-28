@@ -1,6 +1,7 @@
 package net.aopacloud.superbi.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import net.aopacloud.superbi.cache.AuthorizeThreadLocalCache;
 import net.aopacloud.superbi.common.core.context.LoginContextHolder;
 import net.aopacloud.superbi.enums.AuthorizeScopeEnum;
@@ -36,6 +37,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DashboardShareServiceImpl implements DashboardShareService {
 
     private final DashboardShareMapper dashboardShareMapper;
@@ -212,6 +214,12 @@ public class DashboardShareServiceImpl implements DashboardShareService {
     @Override
     public List<DashboardShareDTO> search(DashboardShareBatchQuery query) {
        return dashboardShareMapper.search(query);
+    }
+
+    @Override
+    public void deleteByUsername(String username) {
+        log.warn("delete {} all dashboard share");
+        dashboardShareMapper.deleteByUsername(username);
     }
 
     private List<DashboardShareDTO> getDashboardShares(DashboardDTO dashboard , String username) {

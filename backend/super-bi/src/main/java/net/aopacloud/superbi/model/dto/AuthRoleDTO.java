@@ -1,11 +1,13 @@
 package net.aopacloud.superbi.model.dto;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.Date;
 import java.util.List;
 
 @Data
+@EqualsAndHashCode(of = {"id"})
 public class AuthRoleDTO {
     private Long id;
 

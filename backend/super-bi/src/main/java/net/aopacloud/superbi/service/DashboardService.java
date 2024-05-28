@@ -3,6 +3,7 @@ package net.aopacloud.superbi.service;
 import net.aopacloud.superbi.model.dto.DashboardComponentDTO;
 import net.aopacloud.superbi.model.dto.DashboardDTO;
 import net.aopacloud.superbi.model.query.DashboardQuery;
+import net.aopacloud.superbi.model.uo.DashboardVisibilityUO;
 
 import java.util.List;
 import java.util.Set;
@@ -46,4 +47,7 @@ public interface DashboardService {
 
     Set<Long> findDatasetIdsByDashboardId(Long dashboardId);
 
+    DashboardDTO updateRefreshInterval(Long id, Integer refreshIntervalSeconds);
+
+    DashboardDTO updateVisibility(DashboardVisibilityUO dashboardVisibilityUO);
 }

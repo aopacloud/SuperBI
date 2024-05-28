@@ -2,7 +2,6 @@ package net.aopacloud.superbi.queryEngine.model;
 
 import lombok.Data;
 import net.aopacloud.superbi.constant.BiConsist;
-import net.aopacloud.superbi.queryEngine.enums.AggregatorEnum;
 
 /**
  * @author: hudong
@@ -19,7 +18,7 @@ public class Measure {
 
     private String dataType;
 
-    private AggregatorEnum aggregator;
+    private String aggregator;
 
     public String getId() {
         return String.format("`%s%s%s`", name, BiConsist.FIELD_AGGREGATOR_SEPARATOR, aggregator);

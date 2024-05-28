@@ -42,4 +42,6 @@ public interface DashboardShareService {
     List<DashboardShareDTO> findShareByDashboard(Long dashboardId);
 
     List<DashboardShareDTO> search(DashboardShareBatchQuery query);
+
+    void deleteByUsername(String username);
 }

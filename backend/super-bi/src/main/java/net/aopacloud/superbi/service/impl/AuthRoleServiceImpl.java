@@ -9,14 +9,19 @@ import net.aopacloud.superbi.mapper.AuthRoleMapper;
 import net.aopacloud.superbi.mapper.AuthRoleUserMapper;
 import net.aopacloud.superbi.model.converter.AuthRoleConverter;
 import net.aopacloud.superbi.model.dto.AuthRoleDTO;
+import net.aopacloud.superbi.model.dto.SysUserDTO;
 import net.aopacloud.superbi.model.entity.AuthRole;
 import net.aopacloud.superbi.service.AuthRoleService;
 import net.aopacloud.superbi.service.SysUserService;
+import org.assertj.core.util.Sets;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * @Author shinnie
@@ -43,12 +48,21 @@ public class AuthRoleServiceImpl implements AuthRoleService {
 
     @Override
     public List<AuthRoleDTO> search(Long workspaceId, String keyword) {
-        List<AuthRoleDTO> roles = authRoleMapper.selectAllByWorkspace(workspaceId, keyword);
+
+        List<AuthRoleDTO> byKeywords = authRoleMapper.selectAllByWorkspace(workspaceId, keyword);
+
+        List<String> usernames = sysUserService.filter(keyword).stream().map(SysUserDTO::getUsername).collect(Collectors.toList());
+        List<AuthRoleDTO> byUsernames = searchByUsernames(usernames);
+
+        Set<AuthRoleDTO> roles = Sets.newHashSet();
+        roles.addAll(byUsernames);
+        roles.addAll(byKeywords);
+
         roles.stream().forEach(role -> {
             role.setUserNum(authRoleUserMapper.countByRoleId(role.getId()));
             role.setCreatorAliasName(sysUserService.getUserAliasName(role.getCreator()));
         });
-        return roles;
+        return Lists.newArrayList(roles);
     }
 
     @Override

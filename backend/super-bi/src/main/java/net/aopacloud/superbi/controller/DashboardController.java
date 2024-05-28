@@ -10,6 +10,8 @@ import net.aopacloud.superbi.model.converter.DashboardConverter;
 import net.aopacloud.superbi.model.dto.DashboardDTO;
 import net.aopacloud.superbi.model.dto.SysUserDTO;
 import net.aopacloud.superbi.model.query.DashboardQuery;
+import net.aopacloud.superbi.model.uo.DashboardRefreshIntervalUO;
+import net.aopacloud.superbi.model.uo.DashboardVisibilityUO;
 import net.aopacloud.superbi.model.vo.DashboardVO;
 import net.aopacloud.superbi.service.DashboardService;
 import net.aopacloud.superbi.service.SysUserService;
@@ -36,8 +38,6 @@ public class DashboardController {
     private final SysUserService sysUserService;
 
     private final DashboardConverter dashboardConverter;
-
-    private final DashboardComponentConverter dashboardComponentConverter;
 
 
     /**
@@ -197,4 +197,17 @@ public class DashboardController {
         return RestApiResponse.success(dashboardConverter.toVO(dashboardDTO));
     }
 
+    @PostMapping("/{id}/refreshInterval")
+    public RestApiResponse<DashboardVO> updateRefreshInterval(@RequestBody DashboardRefreshIntervalUO dashboardRefreshIntervalUO, @PathVariable Long id) {
+        DashboardDTO dashboardDTO = dashboardService.updateRefreshInterval(id,dashboardRefreshIntervalUO.getRefreshIntervalSeconds());
+        return RestApiResponse.success(dashboardConverter.toVO(dashboardDTO));
+    }
+
+
+    @PostMapping("/{id}/visibility")
+    public RestApiResponse<DashboardVO> updateVisibility(@RequestBody DashboardVisibilityUO dashboardVisibilityUO, @PathVariable Long id) {
+        dashboardVisibilityUO.setId(id);
+        DashboardDTO dashboardDTO = dashboardService.updateVisibility(dashboardVisibilityUO);
+        return RestApiResponse.success(dashboardConverter.toVO(dashboardDTO));
+    }
 }

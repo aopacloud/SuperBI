@@ -24,4 +24,6 @@ public interface WorkspaceMemberMapper {
     void deleteById(Long id);
 
     List<WorkspaceMember> selectByWorkspaceAndUsername(@Param("workspaceId") Long workspaceId, @Param("username") String username);
+
+    void deleteByUsername(String username);
 }

@@ -21,18 +21,21 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <delete id="deleteById">
         delete from bi_workspace_member where id = #{id}
     </delete>
+    <update id="deleteByUsername">
+        update bi_workspace_member set deleted = id where username = #{username}
+    </update>
 
     <select id="countByWorkspace" resultType="java.lang.Integer">
-        select count(*) from bi_workspace_member where workspace_id = #{workspaceId}
+        select count(*) from bi_workspace_member where workspace_id = #{workspaceId} and deleted = 0
     </select>
 
     <select id="selectByWorkspaceAndLevel" resultType="net.aopacloud.superbi.model.entity.WorkspaceMember">
-        select <include refid="fields"/> from bi_workspace_member where workspace_id = #{workspaceId} and `level` = #{level}
+        select <include refid="fields"/> from bi_workspace_member where workspace_id = #{workspaceId} and `level` = #{level} and deleted = 0
     </select>
 
     <select id="search" resultType="net.aopacloud.superbi.model.dto.WorkspaceMemberDTO" parameterType="net.aopacloud.superbi.model.query.BaseQuery">
         select <include refid="fields"/> from bi_workspace_member
-        where workspace_id = #{workspaceId}
+        where workspace_id = #{workspaceId} and deleted = 0
         <if test="searchUsers != null ">
             and username in
             <foreach collection="searchUsers" separator="," open="(" close=")" item="usr">
@@ -42,10 +45,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         order by join_time desc
     </select>
     <select id="selectOneById" resultType="net.aopacloud.superbi.model.entity.WorkspaceMember">
-        select <include refid="fields" /> from bi_workspace_member where id = #{id}
+        select <include refid="fields" /> from bi_workspace_member where id = #{id} and deleted = 0
     </select>
     <select id="selectByWorkspaceAndUsername" resultType="net.aopacloud.superbi.model.entity.WorkspaceMember">
-        select <include refid="fields" /> from bi_workspace_member where workspace_id = #{workspaceId} and username = #{username}
+        select <include refid="fields" /> from bi_workspace_member where workspace_id = #{workspaceId} and username = #{username} and deleted = 0
     </select>
 
 </mapper>

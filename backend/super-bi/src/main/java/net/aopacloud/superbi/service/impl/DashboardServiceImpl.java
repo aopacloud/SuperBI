@@ -23,9 +23,11 @@ import net.aopacloud.superbi.model.entity.DashboardFilter;
 import net.aopacloud.superbi.model.entity.Report;
 import net.aopacloud.superbi.model.query.ConditionQuery;
 import net.aopacloud.superbi.model.query.DashboardQuery;
+import net.aopacloud.superbi.model.uo.DashboardVisibilityUO;
 import net.aopacloud.superbi.model.vo.FolderNode;
 import net.aopacloud.superbi.service.*;
 import org.apache.commons.compress.utils.Lists;
+import org.assertj.core.util.Strings;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -83,6 +85,11 @@ public class DashboardServiceImpl implements DashboardService {
             } else {
                 folderEnum = FolderEnum.ALL;
             }
+        }
+
+        if (!Strings.isNullOrEmpty(dashboardQuery.getKeyword())) {
+            List<SysUserDTO> filterUser = sysUserService.filter(dashboardQuery.getKeyword());
+            condition.setSearchUsernames(filterUser.stream().map(SysUserDTO::getUsername).collect(Collectors.toList()));
         }
 
         switch (folderEnum) {
@@ -146,8 +153,9 @@ public class DashboardServiceImpl implements DashboardService {
             dashboardDTO.setPermission(dashboardShareService.findMixedPermission(dashboardDTO.getId(), LoginContextHolder.getUsername()));
         });
 
-
-        return dashboardDTOS;
+        return dashboardDTOS.stream()
+                .filter(dash -> condition.getFolderType() == FolderTypeEnum.PERSONAL || (dash.getPermission() != PermissionEnum.NONE || dash.getVisibility() == Visibility.ALL))
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -175,6 +183,9 @@ public class DashboardServiceImpl implements DashboardService {
 
         FullFolderDTO folderDTO = folderService.findByTarget(dashboard.getId(), PositionEnum.DASHBOARD);
         dashboard.setFolder(folderDTO);
+        if(Objects.nonNull(folderDTO)) {
+            dashboard.setFolderId(folderDTO.getId());
+        }
         return dashboard;
     }
 
@@ -183,11 +194,7 @@ public class DashboardServiceImpl implements DashboardService {
 
         DashboardDTO dashboard = dashboardMapper.selectById(id);
 
-        List<DashboardComponentDTO> dashboardChartDTOS = findComponentByDashboard(dashboard, dashboard.getLastEditVersion());
-
-        dashboard.setDashboardComponents(dashboardChartDTOS);
-        dashboard.setPermission(dashboardShareService.findMixedPermission(dashboard.getId(), LoginContextHolder.getUsername()));
-        return dashboard;
+        return findOne(id, dashboard.getLastEditVersion());
     }
 
     @Override
@@ -263,7 +270,7 @@ public class DashboardServiceImpl implements DashboardService {
 
         return components.stream().filter(component -> {
             if (!ComponentTypeEnum.REPORT.name().equals(component.getType())) {
-                return Boolean.FALSE;
+                return Boolean.TRUE;
             }
 
             return reportService.isActive(component.getReportId());
@@ -332,5 +339,23 @@ public class DashboardServiceImpl implements DashboardService {
 
         Set<Long> datasetIds = reportIds.stream().map(reportService::findOne).map(ReportDTO::getDatasetId).collect(Collectors.toSet());
         return datasetIds;
+    }
+
+    @Override
+    public DashboardDTO updateRefreshInterval(Long id, Integer refreshIntervalSeconds) {
+        DashboardDTO dashboardDTO = dashboardMapper.selectById(id);
+        dashboardDTO.setRefreshIntervalSeconds(refreshIntervalSeconds);
+        dashboardMapper.updateRefreshInterval(id,refreshIntervalSeconds);
+        return dashboardDTO;
+    }
+
+    @Override
+    public DashboardDTO updateVisibility(DashboardVisibilityUO dashboardVisibilityUO) {
+
+        DashboardDTO dashboardDTO = dashboardMapper.selectById(dashboardVisibilityUO.getId());
+        dashboardDTO.setVisibility(dashboardVisibilityUO.getVisibility());
+        dashboardMapper.updateVisibility(dashboardDTO.getId(), dashboardVisibilityUO.getVisibility());
+
+        return dashboardDTO;
     }
 }

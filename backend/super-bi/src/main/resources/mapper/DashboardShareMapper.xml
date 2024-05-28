@@ -25,6 +25,9 @@
     <delete id="deleteByDashboard">
         delete from bi_dashboard_share where dashboard_id = #{dashboardId}
     </delete>
+    <update id="deleteByUsername">
+        delete from bi_dashboard_share where username = #{username}
+    </update>
 
     <select id="searchUsers" resultType="net.aopacloud.superbi.model.dto.DashboardShareDTO" parameterType="net.aopacloud.superbi.model.query.DashboardShareQuery">
         select * from bi_dashboard_share

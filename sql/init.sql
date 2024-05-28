@@ -620,6 +620,7 @@ CREATE TABLE `bi_workspace_member`
     `level`        varchar(20)  DEFAULT NULL COMMENT '成员等级： ADMIN 管理员，ANALYZER 业务分析，WORKER 数据生产者',
     `sys_role_id`  int(11) DEFAULT NULL COMMENT '角色ID',
     `join_time`    datetime     DEFAULT NULL COMMENT '加入时间',
+    `deleted`    int(11)     DEFAULT '0' COMMENT '是否删除',
     `create_time`  timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time`  timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
@@ -711,3 +712,7 @@ CREATE TABLE `bi_dataset_extra_config` (
        PRIMARY KEY (`id`),
        UNIQUE KEY `idx_dataset_id_version` (`dataset_id`,`version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+alter table bi_dashboard add column refresh_interval_seconds int(11) default '0' comment '刷新间隔, 0不刷新' before deleted;
+
+alter table bi_dashboard add column visibility varchar(20) default 'ALL' comment '可见范围' after deleted;

@@ -6,7 +6,6 @@ import net.aopacloud.superbi.enums.DataTypeEnum;
 import net.aopacloud.superbi.enums.FieldCategoryEnum;
 import net.aopacloud.superbi.enums.FieldStatusEnum;
 import net.aopacloud.superbi.enums.FieldTypeEnum;
-import net.aopacloud.superbi.queryEngine.enums.AggregatorEnum;
 
 import java.util.Date;
 
@@ -36,7 +35,7 @@ public class DatasetField {
 
     private String sourceFieldName;
 
-    private AggregatorEnum aggregator;
+    private String aggregator;
 
     private DataTypeEnum dataType;
 

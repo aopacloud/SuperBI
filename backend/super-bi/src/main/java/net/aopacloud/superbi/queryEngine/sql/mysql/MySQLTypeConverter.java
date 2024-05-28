@@ -57,6 +57,16 @@ public class MySQLTypeConverter implements TypeConverter {
     }
 
     @Override
+    public String toStartOfHour(String field) {
+        return String.format("DATE_FORMAT(%s, '%%Y-%%m-%%d %%H:00:00')", field);
+    }
+
+    @Override
+    public String toStartOfMinute(String field, int windowMinute) {
+        return String.format("DATE_FORMAT(concat(date(%s, ' ', hour(%s), ':', floor(minute(%s) / %d) * %d)), '%%Y-%%m-%%d %%H:%%i:00')", field, field, field, windowMinute, windowMinute);
+    }
+
+    @Override
     public String toDecimal(String field) {
         return String.format("CAST(%s AS DECIMAL(38, 6))", field);
     }
@@ -64,6 +74,21 @@ public class MySQLTypeConverter implements TypeConverter {
     @Override
     public boolean isDecimal(String databaseType) {
         return !Strings.isNullOrEmpty(databaseType) && databaseType.startsWith("Decimal");
+    }
+
+    @Override
+    public String addSeconds(String expression, int seconds) {
+        return String.format("DATE_ADD(%s, INTERVAL %d SECOND)", expression, seconds);
+    }
+
+    @Override
+    public String addMinutes(String expression, int minutes) {
+        return String.format("DATE_ADD(%s, INTERVAL %d MINUTE)", expression, minutes);
+    }
+
+    @Override
+    public String addHours(String expression, int hours) {
+        return String.format("DATE_ADD(%s, INTERVAL %d HOUR)", expression, hours);
     }
 
     @Override

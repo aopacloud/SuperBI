@@ -124,6 +124,7 @@ public class DatasetApplyServiceImpl implements DatasetApplyService {
         }
 
         Dataset dataset = datasetMapper.selectById(datasetApplyDTO.getDatasetId());
+        datasetApplyDTO.setWorkspaceId(dataset.getWorkspaceId());
         datasetApplyDTO.setDatasetName(dataset.getName());
         datasetApplyDTO.setDatasetCreator(dataset.getCreator());
         DatasetApply datasetApply = converter.toEntity(datasetApplyDTO);

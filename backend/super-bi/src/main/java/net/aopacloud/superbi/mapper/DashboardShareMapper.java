@@ -41,4 +41,6 @@ public interface DashboardShareMapper {
     List<DashboardShareDTO> search(DashboardShareBatchQuery query);
 
     List<DashboardShareDTO> selectByPermission(@Param("workspaceId") Long workspaceId, @Param("username") String username, @Param("permission") PermissionEnum permission);
+
+    void deleteByUsername(String username);
 }

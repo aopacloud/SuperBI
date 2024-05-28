@@ -23,10 +23,17 @@ public interface TypeConverter {
 
     String toDay(String field);
 
+    String toStartOfHour(String field);
+
+    String toStartOfMinute(String field, int windowMinute);
+
     String toDecimal(String field);
 
     boolean isDecimal(String databaseType);
 
+    String addSeconds(String expression, int seconds);
+    String addMinutes(String expression, int minutes);
+    String addHours(String expression, int hours);
     String addDays(String expression, int days);
 
     String addMonths(String expression, int months);

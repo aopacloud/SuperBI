@@ -1,7 +1,6 @@
 package net.aopacloud.superbi.queryEngine.model;
 
 import lombok.Data;
-import net.aopacloud.superbi.queryEngine.enums.AggregatorEnum;
 
 /**
  * @author: hudong
@@ -17,5 +16,5 @@ public class Sort {
 
     private Integer limit;
 
-    private AggregatorEnum aggregator;
+    private String aggregator;
 }

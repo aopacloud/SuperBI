@@ -28,7 +28,8 @@ public class WorkspaceChecker {
         boolean result = workspaces.stream().map(WorkspaceDTO::getId).anyMatch(id -> id.equals(workspaceId));
 
         if (!result) {
-            throw new NoWorkspacePermissionException(LocaleMessages.getMessage(MessageConsist.WORKSPACE_FORBIDDEN_ERROR));
+            WorkspaceDTO noPermissionWorkspace = workspaceService.findOne(workspaceId);
+            throw new NoWorkspacePermissionException(LocaleMessages.getMessage(MessageConsist.WORKSPACE_FORBIDDEN_ERROR, noPermissionWorkspace.getName()));
         }
     }
 
