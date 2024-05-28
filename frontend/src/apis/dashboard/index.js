@@ -232,3 +232,29 @@ export const getDasboardsByReportId = params =>
     url: '/dashboard/byReport',
     params,
   })
+
+/**
+ * 更新看板自动刷新配置
+ * @param {number} id
+ * @param {RequestPayload} data
+ * @returns
+ */
+export const postRefreshIntervalById = (id, data) =>
+  request({
+    url: `/dashboard/${id}/refreshInterval`,
+    method: 'post',
+    data,
+  })
+
+/**
+ * 更新列表可见性
+ * @param {number} id 列表ID
+ * @param {RequestPayload} data 可见性数据
+ * @returns 返回请求结果
+ */
+export const updateListVisibility = (id, data) =>
+  request({
+    url: `/dashboard/${id}/visibility`,
+    method: 'post',
+    data,
+  })

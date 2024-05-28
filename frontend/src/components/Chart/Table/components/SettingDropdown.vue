@@ -5,7 +5,9 @@
     </slot>
     <template #overlay>
       <a-menu @click="onMenuClick" :selectedKeys="selectedKeys">
-        <a-menu-item v-for="item in sortOptions" :key="SORT_PREFFIX + '_/_' + item.order">
+        <a-menu-item
+          v-for="item in sortOptions"
+          :key="SORT_PREFFIX + '_/_' + item.order">
           {{ item.label }}
         </a-menu-item>
 
@@ -33,8 +35,8 @@ import {
   FORMAT_PREFFIX,
   FORMAT_CUSTOM_CODE,
   formatterOptions,
-  displayCustomFormatterLabel,
 } from '@/views/dataset/config.field'
+import { displayCustomFormatterLabel } from '@/views/dataset/utils'
 
 const emits = defineEmits(['openChange', 'menuClick'])
 const props = defineProps({
@@ -53,9 +55,9 @@ const props = defineProps({
 })
 
 const showFormat = computed(() => {
-  const { field } = props.column.params
+  const { field, _isVs } = props.column.params
 
-  return field.category === CATEGORY.INDEX && !field._isVs
+  return field.category === CATEGORY.INDEX && !_isVs
 })
 
 const selectedKeys = computed(() => {

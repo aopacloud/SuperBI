@@ -1,5 +1,5 @@
 ﻿import { CATEGORY } from '@/CONST.dict'
-import { versionJs } from '@/versions'
+import { isDateField } from '@/views/dataset/utils'
 
 // 字段选中区域label
 export const sectionListLabelMap = {
@@ -33,7 +33,7 @@ export const sectionListLabelMap = {
     [CATEGORY.INDEX]: '指标',
   },
   intersectionTable: {
-    [CATEGORY.PROPERTY + '_ROW']: '行分组',
+    [CATEGORY.PROPERTY]: '行分组',
     [CATEGORY.PROPERTY + '_COLUMN']: '列分组',
     [CATEGORY.INDEX]: '指标',
   },
@@ -46,17 +46,23 @@ export const sectionListLabelMap = {
  */
 export const getSectionListLabel = renderType => {
   const labelObj = sectionListLabelMap[renderType] || sectionListLabelMap['default']
-  const filterObj = { [CATEGORY.FILTER]: sectionListLabelMap['default'][CATEGORY.FILTER] }
+  const filterObj = {
+    [CATEGORY.FILTER]: sectionListLabelMap['default'][CATEGORY.FILTER],
+  }
 
   return category => ({ ...labelObj, ...filterObj }[category])
 }
 
-export const WEEK = 'WEEK'
+export const GROUP_WEEK = 'WEEK' // 周分组
 
-export const DAY = 'DAY'
+export const GROUP_DAY = 'DAY' // 天分组
 
-// 默认日期分组方式
-export const DEFAULT_DATE_GROUP = 'ORIGIN'
+export const GROUP_HOUR = 'HOUR' // 小时分组
+
+export const GROUP_MINUTE = 'MINUTE' // 分钟分组
+
+export const DEFAULT_DATE_GROUP = 'ORIGIN' // 默认日期分组方式
+
 // 日期维度聚合方式
 export const dateGroupOptions = [
   {
@@ -77,7 +83,8 @@ export const dateGroupOptions = [
   },
   {
     label: '周',
-    value: WEEK,
+    value: GROUP_WEEK,
+    width: 130,
     children: [
       {
         label: '周一 至 周日',
@@ -111,13 +118,44 @@ export const dateGroupOptions = [
   },
   {
     label: '日',
-    value: 'DAY',
+    value: GROUP_DAY,
+  },
+]
+
+// 时分秒分组
+export const dateGroupOptions_HHMMSS = [
+  {
+    label: '小时',
+    value: GROUP_HOUR,
+  },
+  {
+    label: '分钟',
+    value: GROUP_MINUTE,
+    children: [
+      { label: '30m', value: '30' },
+      { label: '20m', value: '20' },
+      { label: '15m', value: '15' },
+      { label: '10m', value: '10' },
+      { label: '5m', value: '5' },
+    ],
   },
 ]
 
 // 默认日期展示
-export const DEFAULT_WEEK_DISPLAY = 'WEEK_SEQUENCE'
-export const DEFAULT_DAY_DISPLAY = 'DAY_SEQUENCE'
+export const DEFAULT_WEEK_DISPLAY = 'WEEK_SEQUENCE' // 默认周显示
+export const DEFAULT_DAY_DISPLAY = 'DAY_SEQUENCE' // 默认日显示
+export const DEFAULT_WEEK_DAY_DISPLAY = 'WEEK_DAY_SEQUENCE' // 默认周的日显示
+export const DEFAULT_HOUR_DISPLAY = 'HOUR' // 默认小时显示
+export const DEFAULT_MINUTE_DISPLAY = 'MINUTE' // 默认分钟显示
+
+export const DEFAULT_WEEK_START = '1' // 默认周起始日
+// 周的起始日显示选项
+export const WEEK_START_OPTIONS = [
+  { label: '当周周一', value: DEFAULT_WEEK_START },
+  { label: '当周周日', value: '7' },
+  { label: '起始日', value: 0 },
+  { label: '结束日', value: 1 },
+]
 
 // 日期展示
 // WEEK_SEQUENCE(1, '第x周')
@@ -130,37 +168,44 @@ export const dateDisplayOptions = [
   {
     label: '第 * 周',
     value: DEFAULT_WEEK_DISPLAY,
-    group: 'WEEK',
+    group: GROUP_WEEK,
   },
   {
     label: 'YYYY 年 第 * 周',
     value: 'WEEK_SEQUENCE_YEAR',
-    group: 'WEEK',
+    group: GROUP_WEEK,
   },
   {
     label: 'YYYY/MM/DD - YYYY/MM/DD',
     value: 'WEEK_RANGE',
-    group: 'WEEK',
+    group: GROUP_WEEK,
   },
   {
     label: 'MM/DD - MM/DD',
     value: 'WEEK_RANGE_WITHOUT_YEAR',
-    group: 'WEEK',
+    group: GROUP_WEEK,
   },
   {
     label: 'YYYY/MM/DD',
-    group: 'DAY',
+    group: GROUP_WEEK,
+    value: DEFAULT_WEEK_DAY_DISPLAY,
+    width: 120,
+    children: WEEK_START_OPTIONS,
+  },
+  {
+    label: 'YYYY/MM/DD',
+    group: GROUP_DAY,
     value: DEFAULT_DAY_DISPLAY,
   },
   {
     label: 'YYYY/MM/DD（周 *）',
-    group: 'DAY',
+    group: GROUP_DAY,
     value: 'DAY_WEEK',
   },
 ]
 
 // 对比字段
-export const toContrastFiled = field => versionJs.ViewsAnalysis.isDateField(field)
+export const toContrastFiled = field => isDateField(field)
 
 // 默认对比类型
 export const DEFAULT_RATIO_TYPE = 'CHAIN'
@@ -174,6 +219,7 @@ export const COMPARE_RATIO_PERIOD = {
 // 对比类型
 export const ratioOptions = [
   { label: '环比', value: DEFAULT_RATIO_TYPE }, // 1
+  { label: '天同比', value: 'DAY_ON_DAY' }, // 2
   { label: '周同比', value: 'WEEK_ON_WEEK' }, // 2
   { label: '月同比', value: 'MONTH_ON_MONTH' }, // 3
   { label: '年同比', value: 'YEAR_ON_YEAR' }, // 4
@@ -194,10 +240,19 @@ export const queryTotalOptions = [
 export const dateGroupTypeMap = {
   // 原值
   ORIGIN: {
-    CHAIN: [{ label: '前一天', value: COMPARE_RATIO_PERIOD.SAME }],
-    WEEK_ON_WEEK: [{ label: '上周同一天', value: COMPARE_RATIO_PERIOD.SAME }],
-    MONTH_ON_MONTH: [{ label: '上月同一天', value: COMPARE_RATIO_PERIOD.SAME }],
-    YEAR_ON_YEAR: [{ label: '去年同一天', value: COMPARE_RATIO_PERIOD.SAME }],
+    CHAIN: [{ label: '上一时段', value: COMPARE_RATIO_PERIOD.SAME }],
+    WEEK_ON_WEEK: [
+      { label: '上周同天', value: COMPARE_RATIO_PERIOD.WHOLE },
+      { label: '上周同期', value: COMPARE_RATIO_PERIOD.SAME },
+    ],
+    MONTH_ON_MONTH: [
+      { label: '上月同天', value: COMPARE_RATIO_PERIOD.WHOLE },
+      { label: '上月同期', value: COMPARE_RATIO_PERIOD.SAME },
+    ],
+    YEAR_ON_YEAR: [
+      { label: '去年同天', value: COMPARE_RATIO_PERIOD.WHOLE },
+      { label: '去年同期', value: COMPARE_RATIO_PERIOD.SAME },
+    ],
   },
   // 年
   YEAR: {
@@ -241,9 +296,29 @@ export const dateGroupTypeMap = {
   },
   // 天
   DAY: {
-    CHAIN: [{ label: '前一天', value: COMPARE_RATIO_PERIOD.SAME }],
-    WEEK_ON_WEEK: [{ label: '上周同一天', value: COMPARE_RATIO_PERIOD.SAME }],
-    MONTH_ON_MONTH: [{ label: '上月同一天', value: COMPARE_RATIO_PERIOD.SAME }],
-    YEAR_ON_YEAR: [{ label: '去年同一天', value: COMPARE_RATIO_PERIOD.SAME }],
+    CHAIN: [
+      { label: '昨天整天', value: COMPARE_RATIO_PERIOD.WHOLE },
+      { label: '昨天同期', value: COMPARE_RATIO_PERIOD.SAME },
+    ],
+    WEEK_ON_WEEK: [
+      { label: '上周同天', value: COMPARE_RATIO_PERIOD.WHOLE },
+      { label: '上周同期', value: COMPARE_RATIO_PERIOD.SAME },
+    ],
+    MONTH_ON_MONTH: [
+      { label: '上月同天', value: COMPARE_RATIO_PERIOD.WHOLE },
+      { label: '上月同期', value: COMPARE_RATIO_PERIOD.SAME },
+    ],
+    YEAR_ON_YEAR: [
+      { label: '去年同天', value: COMPARE_RATIO_PERIOD.WHOLE },
+      { label: '去年同期', value: COMPARE_RATIO_PERIOD.SAME },
+    ],
+  },
+  HOUR: {
+    CHAIN: [{ label: '上一小时', value: COMPARE_RATIO_PERIOD.WHOLE }],
+    DAY_ON_DAY: [{ label: '昨天同小时', value: COMPARE_RATIO_PERIOD.SAME }],
+  },
+  MINUTE: {
+    CHAIN: [{ label: '上一时段', value: COMPARE_RATIO_PERIOD.WHOLE }],
+    DAY_ON_DAY: [{ label: '昨天同时段', value: COMPARE_RATIO_PERIOD.SAME }],
   },
 }

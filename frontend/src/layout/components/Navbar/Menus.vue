@@ -105,7 +105,9 @@ const selectedKeys = computed(() => {
   if (!parentAppInfo.value) {
     return getSelectKeys(navbarResources.value)
   } else {
-    const parentItem = navbarResources.value.find(t => t.id === parentAppInfo.value.id)
+    const parentItem = navbarResources.value.find(
+      t => t.id === parentAppInfo.value.id
+    )
     if (!parentItem) return []
 
     const appItem = parentItem.children.find(t => t.id === appInfo.value.id)
@@ -155,7 +157,7 @@ const countMsg = ref({})
 const countMap = {
   AuthorityApply: 'applyingCount',
   AuthorityApprove: 'reviewCount',
-  AuthorityManage: 'operationCount',
+  AuthorityApplyManage: 'operationCount',
 }
 const getCountByItem = name => {
   return countMsg.value[countMap[name]] || 0

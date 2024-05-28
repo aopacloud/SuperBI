@@ -43,4 +43,10 @@ public interface WorkspaceMemberService {
      * @return
      */
     WorkspaceMemberDTO delete(Long id);
+
+    /**
+     * delete by username
+     * @param username
+     */
+    void deleteByUsername(String username);
 }

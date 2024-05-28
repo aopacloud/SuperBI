@@ -2,39 +2,40 @@
   <section class="section-list">
     <aside>{{ label }}</aside>
 
-    <main @dragover="onDragover" @drop="onDrop">
-      <draggable
-        class="list"
-        itemKey="_id"
-        ghost-class="tag-ghost"
-        :componentData="{
-          name: 'fade',
-          type: 'transition-group',
-        }"
-        :list="dataSource">
-        <template #item="{ element, index }">
-          <SectionTag
-            class="list-item"
-            :dataset="dataset"
-            :tag="element"
-            :category="category"
-            :color="tagColor"
-            @remove="onRemove(index)">
-            {{ element.displayName }}
-          </SectionTag>
-        </template>
-      </draggable>
+    <draggable
+      class="list"
+      tag="main"
+      itemKey="_id"
+      ghost-class="tag-ghost"
+      :list="dataSource"
+      @dragover.native="onDragover"
+      @dragleave.native="onDragleave"
+      @drop.native="onDrop"
+      @start="onStart">
+      <template #item="{ element }">
+        <SectionTag
+          v-if="isTagVisible(element)"
+          class="list-item"
+          :dataset="dataset"
+          :tag="element"
+          :category="category"
+          :color="tagColor"
+          @remove="onRemove(element)">
+          {{ element.displayName }}
+        </SectionTag>
+      </template>
 
-      <div v-if="dropPlaceholderVisible" class="tag-placeholder"></div>
-
-      <!-- 字段多选 -->
-      <MultipleSelectedPopover
-        v-if="hasDatasetAnalysis"
-        class="multiple-trigger"
-        :data-source="datasetFields"
-        :value="multipleValue"
-        @ok="onMultipleOk" />
-    </main>
+      <template #footer>
+        <!-- 字段多选 -->
+        <MultipleSelectedPopover
+          #footer
+          v-if="hasDatasetAnalysis"
+          class="multiple-trigger"
+          :data-source="datasetFields"
+          :value="multipleValue"
+          @ok="onMultipleOk" />
+      </template>
+    </draggable>
 
     <!-- 清除选中 -->
     <a-button
@@ -47,7 +48,7 @@
 </template>
 
 <script setup>
-import { h, ref, computed, watchEffect, onUnmounted, inject } from 'vue'
+import { h, computed, inject } from 'vue'
 import { CloseOutlined } from '@ant-design/icons-vue'
 import draggable from 'vuedraggable'
 import MultipleSelectedPopover from '@/views/analysis/components/MultipleSelectedPopover.vue'
@@ -55,7 +56,7 @@ import SectionTag from './SectionTag.vue'
 import { categoryMap } from '@/views/dataset/config.field'
 import { getSectionListLabel } from '@/views/analysis/config'
 import { CATEGORY } from '@/CONST.dict'
-import { getRandomKey } from 'common/utils/help'
+import { getRandomKey } from 'common/utils/string'
 
 const props = defineProps({
   dataset: {
@@ -66,13 +67,30 @@ const props = defineProps({
     type: String,
     default: CATEGORY.PROPERTY,
   },
+  group: {
+    type: String,
+  },
   dataSource: {
     type: Array,
     default: () => [],
   },
 })
+
+// 使用计算属性需要处理数据的更新传递（数据传递方式较为复杂）
+const isTagVisible = item => {
+  if (props.category !== CATEGORY.PROPERTY) return true
+
+  if (props.group === 'row') {
+    return item._group === 'row' || typeof item._group === 'undefined'
+  } else if (props.group === 'column') {
+    return item._group === 'column'
+  } else {
+    return true
+  }
+}
+
 const {
-  dragedField: indexDragedField,
+  draggingField: indexDraggingField,
   choosed: indexChoosed,
   options: indexOptions,
   compare: indexCompare,
@@ -85,9 +103,17 @@ const hasDatasetAnalysis = computed(() => permissions.dataset.hasAnalysis())
 const renderType = computed(() => indexOptions.get('renderType'))
 
 const multipleValue = computed(() => {
-  const { category, dataSource } = props
+  if (props.category === CATEGORY.INDEX) return []
 
-  return category === CATEGORY.INDEX ? [] : dataSource.map(item => item.name)
+  return props.dataSource
+    .filter(t => {
+      if (props.group === 'column') {
+        return t._group === props.group
+      } else {
+        return t._group !== 'column'
+      }
+    })
+    .map(item => item.name)
 })
 
 // 原始字段
@@ -114,87 +140,133 @@ const datasetFields = computed(() => {
 const label = computed(() => {
   const typeMap = getSectionListLabel(renderType.value)
 
-  return typeMap(props.category)
+  if (props.group === 'column') {
+    return typeMap(props.category + '_COLUMN')
+  } else {
+    return typeMap(props.category)
+  }
 })
 
 const tagColor = computed(() => {
   return categoryMap[props.category]['color']
 })
 
-const onRemove = index => {
+const onRemove = item => {
+  const index = props.dataSource.findIndex(t => t._id === item._id)
+
   props.dataSource.splice(index, 1)
 }
 
 const { clear: choosedClear, set: choosedSet, get: choosedGet } = indexChoosed
 // 清除
 const handleClear = () => {
-  choosedClear(props.category)
+  if (props.category !== CATEGORY.PROPERTY) {
+    choosedClear(props.category)
+  } else {
+    if (props.group === 'row') {
+      const old = props.dataSource.filter(
+        t => typeof t._group !== 'undefined' && t._group !== 'row'
+      )
+      choosedSet(props.category, old)
+    } else if (props.group === 'column') {
+      const old = props.dataSource.filter(t => t._group !== 'column')
+      choosedSet(props.category, old)
+    } else {
+      choosedClear(props.category)
+    }
+  }
 }
 
-const dropPlaceholderVisible = ref(false)
+// 当前拖动的字段
+const draggingField = computed(() => indexDraggingField.get())
+
+// 默认不允许被拖入， 需阻止默认行为 evt.preventDefault()
 const onDragover = evt => {
-  // evt.preventDefault() 才允许被拖入
-  // 当前拖动的字段
-  const draggingField = indexDragedField.getDragging()
+  if (!draggingField.value) return
+
+  const dragging = draggingField.value
+
+  // 内部拖拽只能在相同分组中
+  if (dragging._fromInner) {
+    if (props.category === dragging.category) {
+      evt.target.classList.add('drag-ghost')
+      evt.preventDefault()
+    }
+
+    return
+  }
 
   // 不可拖入同一字段的过滤条件
-  if (CATEGORY.FILTER === props.category) {
+  if (props.category === CATEGORY.FILTER) {
     const choosedFilters = choosedGet(props.category)
 
-    if (choosedFilters.some(t => t.name === draggingField.name)) {
+    if (choosedFilters.some(t => t.name === dragging.name)) {
+      return false
+    } else {
+      evt.target.classList.add('drag-ghost')
+      evt.preventDefault()
+    }
+  } else if (dragging.category === CATEGORY.PROPERTY) {
+    evt.target.classList.add('drag-ghost')
+    evt.preventDefault()
+  } else if (dragging.category === CATEGORY.INDEX) {
+    // 指标 只能拖入指标和过滤
+    if (props.category === CATEGORY.INDEX || props.category === CATEGORY.FILTER) {
+      evt.target.classList.add('drag-ghost')
+      evt.preventDefault()
+    } else {
       return false
     }
   }
+}
 
-  if (draggingField.category === CATEGORY.PROPERTY) {
-    // 维度 能拖入 维度、指标、和筛选条件
-
-    evt.preventDefault()
-    indexDragedField.setDragover({
-      category: props.category,
-    })
-  } else if (draggingField.category === CATEGORY.INDEX) {
-    // 指标 只能拖入指标和过滤
-    if (props.category === CATEGORY.INDEX || props.category === CATEGORY.FILTER) {
-      evt.preventDefault()
-      indexDragedField.setDragover({
-        category: props.category,
-      })
-    }
-  }
+const onDragleave = e => {
+  e.target.classList.remove('drag-ghost')
 }
 
 const onDrop = evt => {
-  const payload = evt.dataTransfer.getData('dragging-field-data')
+  if (!draggingField.value) return
 
-  if (!payload) return
+  evt.target.classList.remove('drag-ghost')
 
-  const item = JSON.parse(payload)
+  const item = draggingField.value
 
-  if (props.category !== CATEGORY.FILTER) {
-    const exitedIndex = props.dataSource.findIndex(t => t.id === item.id)
+  // 内部拖拽只能在相同分组中
+  if (item._fromInner && item.category !== props.category) return
 
-    if (exitedIndex > -1 && props.category === CATEGORY.PROPERTY) {
-      props.dataSource.splice(exitedIndex, 1)
-    }
+  if (props.category === CATEGORY.FILTER) {
+    item._group = props.group
   } else {
-    // 自动展开过滤面板
-    item.autoPopover = true
+    if (props.category === CATEGORY.PROPERTY) {
+      item._group = props.group
+
+      const exitedIndex = props.dataSource.findIndex(t => t.name === item.name)
+      if (exitedIndex > -1) {
+        if (item._fromInner) {
+          props.dataSource.splice(exitedIndex, 1)
+          props.dataSource.push(item)
+        } else {
+          props.dataSource.splice(exitedIndex, 1)
+        }
+      }
+    }
   }
 
-  props.dataSource.push({ ...item, _id: getRandomKey() })
+  if (!item._fromInner) {
+    props.dataSource.push({ ...item, _id: getRandomKey() })
+  }
+
   indexCompare.update.dimensions(item)
-  // 清空拖拽覆盖字段
-  indexDragedField.setDragover()
+  indexDraggingField.set()
 }
 
-const dragoverWatcher = watchEffect(() => {
-  // 当前划过的区域与当前拖动项的类别是否一致
-  const dragoverFeild = indexDragedField.getDragover()
+const onStart = ({ item }) => {
+  // 目前只有维度分组见可以相互拖动(行分组、列分组)
+  if (props.category !== CATEGORY.PROPERTY) return
 
-  dropPlaceholderVisible.value = dragoverFeild.category === props.category
-})
-onUnmounted(dragoverWatcher)
+  const old = props.dataSource.find(t => t._id === item.dataset.id)
+  indexDraggingField.set({ ...old, _fromInner: true })
+}
 
 // 批量选中
 const onMultipleOk = value => {
@@ -206,13 +278,23 @@ const onMultipleOk = value => {
       // 已选中的过滤项
       const pre = list.find(d => d.name === item.name)
 
-      return { ...item, ...pre, _id: getRandomKey() }
+      return { ...item, ...pre, _id: getRandomKey(), _group: props.group }
     })
 
     if (props.category === CATEGORY.INDEX) {
       choosedSet(props.category, list.concat(choosed))
     } else {
-      choosedSet(props.category, choosed)
+      const other = list.filter(t => {
+        if (value.includes(t.name)) return false
+
+        if (props.group === 'column') {
+          return t._group !== 'column'
+        } else {
+          return t._group === 'column'
+        }
+      })
+
+      choosedSet(props.category, [...other, ...choosed])
 
       const diff = choosed.filter(t => list.every(item => item.name !== t.name))
       indexCompare.update.dimensions(diff)
@@ -274,30 +356,32 @@ const onMultipleOk = value => {
     }
   }
 }
-.list-item {
-  float: left;
+.list {
+  &.drag-ghost {
+    &:after {
+      content: '-';
+      display: inline-block;
+      vertical-align: bottom;
+      min-width: 70px;
+      height: 22px;
+      margin-top: 6px;
+      border-radius: 4px;
+      background-color: #ccc;
+      pointer-events: none;
+      background-color: v-bind(tagColor);
+      opacity: 0.15;
+    }
+  }
 }
 .multiple-icon {
   vertical-align: middle;
   font-size: 20px;
   cursor: pointer;
 }
-.tag-placeholder {
-  float: left;
-  position: relative;
-  display: inline-flex;
-  min-width: 70px;
-  height: 24px;
-  margin: 6px 6px 0 0;
-  border-radius: 4px;
-  background-color: #ccc;
-  pointer-events: none;
-  background-color: v-bind(tagColor);
-  opacity: 0.15;
-}
 
 :deep(.multiple-trigger) {
-  margin-top: 6px;
+  margin: 6px 6px 0 0;
+  vertical-align: bottom;
 }
 .clear-button {
   position: absolute;

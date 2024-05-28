@@ -20,6 +20,6 @@ public class RatioPart {
 
     private Segment joinOnSegment;
 
-    private Segment timeRange;
+    private List<Segment> timeRanges;
 
 }

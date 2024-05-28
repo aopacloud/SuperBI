@@ -1,6 +1,5 @@
 ﻿import { COMPARE, CATEGORY } from '@/CONST.dict'
-import { getWordWidth, getRandomKey } from 'common/utils/help'
-import { upcaseFirst } from 'common/utils/string'
+import { upcaseFirst, getWordWidth, getRandomKey } from 'common/utils/help'
 import { is_vs, transformFieldsByVs, formatFieldDisplay } from './index'
 import { getCompareDisplay, summaryTree } from '../Table/utils'
 import {
@@ -23,12 +22,7 @@ export const TREE_GROUP_NAME = '_GROUP_NAME_'
  * @param {?number} level 层级
  * @param {array} groupFields 分组字段
  */
-const createTreeNode = ({
-  parent = [],
-  children = [],
-  level,
-  groupFields = [],
-}) => {
+const createTreeNode = ({ parent = [], children = [], level, groupFields = [] }) => {
   const groupLength = groupFields.length
   let res = []
 
@@ -187,9 +181,7 @@ const createTree = (groupValues = [], groupFields = []) => {
 
 // 转换列数据
 const transformFields = fields => {
-  const groupFields = fields.filter(
-    field => field.category === CATEGORY.PROPERTY
-  )
+  const groupFields = fields.filter(field => field.category === CATEGORY.PROPERTY)
   const indexFields = fields.filter(field => field.category === CATEGORY.INDEX)
   const groupLength = groupFields.length
 
@@ -361,11 +353,7 @@ export default function createTableData({
               const targetValue = t[i - 1] // 前一个值为当前值
               const originValue = t[i] // '当前值' 为对比值
 
-              const prevStr = formatFieldDisplay(
-                targetValue,
-                field,
-                datasetFields
-              )
+              const prevStr = formatFieldDisplay(targetValue, field, datasetFields)
               const nextStr =
                 ' ( ' +
                 getCompareDisplay(

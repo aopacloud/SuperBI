@@ -26,6 +26,10 @@ import { Compact } from 'ant-design-vue'
 import { AppstoreOutlined } from '@ant-design/icons-vue'
 import useAppStore from '@/store/modules/app'
 import useResourceStore from '@/store/modules/resource'
+import { useRouter, useRoute } from 'vue-router'
+
+const router = useRouter(),
+  route = useRoute()
 
 const appStore = useAppStore()
 const list = computed(() => {
@@ -37,11 +41,38 @@ const hasReadPermission = computed(() => {
   return resourceStore.routes.some(t => t.name === 'SystemWorkspace')
 })
 
-const value = ref(appStore.workspaceId)
-const onChange = e => {
-  appStore.setWorkspaceId(e)
+const detailPageRouteNames = [
+  'DashboardPreview',
+  'DashboardModify',
+  'DatasetModify',
+  'DatasetAnalysis',
+  'ReportDetail',
+  'DatasetAnalysisDetail',
+]
 
-  location.reload()
+const reg = /^([A-Z]{1}[a-z]*)/
+
+const value = computed({
+  get() {
+    return appStore.workspaceId
+  },
+  set(v) {
+    appStore.setWorkspaceId(v)
+  },
+})
+
+const onChange = e => {
+  if (detailPageRouteNames.includes(route.name)) {
+    const [firstName] = route.name.match(reg)
+    const newName = firstName + 'List'
+
+    const newRouteRes = router.resolve({ name: newName })
+    if (!newRouteRes) return
+
+    location.replace(newRouteRes.href)
+  } else {
+    location.reload()
+  }
 }
 </script>
 

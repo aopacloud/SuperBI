@@ -15,45 +15,6 @@ export function sleepSync(ms = 0) {
 }
 
 /**
- * 生成随机key
- * @param  {number} len 长度
- * @return {string}
- * @example
- *  getRandomKey(5) => 97214
- */
-export function getRandomKey(len = 10) {
-  if (len > 14) len = 14
-
-  return String(Math.random()).substring(2, len + 2)
-}
-
-/**
- * 生成 uuid
- * @returns {string}
- * @example
- *  getRandomKey(5) => ff929928-717b-4445-a117-a94a483a5cbe
- */
-/* export  */ function uuid() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-    var r = (Math.random() * 16) | 0,
-      v = c == 'x' ? r : (r & 0x3) | 0x8
-    return v.toString(16)
-  })
-}
-
-/**
- * 数字补零
- * @param {number} 需要补全的数字
- * @param {number} 补全长度
- * @returns {string}
- * @example
- *  pad0(2, 3) => '002'
- */
-export function pad0(number, len = 2) {
-  return String(number).padStart(len, '0')
-}
-
-/**
  * 深克隆
  * @param {T} obj
  * @returns {T}
@@ -560,4 +521,90 @@ export function curry(fn) {
 }
 export const curried = function (fn, ...args) {
   return fn.length <= args.length ? fn(...args) : curry.bind(null, fn, ...args)
+}
+
+/**
+ * 复制文本
+ */
+export const copy = (input, cb) => {
+  const element = document.createElement('textarea')
+  const previouslyFocusedElement = document.activeElement
+
+  element.value = input
+
+  // Prevent keyboard from showing on mobile
+  element.setAttribute('readonly', '')
+
+  element.style.contain = 'strict'
+  element.style.position = 'absolute'
+  element.style.left = '-9999px'
+  element.style.fontSize = '12pt' // Prevent zooming on iOS
+
+  const selection = document.getSelection()
+  const originalRange = selection.rangeCount > 0 && selection.getRangeAt(0)
+
+  document.body.append(element)
+  element.select()
+
+  // Explicit selection workaround for iOS
+  element.selectionStart = 0
+  element.selectionEnd = input.length
+
+  let isSuccess = false
+  try {
+    isSuccess = document.execCommand('copy')
+  } catch {}
+
+  element.remove()
+
+  if (originalRange) {
+    selection.removeAllRanges()
+    selection.addRange(originalRange)
+  }
+
+  // Get the focus back on the previously focused element, if any
+  if (previouslyFocusedElement) {
+    previouslyFocusedElement.focus()
+  }
+
+  cb && cb()
+
+  return isSuccess
+}
+
+export const qs = {
+  /**
+   * json 转 string
+   */
+  toString(json) {
+    if (!json) return ''
+
+    return (
+      '?' +
+      Object.keys(json)
+        .map(key => {
+          return encodeURIComponent(key) + '=' + encodeURIComponent(json[key])
+        })
+        .join('&')
+    )
+  },
+}
+
+/**
+ * 获取对比的颜色
+ * @param {number} origin 原值
+ * @param {number} target 当前值
+ * @param {{increaseColor: string, decreaseColor: string, initialColor: string}} 配置信息
+ * @returns {string} string
+ */
+export const getDiffColor = (
+  origin,
+  target,
+  { increaseColor = 'green', decreaseColor = 'red', initialColor = '' } = {}
+) => {
+  if (origin === target) return initialColor
+
+  if (target / origin === Infinity) return initialColor
+
+  return target > origin ? increaseColor : decreaseColor
 }

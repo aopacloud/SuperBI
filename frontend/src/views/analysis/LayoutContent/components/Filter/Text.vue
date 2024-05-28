@@ -103,9 +103,9 @@ import { h, ref, reactive, computed, watch, nextTick, inject, onMounted } from '
 import { Form, message } from 'ant-design-vue'
 import { ClearOutlined, InfoCircleOutlined } from '@ant-design/icons-vue'
 import { CATEGORY, RELATION } from '@/CONST.dict'
-import { NOT_IN } from '@/views/dataset/config.field'
+import { NOT_IN, IS_NOT_NULL, IS_NULL } from '@/views/dataset/config.field'
 import Conditions from './Conditions.vue'
-import { getRandomKey } from 'common/utils/help'
+import { getRandomKey } from 'common/utils/string'
 import { postAnalysisQuery } from '@/apis/analysis'
 import { postParseExcel } from '@/apis/system/excel'
 
@@ -157,9 +157,7 @@ const validateConfitions = {
       const { operator, value } = v
 
       return (
-        operator === 'IS_NOT_NULL' ||
-        operator === 'IS_NULL' ||
-        value?.trim().length > 0
+        operator === IS_NOT_NULL || operator === IS_NULL || value?.trim().length > 0
       )
     })
   },
@@ -265,7 +263,7 @@ const init = () => {
       : conditions[0].args?.join('\n')
 
   formState.conditions = props.single ? [conditionsRes[0]] : conditionsRes
-  formState.exclude = conditionsRes?.[0]?.functionalOperator === NOT_IN
+  formState.exclude = conditions?.[0]?.functionalOperator === NOT_IN
 }
 
 defineExpose({ init })

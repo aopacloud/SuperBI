@@ -19,6 +19,7 @@ import net.aopacloud.superbi.model.dto.TablePartition;
 import net.aopacloud.superbi.queryEngine.TableMergeStage;
 import net.aopacloud.superbi.queryEngine.enums.*;
 import net.aopacloud.superbi.queryEngine.model.*;
+import net.aopacloud.superbi.queryEngine.sql.aggregator.Aggregators;
 import net.aopacloud.superbi.queryEngine.sql.analytic.*;
 import net.aopacloud.superbi.queryEngine.sql.operator.FunctionalOperatorEnum;
 import net.aopacloud.superbi.queryEngine.sql.operator.OperatorParam;
@@ -26,6 +27,7 @@ import net.aopacloud.superbi.util.FieldUtils;
 import net.aopacloud.superbi.util.JSONUtils;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -47,12 +49,15 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
 
     protected Map<String, DatasetFieldDTO> fieldMap;
 
+    protected ExpressionParser expressionParser;
+
     public AbstractSqlAssembler(DatasetDTO dataset, TypeConverter typeConverter, TableMergeStage tableStage, QueryContext queryContext) {
         this.dataset = dataset;
         this.typeConverter = typeConverter;
         this.tableStage = tableStage;
         this.queryContext = queryContext;
         fieldMap = dataset.getFields().stream().collect(Collectors.toMap(DatasetFieldDTO::getName, field -> field));
+        this.expressionParser = new ExpressionParser(fieldMap,typeConverter);
     }
 
     @Override
@@ -135,12 +140,14 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
             case PREVIEW:
                 List<Segment> dimSegments = queryParam.getDataset().getFields().stream()
                         .filter(field -> field.getCategory() == FieldCategoryEnum.DIMENSION)
-                        .map(field -> new Segment(field.getName(), getFieldExpression(field)))
+                        .map(field -> new Segment(field.getName(), expressionParser.parse(field)))
                         .collect(Collectors.toList());
 
                 List<Segment> measureSegments = queryParam.getDataset().getFields().stream()
                         .filter(field -> field.getCategory() == FieldCategoryEnum.MEASURE)
-                        .map(field -> new Segment(field.getName(), field.getAggregator(), field.getAggregator().buildAggregationExpression(getFieldExpression(field))))
+
+                        .map(field -> new Segment(field.getName(), field.getAggregator(), Aggregators.of(field.getAggregator()).buildAggregationExpression(expressionParser.parse(field))))
+
                         .collect(Collectors.toList());
 
                 DatasetPreviewAnalysisModel previewAnalysisModel = new DatasetPreviewAnalysisModel()
@@ -261,7 +268,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
         }
 
         return rowPrivileges.stream().map(row -> {
-            String expression = buildExpression(row);
+            String expression = expressionParser.buildExpression(row);
             return new Segment(expression);
         }).collect(Collectors.toList());
 
@@ -272,7 +279,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
         String name = dimension.getName();
         DatasetFieldDTO field = queryContext.getFieldMap().get(name);
 
-        String expression = getFieldExpression(field);
+        String expression = expressionParser.parse(field);
 
         if (Strings.isNullOrEmpty(expression)) {
             return Lists.newArrayList();
@@ -292,6 +299,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
         switch (dataTrunc) {
             case YEAR:
                 segments.add(new Segment(name, typeConverter.toStartOfYear(expression)));
+                break;
             case QUARTER:
                 segments.add(new Segment(name, typeConverter.toStartOfQuarter(expression)));
                 break;
@@ -302,8 +310,21 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
                 segments.add(new Segment(name, typeConverter.toStartOfWeek(expression, dimension.getFirstDayOfWeek())));
                 break;
             case DAY:
-            default:
                 segments.add(new Segment(name, typeConverter.toDay(expression)));
+                break;
+            case HOUR:
+                segments.add(new Segment(name, typeConverter.toStartOfHour(expression)));
+                break;
+            case MINUTE_30:
+            case MINUTE_20:
+            case MINUTE_15:
+            case MINUTE_10:
+            case MINUTE_5:
+                segments.add(new Segment(name, typeConverter.toStartOfMinute(expression, dataTrunc.getWindowMinute())));
+                break;
+            default:
+//                segments.add(new Segment(name, typeConverter.toDay(expression)));
+                segments.add(new Segment(name,expression));
                 break;
         }
 
@@ -314,12 +335,12 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
 
         DatasetFieldDTO field = queryContext.getFieldMap().get(measure.getName());
 
-        String expression = getFieldExpression(field);
+        String expression = expressionParser.parse(field);
         if (Strings.isNullOrEmpty(expression)) {
             return null;
         }
 
-        String aggregation = measure.getAggregator().buildAggregationExpression(expression);
+        String aggregation = Aggregators.of(measure.getAggregator()).buildAggregationExpression(expression);
 
         if (!Strings.isNullOrEmpty(field.getComputeExpression())) {
             String computed = String.format("( (%s) %s)", aggregation, field.getComputeExpression());
@@ -333,7 +354,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
 
         DatasetFieldDTO field = queryContext.getFieldMap().get(filter.getName());
 
-        String expression = getFieldExpression(field);
+        String expression = expressionParser.parse(field);
         if (Strings.isNullOrEmpty(expression)) {
             return null;
         }
@@ -412,7 +433,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
     public Segment parseSortBy(Sort sort, List<Segment> measureSegments) {
 
         String fieldName = sort.getSortField();
-        Segment measure = measureSegments.stream().filter(segment -> fieldName.equals(segment.getName()) || fieldName.equals(String.format("%s.%s", segment.getName(), segment.getAggregator().name()))).findFirst().get();
+        Segment measure = measureSegments.stream().filter(segment -> fieldName.equals(segment.getName()) || fieldName.equals(String.format("%s.%s", segment.getName(), segment.getAggregator()))).findFirst().get();
 
         if (Objects.isNull(sort.getLimit())) {
             return new Segment(fieldName, String.format(" %s %s ", measure.getExpression(), sort.getSortType()));
@@ -448,7 +469,11 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
                 ratioMeasure.setRatioType(compare.getType());
             }
             if(Objects.isNull(ratioMeasure.getPeriod())) {
-                ratioMeasure.setPeriod(RatioPeriodEnum.SAME);
+                if ((dateTrunc == DateTruncEnum.DAY || dateTrunc == DateTruncEnum.ORIGIN) && ratioMeasure.getRatioType() != RatioTypeEnum.CHAIN) {
+                    ratioMeasure.setPeriod(RatioPeriodEnum.WHOLE);
+                } else {
+                    ratioMeasure.setPeriod(RatioPeriodEnum.SAME);
+                }
             }
         }
 
@@ -458,52 +483,79 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
             RatioMeasure.RatioPair ratioPair = entry.getKey();
             Segment joinOnField = parseJoinOnField(ratioPair.getType(), dateTrunc, timeDimSegment);
 
-            Segment ratioTimeRange = parseRatioTimeRange(compare, queryParam, ratioPair.getType(), ratioPair.getPeriod());
+            List<Segment> ratioTimeRanges = parseRatioTimeRange(compare, queryParam, ratioPair.getType(), ratioPair.getPeriod());
 
             return  RatioPart.builder()
                     .type(ratioPair.getType())
                     .period(ratioPair.getPeriod())
                     .ratioMeasures(entry.getValue())
                     .joinOnSegment(joinOnField)
-                    .timeRange(ratioTimeRange)
+                    .timeRanges(ratioTimeRanges)
                     .build();
             }
         ).collect(Collectors.toList());
     }
 
-    public Segment parseRatioTimeRange(Compare compare, QueryParam queryParam, RatioTypeEnum ratioType, RatioPeriodEnum ratioPeriod) {
+    public List<Segment> parseRatioTimeRange(Compare compare, QueryParam queryParam, RatioTypeEnum ratioType, RatioPeriodEnum ratioPeriod) {
 
-        String timeField = compare.getTimeField();
-        Optional<Filter> filterOptional = queryParam.getFilters().stream().filter(filter -> filter.getName().equals(timeField)).findFirst();
-        if (filterOptional.isPresent()) {
+        String timeFieldName = compare.getTimeField();
+        DatasetFieldDTO timeField = queryContext.getFieldMap().get(timeFieldName);
 
-            List<LocalDateTime> timeRange = filterOptional.get().getConditions().stream()
+        List<Filter> filterFields = queryParam.getFilters().stream().filter(filter -> filter.getName().equals(timeFieldName) || BiConsist.DEFAULT_PARTITION_NAME.equals(filter.getName())).collect(Collectors.toList());
+        Optional<Filter> partitionFilterFieldOptional = queryParam.getFilters().stream().filter(filter -> BiConsist.DEFAULT_PARTITION_NAME.equals(filter.getName())).findFirst();
+        Optional<Filter> timeFilterFieldOptional = queryParam.getFilters().stream().filter(filter -> filter.getName().equals(timeFieldName)).findFirst();
+
+        // same period and ratio time field is time yyyymmdd_hhMMss
+        if (!timeFilterFieldOptional.isPresent()
+                && partitionFilterFieldOptional.isPresent()
+                && timeField.getDataType() == DataTypeEnum.TIME_YYYYMMDD_HHMMSS
+                && ratioPeriod == RatioPeriodEnum.SAME) {
+            Condition partitionCondition = partitionFilterFieldOptional.get().getConditions().get(0);
+            Filter additionFilter = new Filter();
+            Condition condition = new Condition();
+            condition.setTimeType(partitionCondition.getTimeType())
+                    .setArgs(partitionCondition.getArgs())
+                    .setTimeParts(Lists.newArrayList(BiConsist.TIME_START_OF_DAY, LocalTime.now().format(BiConsist.HH_MM_SS_FORMATTER)));
+
+            additionFilter.setName(timeFieldName)
+                    .setLogical(LogicalEnum.AND)
+                    .setDataType(timeField.getDataType())
+                    .setConditions(Lists.newArrayList(condition));
+
+            filterFields.add(additionFilter);
+        }
+
+        return filterFields.stream().map(filterField -> {
+            List<LocalDateTime> timeRange = filterField.getConditions().stream()
                     .flatMap(condition -> parseTimeRange(condition).stream())
                     .collect(Collectors.toList());
 
-            DateTruncEnum dataTrunc = DateTruncEnum.DAY;
-            Optional<Dimension> dimField = queryParam.getDimensions().stream().filter(dimension -> dimension.getName().equals(timeField)).findFirst();
+            String filterFieldName = filterField.getName();
+
+            DateTruncEnum dataTrunc = DateTruncEnum.ORIGIN;
+            Optional<Dimension> dimField = queryParam.getDimensions().stream().filter(dimension -> dimension.getName().equals(timeFieldName)).findFirst();
             if (dimField.isPresent()) {
                 String dataTruncStr = dimField.get().getDateTrunc();
                 if (!Strings.isNullOrEmpty(dataTruncStr)) {
                     dataTrunc = DateTruncEnum.valueOf(dataTruncStr);
                 }
             }
-            DatasetFieldDTO field = queryContext.getFieldMap().get(timeField);
-            List<String> rationTimeRange = ratioType.transformTime(timeRange, dataTrunc, ratioPeriod)
+            DatasetFieldDTO field = queryContext.getFieldMap().get(filterFieldName);
+            List<String> rationTimeRange = ratioType.transformTime(timeRange, dataTrunc, ratioPeriod, timeField)
                     .stream()
                     .map(time -> field.getDataType() == DataTypeEnum.TIME_YYYYMMDD_HHMMSS ?  time.format(BiConsist.YYYY_MM_DD_HH_MM_SS_FORMATTER) : time.format(BiConsist.YYYY_MM_DD_FORMATTER))
                     .collect(Collectors.toList());
-            String expression = getFieldExpression(queryContext.getFieldMap().get(timeField));
+
+            String expression = expressionParser.parse(field);
+
             OperatorParam param = new OperatorParam(rationTimeRange, expression, field);
 
             if (rationTimeRange.size() == 1) {
-                return new Segment(timeField, FunctionalOperatorEnum.EQUAL.getOperator().apply(param));
+                return new Segment(filterFieldName, FunctionalOperatorEnum.EQUAL.getOperator().apply(param));
             } else {
-                return new Segment(timeField, FunctionalOperatorEnum.BETWEEN.getOperator().apply(param));
+                return new Segment(filterFieldName, FunctionalOperatorEnum.BETWEEN.getOperator().apply(param));
             }
-        }
-        return null;
+        }).collect(Collectors.toList());
     }
 
 
@@ -512,13 +564,14 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
         if(Objects.isNull(timeSegment)) {
             return null;
         }
-        String expression = ratioType.transformDimension(timeSegment.getExpression(), dateTrunc, typeConverter);
+        DatasetFieldDTO field = queryContext.getFieldMap().get(timeSegment.getName());
+        String expression = ratioType.transformDimension(timeSegment.getExpression(), dateTrunc, typeConverter, field);
         return new Segment(timeSegment.getName(), expression);
     }
 
     private boolean isHavingFilter(Filter filter) {
         DatasetFieldDTO field = queryContext.getFieldMap().get(filter.getName());
-        String expression = getFieldExpression(field);
+        String expression = expressionParser.parse(field);
         return filter.isHaving() || FieldUtils.hasAggregation(expression);
     }
 
@@ -540,120 +593,6 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
             log.error("get partition field error", e);
         }
         return null;
-    }
-
-    /**
-     * get field expression.
-     * if field type is origin, return field name.
-     * else return field expression than parsed with variable.
-     *
-     * @param field
-     * @return
-     */
-    protected String getFieldExpression(DatasetFieldDTO field) {
-        if (Objects.isNull(field)) {
-            return StringUtils.EMPTY;
-        }
-        if (field.getType() == FieldTypeEnum.ORIGIN) {
-            return switchDateType(String.format("`%s`", field.getName()), field);
-        }
-        String expression = field.getExpression();
-
-        if (Strings.isNullOrEmpty(expression)) {
-            return StringUtils.EMPTY;
-        }
-
-        return buildExpression(expression);
-    }
-
-
-    /**
-     * recursion build expression until expression not contains '['
-     *
-     * @param expression
-     * @return
-     */
-    protected String buildExpression(String expression) {
-        if (!Strings.isNullOrEmpty(expression) && expression.contains("[") && expression.contains("]")) {
-            List<String> fieldNames = extractFieldNames(expression);
-            for (String fieldName : fieldNames) {
-                DatasetFieldDTO replaceField = fieldMap.get(fieldName);
-                if (replaceField != null) {
-                    String replaceExpression = replaceField.getType() == FieldTypeEnum.ORIGIN ? switchDateType(replaceField.getName(), replaceField) : replaceField.getExpression();
-                    String newExpression = expression.replaceAll(String.format("\\[%s\\]", fieldName), "(" + replaceExpression + ")");
-                    return buildExpression(newExpression);
-                }
-            }
-            return expression;
-        }
-        return expression;
-    }
-
-    private List<String> extractFieldNames(String expression) {
-        List<String> list = Lists.newArrayList();
-        int start = 0;
-        int startFlag = 0;
-        int endFlag = 0;
-        for (int i = 0; i < expression.length(); i++) {
-            if (expression.charAt(i) == '[') {
-                startFlag++;
-                if (startFlag == endFlag + 1) {
-                    start = i;
-                }
-            } else if (expression.charAt(i) == ']') {
-                endFlag++;
-                if (endFlag == startFlag) {
-                    list.add(expression.substring(start + 1, i));
-                }
-            }
-        }
-        return list;
-    }
-
-    private String switchDateType(String expression, DatasetFieldDTO field) {
-
-        if (field.getType().isNewAdd()) {
-            return expression;
-        }
-        if (Objects.isNull(field.getOriginDataType())) {
-            return expression;
-        }
-        if (field.getDataType() == field.getOriginDataType()) {
-            return expression;
-        }
-
-        if (field.getDataType().isText()) {
-            return typeConverter.toString(expression);
-        }
-
-        // to number
-        if (field.getDataType() == DataTypeEnum.NUMBER) {
-            // string to number
-            if (field.getOriginDataType().isText()) {
-                return typeConverter.stringToNumber(expression);
-            }
-            // time to number
-            if (field.getOriginDataType().isTime()) {
-                return typeConverter.timeToNumber(expression);
-            }
-        }
-        // to time
-        if (field.getDataType().isTime()) {
-            // string to time
-            if (field.getOriginDataType().isText()) {
-                String convertExpression = typeConverter.stringToDate(expression);
-                if (field.getDataType() == DataTypeEnum.TIME_YYYYMMDD_HHMMSS) {
-                    convertExpression = typeConverter.stringToDateTime(expression);
-                }
-                return convertExpression;
-            }
-
-            // 数字转成时间
-            if (field.getOriginDataType() == DataTypeEnum.NUMBER) {
-                return typeConverter.numberToDate(expression);
-            }
-        }
-        return expression;
     }
 
     public DatasetDTO getDataset() {

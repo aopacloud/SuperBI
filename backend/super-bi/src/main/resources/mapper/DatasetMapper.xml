@@ -4,7 +4,7 @@
 <mapper namespace="net.aopacloud.superbi.mapper.DatasetMapper" >
 
     <select id="selectById" resultType="net.aopacloud.superbi.model.entity.Dataset">
-        select * from bi_dataset where id = #{id}
+        select * from bi_dataset where id = #{id} and deleted = 0
     </select>
 
     <select id="search" resultType="net.aopacloud.superbi.model.dto.DatasetDTO" parameterType="net.aopacloud.superbi.model.query.DatasetQuery">

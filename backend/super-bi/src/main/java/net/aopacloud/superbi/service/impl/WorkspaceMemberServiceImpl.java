@@ -67,4 +67,10 @@ public class WorkspaceMemberServiceImpl implements WorkspaceMemberService {
         return converter.entityToDTO(workspaceMember);
     }
 
+    @Override
+    public void deleteByUsername(String username) {
+        log.warn("delete {} from all workspace", username);
+        workspaceMemberMapper.deleteByUsername(username);
+    }
+
 }

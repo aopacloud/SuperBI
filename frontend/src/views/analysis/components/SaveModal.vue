@@ -21,11 +21,12 @@
 </template>
 
 <script setup>
-import { reactive, ref, inject, watch, computed } from 'vue'
+import { reactive, ref, inject, watch, computed, toRaw } from 'vue'
 import { Form, message } from 'ant-design-vue'
 import { postReport, putReport } from '@/apis/report'
 import { CATEGORY } from '@/CONST.dict'
-import { versionJs } from '@/versions'
+import { isDateField } from '@/views/dataset/utils'
+import { sortDimension } from '@/views/analysis/utils'
 
 const emits = defineEmits(['update:open', 'cancel', 'ok'])
 const props = defineProps({
@@ -83,31 +84,29 @@ const cancel = () => {
 }
 const confirmLoading = ref(false)
 const ok = () => {
-  validate().then(res => {
-    submit(res)
+  validate().then(() => {
+    submit(toRaw(formState))
   })
 }
 
 // 处理重命名后的指标
-const getRenameIndexList = request => {
+const getRenameIndexList = (list = []) => {
   // 选中的指标
   const choosedIndex = indexChoosed.get(CATEGORY.INDEX)
-  // 请求成功的指标
-  const requestIndex = request[CATEGORY.INDEX.toLowerCase() + 's']
 
-  return requestIndex.map(t => {
+  return list.map(t => {
     const choosedItem = choosedIndex.find(a => a.name === t.name)
 
     return {
       ...t,
-      _modifyDisplayName: choosedItem._modifyDisplayName,
+      _modifyDisplayName: choosedItem?._modifyDisplayName || t._modifyDisplayName,
     }
   })
 }
 
 // 更新日期筛选项
 const updateFilterDate = filterItem => {
-  if (!versionJs.ViewsAnalysis.isDateField(filterItem)) return filterItem
+  if (!isDateField(filterItem)) return filterItem
 
   const choosedFilters = indexChoosed.get(CATEGORY.FILTER)
   const {
@@ -141,11 +140,8 @@ const updateFilterDate = filterItem => {
 }
 
 // 过滤从看板的筛选条件
-const filterDashboardFilters = request => {
-  const requestFilters = request[CATEGORY.FILTER.toLowerCase() + 's']
-
-  return requestFilters.filter(t => t._from !== 'dashboard').map(updateFilterDate)
-}
+const filterDashboardFilters = (list = []) =>
+  list.filter(t => t._from !== 'dashboard').map(updateFilterDate)
 
 const submit = async params => {
   try {
@@ -163,11 +159,14 @@ const submit = async params => {
       reportType: options.renderType,
       queryParam: JSON.stringify({
         ...requestResponse.request,
+        [CATEGORY.PROPERTY.toLowerCase() + 's']: sortDimension(
+          requestResponse.request[CATEGORY.PROPERTY.toLowerCase() + 's']
+        ),
         [CATEGORY.INDEX.toLowerCase() + 's']: getRenameIndexList(
-          requestResponse.request
+          requestResponse.request[CATEGORY.INDEX.toLowerCase() + 's']
         ),
         [CATEGORY.FILTER.toLowerCase() + 's']: filterDashboardFilters(
-          requestResponse.request
+          requestResponse.request[CATEGORY.FILTER.toLowerCase() + 's']
         ),
       }),
       layout: JSON.stringify(options),

@@ -99,4 +99,6 @@ public interface DatasetAuthorizeService {
     List<DatasetAuthorizeDTO> search(DatasetAuthorizeBatchQuery query);
 
     List<DatasetAuthorizeDTO> findAuthorizeByDatasetAndUsernameAndRole(Set<Long> datasetIds, String username, Long roleId);
+
+    void deleteByUsername(String username);
 }

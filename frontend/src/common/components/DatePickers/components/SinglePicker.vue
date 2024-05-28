@@ -1,7 +1,7 @@
 <template>
   <div class="custom-picker" :class="{ showTime }">
     <div class="panel left" ref="startPanel">
-      <div class="panel-title">
+      <div class="panel-title" style="margin-top: -35px">
         <a-date-picker
           inputReadOnly
           placement="bottomRight"
@@ -72,7 +72,11 @@ defineExpose({ open, close })
 // 初始化
 watchEffect(() => {
   if (!props.value.length) {
-    modelValue.value = null
+    if (props.extra.dt) {
+      modelValue.value = dayjs().format(props.valueFormat) + SPLIT + '00:00:00'
+    } else {
+      modelValue.value = null
+    }
     return
   }
 
@@ -111,3 +115,14 @@ const onOk = e => {
   emits('ok')
 }
 </script>
+
+<style lang="scss" scoped>
+.custom-picker {
+  overflow: hidden;
+}
+.panel-title {
+  :deep(.date-picker-trigger) {
+    visibility: hidden;
+  }
+}
+</style>

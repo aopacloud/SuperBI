@@ -6,6 +6,9 @@
           <a class="report-name" target="_blank" @click="toChartPage">
             {{ report.name }}
           </a>
+          <a-tooltip v-if="report.description" :title="report.description">
+            <InfoCircleOutlined style="margin-left: 4px" />
+          </a-tooltip>
         </div>
         <a-space class="tools">
           <a-tooltip
@@ -42,46 +45,55 @@
       <div class="sub-title">{{ subTitle }}</div>
     </header>
     <main class="content">
-      <a-spin class="box-spin" :spinning="loading">
-        <!-- 初始化 -->
-        <a-empty v-if="isInit" class="box-empty" />
+      <!-- 使用 keepAlive 会导致图表渲染闪烁 -->
 
-        <!-- 数据集无权限 -->
-        <BoxUnaccess
-          v-else-if="
-            report.dataset.permission !== 'WRITE' &&
-            report.dataset.permission !== 'READ'
-          "
-          :dataset="report.dataset"
-          @apply="emits('dataset-apply', report.dataset)" />
+      <!-- loading -->
+      <a-spin _comment_="loading" v-if="loading" class="flex-column flex-center" />
 
-        <!-- 查询异常 -->
-        <div v-else-if="!isQuerySuccess" style="text-align: center">
-          <img src="@/assets/svg/chartBox_error.svg" style="width: 200px" />
-          <p style="color: #999">查询异常</p>
-        </div>
+      <!-- 初始化 -->
+      <a-empty _comment_="初始化" v-else-if="isInit" class="flex-column flex-center" />
 
-        <!-- 无数据 -->
-        <div
-          v-else-if="
-            requestResponse.layout.renderType !== 'table' && !dataSource.length
-          "
-          style="text-align: center">
-          <img src="@/assets/svg/chartBox_empty.svg" style="width: 200px" />
-          <p style="color: #999">当前查询条件下暂无数据</p>
-        </div>
+      <!-- 无权限 -->
+      <BoxUnaccess _comment_="无权限"
+        v-else-if="
+          report.dataset.permission !== 'WRITE' &&
+          report.dataset.permission !== 'READ'
+        "
+        :dataset="report.dataset"
+        @apply="emits('dataset-apply', report.dataset)" />
 
-        <Chart
-          v-else
-          :choosed="choosed"
-          :columns="columns"
-          :dataSource="dataSource"
-          :summaryRows="summaryRows"
-          :compare="requestResponse.request.compare"
-          :dataset="report.dataset"
-          :options="requestResponse.layout"
-          :extraChartOptions="{ grid: { left: 50, right: 50, bottom: 40 } }" />
-      </a-spin>
+      <!-- 查询异常 -->
+      <div _comment_="查询异常" v-else-if="!isQuerySuccess" style="text-align: center">
+        <img src="@/assets/svg/chartBox_error.svg" style="width: 200px" alt="查询异常" />
+        <p style="color: #999">
+          查询异常 <span v-if="errorLog"> ( {{ errorLog }} ) </span>
+          <a-spin v-if="reasonLoading"  size="small" style="margin-left: 6px" />
+          <div v-if="errorReason" style="margin-top: 4px;">AI分析: {{ errorReason }}</div>
+        </p>
+      </div>
+
+      <!-- 无数据 -->
+      <div _comment_="无数据"
+        v-else-if="
+          requestResponse.layout.renderType !== 'table' && !dataSource.length
+        "
+        style="text-align: center">
+        <img src="@/assets/svg/chartBox_empty.svg" style="width: 200px" alt="无数据" />
+        <p style="color: #999">当前查询条件下暂无数据</p>
+      </div>
+
+      <!-- 有数据 -->
+      <Chart _comment_="有数据"
+        v-else
+        ref="chartRef"
+        :choosed="choosed"
+        :columns="columns"
+        :dataSource="dataSource"
+        :summaryRows="summaryRows"
+        :compare="requestResponse.request.compare"
+        :dataset="report.dataset"
+        :options="requestResponse.layout"
+        :extraChartOptions="{ grid: { left: 50, right: 50, bottom: 40 } }" />
     </main>
   </section>
 </template>
@@ -93,12 +105,13 @@ import {
   FieldTimeOutlined,
   MoreOutlined,
   ReloadOutlined,
+  InfoCircleOutlined
 } from '@ant-design/icons-vue'
 import Chart from '@/components/Chart/index.vue'
 import { postAnalysisQuery } from '@/apis/analysis'
 import { getDetailById } from '@/apis/report'
 import { CATEGORY } from '@/CONST.dict'
-import { transformColumns } from '@/views/analysis/utils'
+import { transformColumns, sortDimension } from '@/views/analysis/utils'
 import { deepClone } from 'common/utils/help'
 import { storagePrefix } from '@/settings'
 import { DASHBORD_TO_REPORT_NAME } from '../config'
@@ -108,6 +121,9 @@ import { versionJs } from '@/versions'
 import { getStartDateStr, getEndDateStr } from 'common/components/DatePickers/utils'
 import dayjs from 'dayjs'
 import { isRenderTable } from '@/views/analysis/utils'
+import useError from '@/hooks/useError'
+
+const { fetchReason, reason: errorReason, reasonLoading } = useError()
 
 const router = useRouter()
 
@@ -146,11 +162,15 @@ const props = defineProps({
   },
 })
 
+const chartRef = ref(null)
 const onMoreMenuClick = ({ key }) => {
   if (key === 'sql') {
     emits('sql', requestResponse.response)
   } else if (key === 'download') {
-    emits('download', downloadQueryParams.value)
+    emits('download', {
+      payload: downloadQueryParams.value,
+      download: chartRef.value?.download
+    })
   }
 }
 
@@ -198,13 +218,10 @@ const requestResponse = reactive({
 })
 
 // 是否请求成功过
-const isQuerySuccess = computed(() => {
-  return requestResponse.response.status === 'SUCCESS'
-})
-// 初始化
-const isInit = computed(() => {
-  return Object.keys(requestResponse.response).length === 0
-})
+const isQuerySuccess = computed(() => requestResponse.response.status === 'SUCCESS')
+
+// // 初始化
+const isInit = computed(() => Object.keys(requestResponse.response).length === 0)
 
 const _n = category => category.toLowerCase() + 's'
 // 从数据集字段中恢复category
@@ -265,9 +282,15 @@ const columns = computed(() => {
 
 // 数据行
 const dataSource = computed(() => requestResponse.response.rows || [])
-
 // 汇总行
 const summaryRows = computed(() => requestResponse.response.summaryRows || [])
+// 查询错误原因（从errorLog 中提取中文信息）
+const errorLog = computed(() => {
+  const log = requestResponse.response.errorLog || ''
+  const chMsg = log.match(/^\[(.*?)\]/)
+
+  return chMsg ? chMsg[1] || log : log
+})
 
 // 副标题
 const subTitle = computed(() => {
@@ -282,6 +305,8 @@ const subTitle = computed(() => {
 const report = ref({})
 const fetchReportDetail = async () => {
   try {
+    loading.value = true
+
     const {
       layout,
       queryParam = '{}',
@@ -299,6 +324,7 @@ const fetchReportDetail = async () => {
 
     emits('reload', rest)
   } catch (error) {
+    loading.value = false
     console.error('获取数据集错误', error)
   }
 }
@@ -452,6 +478,8 @@ const payloadSummary = computed(() => {
 const runQuery = async () => {
   try {
     loading.value = true
+    // 查询时，清空上一次的结果
+    requestResponse.response = {}
 
     //  处理全局筛选
     mergedFilters.value = versionJs.ViewsDashboard.mergeBoxFilters(
@@ -466,9 +494,12 @@ const runQuery = async () => {
     const p = _n(CATEGORY.PROPERTY),
       i = _n(CATEGORY.INDEX)
 
+    // 维度分组排序
+    const pFields = requestResponse.request[p].filter(filterFields)
+
     const requestParams = {
       ...requestResponse.request,
-      [p]: requestResponse.request[p].filter(filterFields),
+      [p]: sortDimension(pFields, true),
       [i]: requestResponse.request[i].filter(filterFields),
       filters: queryFilters.value.filter(filterFields),
       summary: payloadSummary.value,
@@ -478,6 +509,10 @@ const runQuery = async () => {
 
     downloadQueryParams.value = requestParams // 下载的请求参数，不可直接赋值给reqeust，因为reqeust的filters会使用queryFiltersHandler
     requestResponse.response = res
+
+    if(res.status !== 'SUCCESS') {
+      fetchReason(res.queryId)
+    }
   } catch (error) {
     console.error('看板项查询错误', error)
   } finally {
@@ -541,8 +576,9 @@ onMounted(() => {
   align-items: center;
   .name {
     flex: 1;
+    display: flex;
+    overflow: hidden;
     font-size: 16px;
-    @extend .ellipsis;
   }
   .tools {
     margin-left: 20px;
@@ -550,7 +586,9 @@ onMounted(() => {
     opacity: 0;
   }
   .report-name {
+    max-width: 100%;
     color: inherit;
+    @extend .ellipsis;
     &:hover {
       text-decoration: underline;
     }

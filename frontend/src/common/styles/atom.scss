@@ -1,4 +1,10 @@
-﻿/* 清楚浮动 start */
+﻿/* 浮动 start */
+.float-left {
+  float: left;
+}
+.float-right {
+  float: right;
+}
 .clearfix {
   &:after {
     visibility: hidden;
@@ -9,7 +15,7 @@
     height: 0;
   }
 }
-/* 清楚浮动 end */
+/* 浮动 end */
 
 /* 鼠标样式 start */
 .pointer {
@@ -24,7 +30,7 @@
 .block {
   display: block;
 }
-.block-inline {
+.inline-block {
   display: inline-block;
 }
 /* 显示隐藏 end */
@@ -128,3 +134,18 @@
   width: 100%;
   height: 100%;
 }
+
+/** 帮助文本 start **/
+.font-help {
+  color: rgba(0, 0, 0, 0.45);
+}
+.font-help2 {
+  color: #aaa;
+}
+/** 帮助文本 end **/
+
+/** 字体大小 start **/
+.font-12 {
+  font-size: 12px;
+}
+/** 字体大小 end **/

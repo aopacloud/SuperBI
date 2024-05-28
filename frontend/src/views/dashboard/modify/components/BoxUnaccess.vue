@@ -2,7 +2,7 @@
   <div class="section">
     <img src="@/assets/svg/chartBox_unaccess.svg" style="width: 200px" />
 
-    <p class="help-text">
+    <p class="font-help">
       很抱歉，
       {{ dataset.expired ? '图表的权限已过期' : '您没有图表的权限' }}
       ，请先去申请数据集 [{{ dataset.name }}] 的权限
@@ -33,7 +33,7 @@ const props = defineProps({
   justify-content: center;
   align-items: center;
 }
-.help-text {
+.font-help {
   margin: 0 0 24px;
   color: #999;
 }

@@ -52,6 +52,8 @@ public interface SysUserService {
 
     boolean isSuperAdmin(String username);
 
+    boolean isActive(String username);
+
     List<SysUserDTO> filter(String keyword);
 
     /**

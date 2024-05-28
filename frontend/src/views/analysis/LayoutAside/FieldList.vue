@@ -25,15 +25,15 @@
           @dragend="onDragend($event, item)"
           @dblclick="onDblclick(item)">
           <i
-            :class="['iconfont', getFieldTypeIcon(item.dataType)['icon']]"
+            :class="['iconfont', getIconByFieldType(item.dataType)['icon']]"
             :style="{
               marginRight: '4px',
-              color: getFieldTypeIcon(item.dataType)['color'],
+              color: getIconByFieldType(item.dataType)['color'],
             }">
           </i>
           <div class="item-name">
             {{ item.displayName }}
-            <span class="item-help-text">({{ item.name }})</span>
+            <span class="font-help2">({{ item.name }})</span>
           </div>
         </li>
       </ul>
@@ -45,7 +45,7 @@
 import { shallowRef, ref, watch, watchEffect, inject, onUnmounted } from 'vue'
 import { Empty } from 'ant-design-vue'
 import { CATEGORY } from '@/CONST.dict.js'
-import { getFieldTypeIcon } from '@/views/dataset/config.field'
+import { getIconByFieldType } from '@/views/dataset/utils'
 
 const simpleImage = shallowRef(Empty.PRESENTED_IMAGE_SIMPLE)
 
@@ -90,19 +90,18 @@ const onDblclick = row => {
 }
 
 const indexInject = inject('index')
-const indexDragedField = indexInject.dragedField
+const indexDragedField = indexInject.draggingField
 const onDragstart = (evt, row) => {
   const item = { ...row }
 
   evt.dataTransfer.setData('dragging-field-data', JSON.stringify(item))
   evt.dataTransfer.setDragImage(evt.target, 0, 0)
   // 设置拖拽中字段
-  indexDragedField.setDragging(item)
+  indexDragedField.set(item)
 }
 const onDragend = () => {
   // 清空拖拽中字段， 清空拖拽覆盖字段
-  indexDragedField.setDragging()
-  indexDragedField.setDragover()
+  indexDragedField.set()
 }
 </script>
 
@@ -157,9 +156,6 @@ const onDragend = () => {
     &-name {
       flex: 1;
       @extend .ellipsis;
-    }
-    &-help-text {
-      color: #aaa;
     }
   }
 }

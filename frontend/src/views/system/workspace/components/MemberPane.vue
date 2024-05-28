@@ -20,7 +20,10 @@
       </a-select>
 
       <template v-if="column.dataIndex === 'action'">
-        <a-popconfirm v-if="hasCurrentUserAdd" title="确定删除" @confirm="del(record)">
+        <a-popconfirm
+          v-if="hasCurrentUserAdd"
+          title="确定删除"
+          @confirm="del(record)">
           <a style="color: red">删除</a>
         </a-popconfirm>
         <span v-else>-</span>
@@ -72,13 +75,16 @@ const hasCurrentUserAdd = computed(() => {
   return props.permissions.includes('WORKSPACE:VIEW:MANAGE:USER')
 })
 
-const { loading, pager, list, fetchList, onTableChange } = useTable(getWorkspaceMembers, {
-  sorter: null,
-  initQueryParams: () => ({
-    workspaceId: props.workspaceId,
-    keyword: props.keyword,
-  }),
-})
+const { loading, pager, list, fetchList, onTableChange } = useTable(
+  getWorkspaceMembers,
+  {
+    sorter: null,
+    initQueryParams: () => ({
+      workspaceId: props.workspaceId,
+      keyword: props.keyword,
+    }),
+  }
+)
 
 // 系统角色
 const roles = ref([])
@@ -126,8 +132,6 @@ const del = async row => {
 const fetchSysUsers = async () => {
   getAllUser({ pageSize: 10000 })
     .then(({ data = [] }) => {
-      console.log('1', 1)
-
       sysUsers.value = data
     })
     .catch(e => {
@@ -144,7 +148,9 @@ const insert = async () => {
     selectListModalOpen.value = true
     selectListLoading.value = true
 
-    const { data = [] } = await getWorkspaceAllMembers({ workspaceId: props.workspaceId })
+    const { data = [] } = await getWorkspaceAllMembers({
+      workspaceId: props.workspaceId,
+    })
 
     sysUsers.value = sysUsers.value.map(user => {
       return {

@@ -61,12 +61,12 @@ public class DatasetApplyListener {
                 case PASSED:
                     ApprovalNoticeDTO passNotice = ApprovalNoticeDTO.builder()
                             .status(ApplyStatusEnum.PASSED)
-                            .aliasName(sysUserService.getUserAliasName(datasetApply.getCurrentReviewer()))
+                            .aliasName(sysUserService.getUserAliasName(datasetApply.getUsername()))
                             .datasetCreatorAlias(sysUserService.getUserAliasName(datasetApply.getDatasetCreator()))
-                            .operator(datasetApply.getCurrentReviewer())
+                            .operator(datasetApply.getDatasetCreator())
                             .applyId(datasetApply.getId())
                             .build();
-                    notificationService.approvalNotice(datasetApply.getUsername(), PositionEnum.DATASET, datasetApply.getDatasetId(), datasetApply.getDatasetName(), passNotice);
+                    notificationService.approvalNotice(datasetApply.getDatasetCreator(), PositionEnum.DATASET, datasetApply.getDatasetId(), datasetApply.getDatasetName(), passNotice);
                     break;
 
                 case UNDER_REVIEW:

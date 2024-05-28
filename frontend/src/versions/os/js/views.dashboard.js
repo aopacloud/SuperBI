@@ -12,7 +12,7 @@ export const mergeBoxFilters = (filters = [], _, mapCb) => {
     const { filterType, value } = t
 
     if (filterType === 'TIME') {
-      const { extra = {}, mode, date, offset } = value
+      const { extra = {}, mode = 0, date = [], offset = [] } = value
 
       if (extra.dt) return true
       return mode === 0 ? offset.length > 0 : date.length > 0

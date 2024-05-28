@@ -16,7 +16,7 @@
         :loading="listLoading"
         :column-config="vColumnConfig"
         :sort-config="vSortConfig"
-        :scroll-x="{ enabled: true, gt: 10 }"
+        :scroll-x="vScrollX"
         :scroll-y="{ enabled: true, gt: 10 }"
         :show-footer="showSummary"
         :footer-method="renderFooter"
@@ -27,43 +27,56 @@
 
         <!-- 表头 -->
         <template #header="{ column }">
-          <template v-if="column.treeNode">
-            <a-button
-              size="small"
-              type="text"
-              v-if="isTreeExpandAll"
-              :icon="h(CaretDownOutlined)"
-              @click.stop="toggleTreeExpandAll(false)" />
-            <a-button
-              size="small"
-              type="text"
-              v-else
-              :icon="h(CaretRightOutlined)"
-              @click.stop="toggleTreeExpandAll(true)" />
-
-            {{ column.title }}
+          <template
+            v-if="column.params._columnFields && column.params._columnFields.length">
+            <div
+              v-for="col in column.params._columnFields"
+              class="header-cell-column"
+              @click.stop>
+              <span class="header-cell-text"> {{ col.displayName }}</span>
+            </div>
           </template>
-          <template v-else>{{ column.title }}</template>
 
-          <!-- 避免过多的组件实例???  https://cn.vuejs.org/guide/best-practices/performance.html#avoid-unnecessary-component-abstractions -->
-          <SettingDropdown
-            :column="column"
-            :sort="config.sorter"
-            :formatter="formatterConfig.find(t => t.field === column.field)"
-            @openChange="e => onOnOpenChange(e, column)"
-            @menuClick="e => onSettingDropdownMenuClick(e, column)">
-            <SettingOutlined
-              :class="['trigger-btn', { active: isColumnSettingActive(column) }]"
-              @click.stop="e => onColumnSettingClick(e, column)" />
-          </SettingDropdown>
+          <div class="header-cell" v-if="column.title">
+            <span class="header-cell-text">
+              <template v-if="column.treeNode">
+                <a-button
+                  size="small"
+                  type="text"
+                  v-if="isTreeExpandAll"
+                  :icon="h(CaretDownOutlined)"
+                  @click.stop="toggleTreeExpandAll(false)" />
+                <a-button
+                  size="small"
+                  type="text"
+                  v-else
+                  :icon="h(CaretRightOutlined)"
+                  @click.stop="toggleTreeExpandAll(true)" />
+              </template>
+              {{ column.title }}
+            </span>
+
+            <!-- 避免过多的组件实例???  https://cn.vuejs.org/guide/best-practices/performance.html#avoid-unnecessary-component-abstractions -->
+            <SettingDropdown
+              v-if="column.params.formable"
+              :column="column"
+              :sort="config.sorter"
+              :formatter="formatterConfig.find(t => t.field === column.field)"
+              @openChange="e => onOnOpenChange(e, column)"
+              @menuClick="e => onSettingDropdownMenuClick(e, column)">
+              <SettingOutlined
+                :class="['trigger-btn', { active: isColumnSettingActive(column) }]"
+                @click.stop="e => onColumnSettingClick(e, column)" />
+            </SettingDropdown>
+          </div>
         </template>
 
         <template #groupName="{ column, row }">
-          {{ displayGroupName(row, column) }}
+          {{ displayGroupNameCell(row, column) }}
         </template>
 
         <template #date="{ column, row }">
-          {{ formatDtWithOption(row[column.field], column.params.field) }}
+          {{ displayDateCell(row, column) }}
         </template>
 
         <!-- 维度插槽 -->
@@ -76,12 +89,18 @@
           {{ displayIndex(row, column) }}
         </template>
 
+        <!-- 快速计算插槽 -->
+        <template #quickCalculate="{ column, row }">
+          {{ displayQuickIndexCell(row[column.field], column, row) }}
+        </template>
+
         <!-- 同环比插槽 -->
         <template #vs="{ row, column }">
           <CompareDisplay
             :dataset="dataset"
             :field="column.params.field"
             :compare="config.compare"
+            :dTarget="displayQuickIndexCell(row[column.field], column, row)"
             :target="getVsTarget(column.field, row)"
             :origin="row[column.field]" />
         </template>
@@ -92,17 +111,18 @@
             <b>汇总</b>
           </div>
         </template>
-        <template #[footerIndexSummarySlot]="{ column }">
+
+        <template #[footerIndexSummarySlot]="{ row, column }">
           <!-- 同环比汇总 -->
           <CompareDisplay
-            v-if="column.params.field._isVs"
+            v-if="column.params._isVs"
             :dataset="dataset"
             :field="column.params.field"
             :compare="config.compare"
-            :target="getVsTarget(column.field, bottomSummaryMap)"
-            :origin="bottomSummaryMap[column.field]" />
+            :target="getVsTarget(column.field, summaryMap)"
+            :origin="summaryMap[column.field]" />
           <span v-else>
-            {{ formatIndexDisplay(bottomSummaryMap[column.field], column) }}
+            {{ displayBottomSummaryIndexCell(column) }}
           </span>
         </template>
 
@@ -133,7 +153,7 @@
       @ok="onCustomFormatterOk" />
   </teleport>
 </template>
-<script setup lang="jsx">
+<script setup>
 import {
   h,
   ref,
@@ -143,6 +163,7 @@ import {
   watchEffect,
   watch,
   nextTick,
+  inject,
 } from 'vue'
 import {
   CaretDownOutlined,
@@ -159,7 +180,14 @@ import {
   formatterOptions,
 } from '@/views/dataset/config.field'
 import { PAGER_SIZES, SORT_PREFFIX } from './components/config'
-import { getByPager, getCompareDisplay, getFixedPlace } from './utils'
+import {
+  getByPager,
+  getCompareDisplay,
+  getFixedPlace,
+  listDataToTreeByKeys,
+  createSummaryMap,
+  displayQuickCalculateValue,
+} from './utils'
 import {
   CELL_HEADER_PADDING,
   CELL_BODY_PADDING,
@@ -171,14 +199,25 @@ import {
   createSortByOrder,
   formatDtWithOption,
 } from '../utils/index'
-import { getWordWidth } from '@/common/utils/help'
+import { getWordWidth, deepFind } from '@/common/utils/help'
 import { upcaseFirst } from 'common/utils/string'
 import { flat } from 'common/utils/array'
-import { TREE_ROW_KEY, TREE_ROW_PARENT_KEY } from '../utils/createGroupTable'
+import { toPercent } from '@/common/utils/number'
+import { findLast } from 'common/utils/compatible'
+import {
+  GROUP_PATH,
+  TREE_ROW_KEY,
+  TREE_ROW_PARENT_KEY,
+  SUMMARY_GROUP_NAME_JOIN,
+  TREE_GROUP_NAME,
+} from '../utils/createGroupTable'
 import { isRenderTable } from '@/views/analysis/utils'
+import { isDateField } from '@/views/dataset/utils'
+import { COLUMN_FIELDS_NAME_JOIN } from '../utils/createIntersectionTable'
 
 defineOptions({
   name: 'ChartTable',
+  inheritAttrs: false,
 })
 
 const props = defineProps({
@@ -210,6 +249,10 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  summaryMap: {
+    type: [Boolean, Object],
+  },
+
 })
 
 const vTableRef = ref(null)
@@ -257,6 +300,13 @@ const vSortConfig = computed(() => {
     trigger: 'cell',
     sortMethod: () => {},
     defaultSort: config.sorter || {},
+  }
+})
+// vxe横向滚动
+const vScrollX = computed(() => {
+  return {
+    enabled: props.renderType !== 'intersectionTable',
+    gt: 15,
   }
 })
 // 排序事件
@@ -315,129 +365,183 @@ const setColumnFixed = async () => {
 /**
  * 获取汇总行列宽
  * @param {列信息} column
- * @param {汇总数据} summaryMap
+ * @param {汇总数据} summary
  * @param {列原始字段} originField
  */
-const getSummaryColumnWidth = (column, summaryMap, field) => {
+const getSummaryColumnWidth = ({ column, summary, field }) => {
   // 无汇总行
   if (!showSummary.value) return 0
 
+  const fieldName = column.field
   // 同环比同时显示
   if (config.compare.merge) {
-    const target = formatIndexDisplay(getVsTarget(column.field, summaryMap), column)
+    const target = formatIndexDisplay(getVsTarget(fieldName, summary), column)
 
     // 原值的格式化
     const origin =
       ' ( ' +
-      getCompareDisplay(
-        getVsTarget(column.field, summaryMap),
-        summaryMap[column.field]
-      )(field, dataset.value.fields) +
+      getCompareDisplay(getVsTarget(fieldName, summary), summary[fieldName])(
+        field,
+        dataset.value.fields
+      ) +
       ' ) '
 
     return getWordWidth(target) + getWordWidth(origin)
   } else {
-    return summaryMap[column.field]
-      ? getWordWidth(formatIndexDisplay(summaryMap[column.field], column))
+    return summary[fieldName]
+      ? getWordWidth(formatIndexDisplay(summary[fieldName], column))
       : 0
   }
 }
 
 // 更新列宽度
 const updateColumnWidth = async () => {
-  if (tableConfig.value.layout === 'auto') {
-    rColumns.value = rColumns.value.map((col, i) => {
-      const originField = col.params.field
-      const summaryWidth = getSummaryColumnWidth(
-        col,
-        bottomSummaryMap.value,
-        originField
-      )
+  const summary = props.summaryMap
 
-      if (col._width) {
-        // 同环比的汇总列
+  // 设置自定义宽度
+  const setAutoWidth = (list = [], data = [], initialWidth = 0) => {
+    if (!list.length) return []
 
+    return list.map((item, index) => {
+      const originField = item.params.field
+      const summaryWidth = getSummaryColumnWidth({
+        column: item,
+        summary,
+        field: originField,
+      })
+
+      if (item._width) {
         return {
-          ...col,
-          width: Math.max(col._width, summaryWidth) + CELL_BUFFER_WIDTH,
+          ...item,
+          children: setAutoWidth(item.children, data),
+          width: Math.max(item._width, summaryWidth) + CELL_BUFFER_WIDTH,
         }
       }
 
       // 当前字段的所有数据(当前页)
-      const data = list.value.map(t => t[col.field])
+      const dataArr = data.map(t => t[item.field])
 
       // 计算数据格式化后的最大宽度
       const contentMaxWidth =
         Math.max(
-          ...data.map(t => {
+          ...dataArr.map(t => {
             if (originField?.category === CATEGORY.INDEX) {
-              return getWordWidth(formatIndexDisplay(t, col))
+              if (item.params._quick) {
+                return getWordWidth(displayQuickIndexCell(t, item))
+              } else {
+                return getWordWidth(formatIndexDisplay(t, item))
+              }
             } else {
               if (originField?.dataType?.includes('TIME')) {
-                return getWordWidth(formatDtWithOption(t, col.params.field))
+                return getWordWidth(formatDtWithOption(t, originField))
               } else {
                 return getWordWidth(t)
               }
             }
           }),
-          showSummary.value && i === 0 ? 105 : 0
+          showSummary.value && index === 0 ? 105 : 0
         ) + CELL_BODY_PADDING
 
       // 分组表格折叠icon宽
-      const treeExpandIconWith = isGroupTable.value && i === 0 ? 24 : 0
+      const treeExpandIconWith = isGroupTable.value && index === 0 ? 24 : 0
+
       // 表头宽度
       const titleWidth =
-        getWordWidth(col.title) + CELL_HEADER_PADDING + treeExpandIconWith
+        getWordWidth(item.title) + CELL_HEADER_PADDING + treeExpandIconWith
+
+      // 列宽
+      const columnWidth =
+        Math.max(titleWidth, contentMaxWidth, summaryWidth, CELL_MIN_WIDTH) +
+        CELL_BUFFER_WIDTH
+
+      // 子列
+      const childrenColumns = setAutoWidth(item.children, data).map(t => t.width)
+      // 子列宽度和
+      const childrenWidthSum = childrenColumns.reduce((a, b) => a + b, 0)
+
+      // 子列宽度初始宽度（子列宽度和小于父列宽，则子列平均分配父列宽）
+      const childrenInitWidth =
+        childrenWidthSum && childrenWidthSum < columnWidth
+          ? Math.floor(columnWidth / item.children.length)
+          : undefined
 
       return {
-        ...col,
-        width:
-          Math.max(titleWidth, contentMaxWidth, summaryWidth, CELL_MIN_WIDTH) +
-          CELL_BUFFER_WIDTH,
+        ...item,
+        children: setAutoWidth(item.children, data, childrenInitWidth),
+        width: initialWidth ? Math.max(columnWidth, initialWidth) : columnWidth,
       }
     })
-  } else {
+  }
+
+  // 获取内容宽度
+  const getContentWidth = (list = [], data = []) => {
+    if (!list.length) return []
+
     // 所有字段的宽度
-    const contentMaxWidths = rColumns.value.map((col, i) => {
-      const originField = col.params.field
+    const contentWidth = list.map((item, index) => {
+      const originField = item.params.field
       // 当前字段的所有数据(当前页)
-      const data = list.value.map(t => t[col.field])
+      const dataArr = data.map(t => t[item.field])
       // 计算数据格式化后的最大宽度
       const contentMaxWidth =
         Math.max(
-          ...data.map(t => {
+          ...dataArr.map(t => {
             if (originField.category === CATEGORY.INDEX) {
-              return getWordWidth(formatIndexDisplay(t, col))
+              return getWordWidth(formatIndexDisplay(t, item))
             } else {
               if (originField.dataType.includes('TIME')) {
-                return getWordWidth(formatDtWithOption(t, col.params.field))
+                return getWordWidth(formatDtWithOption(t, item.params.field))
               } else {
                 return getWordWidth(t)
               }
             }
           }),
-          showSummary.value && i === 0 ? 105 : 0
+          showSummary.value && index === 0 ? 105 : 0
         ) + CELL_BODY_PADDING
       // 分组表格折叠icon宽
-      const treeExpandIconWith = isGroupTable.value && i === 0 ? 24 : 0
+      const treeExpandIconWith = isGroupTable.value && index === 0 ? 24 : 0
       // 表头宽度
       const titleWidth =
-        getWordWidth(col.title) + CELL_HEADER_PADDING + treeExpandIconWith
-      const summaryWidth = getSummaryColumnWidth(
-        col,
-        bottomSummaryMap.value,
-        originField
-      )
+        getWordWidth(item.title) + CELL_HEADER_PADDING + treeExpandIconWith
+      const summaryWidth = getSummaryColumnWidth({
+        column: item,
+        summary,
+        field: originField,
+      })
 
-      return Math.max(titleWidth, contentMaxWidth, summaryWidth, col._width ?? 0)
+      const childrenContentWidth = getContentWidth(item.children, data)
+
+      return Math.max(
+        titleWidth,
+        contentMaxWidth,
+        summaryWidth,
+        ...childrenContentWidth,
+        item._width ?? 0
+      )
     })
 
-    rColumns.value = rColumns.value.map(col => {
+    return contentWidth
+  }
+
+  // 设置等宽
+  const setFixedWidth = (list = [], width = CELL_MIN_WIDTH) => {
+    if (!list.length) return
+    return list.map(item => {
       return {
-        ...col,
-        width: Math.max(...contentMaxWidths, CELL_MIN_WIDTH) + CELL_BUFFER_WIDTH,
+        ...item,
+        children: setFixedWidth(item.children, width),
+        width,
       }
     })
+  }
+
+  if (tableConfig.value.layout === 'auto') {
+    rColumns.value = setAutoWidth(rColumns.value, list.value)
+  } else {
+    const contentWidth = getContentWidth(rColumns.value, list.value)
+    const width = Math.max(...contentWidth, CELL_MIN_WIDTH) + CELL_BUFFER_WIDTH
+
+    rColumns.value = setFixedWidth(rColumns.value, width)
   }
 
   setTimeout(() => {
@@ -472,13 +576,8 @@ const pager = reactive({
 })
 
 // 监听排序
-watch(
-  [() => pager.current, () => pager.size],
-  ([current, size]) => {
-    renderTable()
-  },
-  { deep: true }
-)
+watch([() => pager.current, () => pager.size], () => renderTable(), { deep: true })
+
 // 分页改变
 const onPagerChange = (page, pageSize) => {
   pager.current = page
@@ -500,23 +599,21 @@ const onPagerShowSizeChange = (_, pageSize) => {
 const originSortedList = shallowRef([])
 // 渲染数据
 const list = ref([])
-// 渲染表格
-const renderTable = async () => {
-  const l = showPager.value
-    ? getByPager(originSortedList.value, {
-        current: pager.current,
-        size: pager.size,
-      })
-    : originSortedList.value
+// 渲染数据的树结构, 用作明细表格时的一些需要分组数据时的处理
+const listTree = shallowRef([])
+const listLoading = ref(false)
+// 数据渲染
+const renderList = async () => {
+  if (!vTableRef.value) return
 
-  list.value = !isGroupTable.value ? l : flat(l)
+  if (isGroupTable.value) listLoading.value = true
 
-  // 更新列宽
-  updateColumnWidth()
-  // 渲染列
-  renderColumns()
-  // 渲染行
-  renderList()
+  vTableRef.value.reloadData(list.value).then(r => {
+    initExpandRowKeys()
+    setTimeout(() => {
+      listLoading.value = false
+    })
+  })
 }
 
 // 表头渲染
@@ -532,24 +629,46 @@ const renderColumns = async () => {
   })
 }
 
-// 数据渲染
-const listLoading = ref(false)
-const renderList = async () => {
-  if (!vTableRef.value) return
+// 渲染表格
+const renderTable = async () => {
+  const l = showPager.value
+    ? getByPager(originSortedList.value, {
+        current: pager.current,
+        size: pager.size,
+      })
+    : originSortedList.value
 
-  if (isGroupTable.value) listLoading.value = true
+  list.value = !isGroupTable.value ? [...l] : flat(l)
 
-  vTableRef.value.reloadData(list.value).then(r => {
-    initExpandRowKeys()
-    setTimeout(() => {
-      listLoading.value = false
+  if (isGroupTable.value) {
+    listTree.value = [...l]
+  } else {
+    const groupKeys = props.columns
+      .filter(col => col.params.field.category === CATEGORY.PROPERTY)
+      .map(t => t.params.field.renderName)
+
+    // 汇总数据
+    const cellSummaryRows = props.summaryRows.slice(+showSummary.value)
+    const fields = props.columns.map(t => t.params.field)
+    const summaryMap = props.summaryMap || createSummaryMap(cellSummaryRows, fields)
+    listTree.value = listDataToTreeByKeys({
+      list: l,
+      groupKeys,
+      summaryMap,
     })
-  })
+  }
+
+  // 更新列宽
+  updateColumnWidth()
+  // 渲染列
+  renderColumns()
+  // 渲染行
+  renderList()
 }
 
 // 初始化
 const init = () => {
-  console.log('--------  Components/Chart/Table init  --------')
+  console.info('--------  Components/Chart/Table init  --------')
 
   // TODO:
   // 看板项中会触发多次 table * 3 => chart => table * 2， 分析中会触发两次 table => chart => table
@@ -574,11 +693,12 @@ const sortedList = (arr = []) => {
 }
 // 监听数据源
 watch([() => props.dataSource, () => props.columns], init)
+
 // 监听格式化配置
 watch(
   formatterConfig,
   () => {
-    updateColumnWidth().then(renderColumns)
+    updateColumnWidth().then(renderColumns).then(initExpandRowKeys)
   },
   { deep: true }
 )
@@ -773,7 +893,13 @@ const onCustomFormatterOk = payload => {
   })
 }
 
-const displayGroupName = (row, column) => {
+// 日期的格式化显示
+const displayDateCell = (row, column) => {
+  return formatDtWithOption(row[column.field], column.params.field)
+}
+
+// 分组 groupName 显示
+const displayGroupNameCell = (row, column) => {
   const { treeNode, field: renderName, params } = column
   const value = row[renderName]
 
@@ -787,8 +913,26 @@ const displayGroupName = (row, column) => {
   }
 }
 
+// 指标的格式化显示
 const displayIndex = (row, column) => {
   return formatIndexDisplay(row[column.field], column)
+}
+
+// 指标快速计算的显示
+const displayQuickIndexCell = (value, column, row) => {
+  if (!column.params._quick) return
+
+  if (!row) return value
+
+  return displayQuickCalculateValue({
+    row,
+    field: column.params.field,
+    renderType: props.renderType,
+    columns: props.columns,
+    listTree: listTree.value,
+    summary: props.summaryMap,
+    isGroupTable: isGroupTable.value,
+  })
 }
 
 // 格式化显示
@@ -822,16 +966,26 @@ const formatIndexDisplay = (value, column) => {
   return formatItem.format(value, fConfig.config)
 }
 
+// 底部汇总指标的显示
+const displayBottomSummaryIndexCell = column => {
+  return formatIndexDisplay(props.summaryMap[column.field], column)
+}
+
 // 获取原始字段值
 const getVsTarget = (fieldName, row) => {
-  const [pre, ...res] = fieldName.split(VS_FIELD_SUFFIX)
+  const [pre] = fieldName.split(VS_FIELD_SUFFIX)
 
   return row[pre]
 }
 
 // 显示汇总行
 const showSummary = computed(() => {
-  return tableConfig.value.showSummary
+  if (!tableConfig.value.showSummary) return false
+
+  // 交叉表格没有行分组不显示汇总
+  if (props.renderType === 'intersectionTable') return !!props.summaryMap
+
+  return true
 })
 watch(showSummary, () => {
   nextTick(() => {
@@ -852,14 +1006,17 @@ const footerPropertySummarySlot = shallowRef(
 
 // 汇总数据
 const bottomSummaryMap = computed(() => {
-  if (!showSummary.value) return {}
+  // if (!showSummary.value) return {} // 快速计算计算占比时需要使用汇总数据
+  // 交叉表格的汇总数据从外部传入
+  if (typeof props.summaryMap === 'object' && Object.keys(props.summaryMap).length)
+    return props.summaryMap
 
   const columns = rColumns.value.reduce((acc, col, i) => {
-    const { field, fields } = col.params
+    const { field, fields, _isVs } = col.params
 
     if (fields) {
       // 对比字段就合并
-      if (field._isVs) {
+      if (_isVs) {
         return acc.concat(fields.concat(field))
       } else {
         return acc.concat(fields)
@@ -867,8 +1024,6 @@ const bottomSummaryMap = computed(() => {
     } else {
       return acc.concat(field)
     }
-
-    // return acc.concat(field._isVs && fields ? fields.concat(field) : fields || field)
   }, [])
 
   const [first = []] = props.summaryRows
@@ -900,10 +1055,50 @@ const bottomSummaryMap = computed(() => {
   max-width: 100%;
 
   :deep(.vxe-table) {
-    .vxe-header--column {
-      cursor: pointer;
+    .merge-header {
+      pointer-events: none;
+      overflow: hidden;
+      .vxe-cell,
+      .vxe-cell--title {
+        overflow: initial;
+      }
       .vxe-cell {
+        padding-right: 0 !important;
+      }
+      .vxe-cell--title {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+      }
+      .vxe-cell--sort {
+        position: absolute;
+        bottom: 10px;
+        right: 30px;
+      }
+      .header-cell {
+        position: relative;
+        display: flex;
+        align-items: center;
+        flex: 1;
+        padding-right: 50px;
+        width: 100%;
+        pointer-events: auto;
+        cursor: pointer;
+      }
+    }
+    .vxe-header--column {
+      &:not(.merge-header) {
+        cursor: pointer;
+      }
+      .vxe-cell {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
         padding-right: 30px;
+        max-height: initial;
       }
       &:hover {
         background-color: #f1f1f2;
@@ -913,6 +1108,30 @@ const bottomSummaryMap = computed(() => {
     .summary-row {
       background-color: #f8f8f9;
     }
+  }
+}
+
+.header-cell-text {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: bottom;
+  @extend .ellipsis;
+}
+
+.header-cell-column {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  pointer-events: initial;
+  &::after {
+    content: '';
+    position: absolute;
+    left: -999px;
+    right: -999px;
+    bottom: -1px;
+    height: 1px;
+    background-color: #e8eaec;
   }
 }
 

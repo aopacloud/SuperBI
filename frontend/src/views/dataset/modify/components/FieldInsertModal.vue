@@ -4,6 +4,8 @@
     :title="title"
     :width="1000"
     :confirm-loading="confirmLoading"
+    :maskClosable="false"
+    :keyboard="false"
     @cancel="cancel"
     @ok="ok">
     <a-form
@@ -43,10 +45,10 @@
               <a-tooltip v-else placement="right" :title="item.name">
                 <div class="select-item flex" @click="insertField(item)">
                   <i
-                    :class="['iconfont', getFieldTypeIcon(item.dataType)['icon']]"
+                    :class="['iconfont', getIconByFieldType(item.dataType)['icon']]"
                     :style="{
                       marginRight: '8px',
-                      color: getFieldTypeIcon(item.dataType)['color'],
+                      color: getIconByFieldType(item.dataType)['color'],
                     }"></i>
                   <div class="flex-1 ellipsis">{{ item.displayName }}</div>
                 </div>
@@ -73,7 +75,12 @@
 
           <ExpressTextarea
             ref="expressTextarea"
-            style="flex: 1; font-size: 14px; border: none; border-left: 1px solid #e8e8e8"
+            style="
+              flex: 1;
+              font-size: 14px;
+              border: none;
+              border-left: 1px solid #e8e8e8;
+            "
             placeholder="请输入字段逻辑"
             v-model:value="formState.expression" />
         </div>
@@ -85,11 +92,15 @@
           @change="onDataTypeChange" />
       </a-form-item>
       <a-form-item label="字段类型">
-        <a-radio-group :options="categoryOptions" v-model:value="formState.category" />
+        <a-radio-group
+          :options="categoryOptions"
+          v-model:value="formState.category" />
       </a-form-item>
       <a-form-item
         label="数据格式"
-        v-if="formState.category === CATEGORY.INDEX && formState.dataType === 'NUMBER'">
+        v-if="
+          formState.category === CATEGORY.INDEX && formState.dataType === 'NUMBER'
+        ">
         <a-select
           style="width: 180px"
           placeholder="请选择"
@@ -125,9 +136,10 @@
   </a-modal>
 </template>
 
-<script setup>
+<script setup lang="jsx">
 import { ref, computed, watch, reactive, shallowRef, toRaw } from 'vue'
-import { Form, message } from 'ant-design-vue'
+import { Form, message, Tooltip } from 'ant-design-vue'
+import { InfoCircleOutlined } from '@ant-design/icons-vue'
 import {
   formatterOptions,
   dataTypeOptions,
@@ -137,8 +149,11 @@ import {
   SUMMARY_DEFAULT,
   SUMMARY_PROPERTY_DEFAULT,
   SUMMARY_INDEX_DEFAULT,
-  getFieldTypeIcon,
 } from '@/views/dataset/config.field'
+import {
+  getIconByFieldType,
+  displayCustomFormatterLabel,
+} from '@/views/dataset/utils'
 import FieldCalculation from './FieldCalculation.vue'
 import CustomFormatter from '@/components/CustomFormatter/index.vue'
 import SelectList from 'common/components/ExtendSelect'
@@ -146,6 +161,13 @@ import ExpressTextarea from '@/components/ExpressTextarea/index.vue'
 import { CATEGORY } from '@/CONST.dict.js'
 import { getFunctionList } from '@/apis/function'
 import { validateDatasetField } from '@/apis/dataset'
+import ErrorSuggestion from '@/components/ErrorSuggestion/index.jsx'
+import useError from '@/hooks/useError'
+import { getRandomKey } from 'common/utils/string'
+
+const { show } = ErrorSuggestion()
+
+const { fetchReason, reason: errorReason, reasonLoading } = useError()
 
 const emits = defineEmits(['update:open', 'ok', 'cancel'])
 const props = defineProps({
@@ -204,7 +226,11 @@ const init = () => {
     const val = props.initData[key]
 
     if (key === 'dataType') {
-      formState[key] = Array.isArray(val) ? val[0] : val.includes('TIME') ? 'TIME' : val
+      formState[key] = Array.isArray(val)
+        ? val[0]
+        : val.includes('TIME')
+        ? 'TIME'
+        : val
     } else {
       formState[key] = val ?? undefined
     }
@@ -223,7 +249,9 @@ const formState = reactive({
   type: 'ADD',
 })
 const nameValidator = (rule, value) => {
-  const names = props.fields.map(item => item.name).filter(t => t !== props.initData.name)
+  const names = props.fields
+    .map(item => item.name)
+    .filter(t => t !== props.initData.name)
 
   if (names.includes(value)) {
     return Promise.reject(rule.message)
@@ -315,12 +343,60 @@ const validateField = async () => {
     }
 
     // pass 校验通过 hasAggregation 是否有聚合
-    const { pass, msg, hasAggregation } = await validateDatasetField(payload)
+    const {
+      pass,
+      msg,
+      hasAggregation,
+      queryId: qId,
+    } = await validateDatasetField(payload)
+
+    queryId.value = qId
 
     if (pass) {
       return Promise.resolve(hasAggregation)
     } else {
-      message.error(msg)
+      let chMsg = msg.match(/^\[(.*?)\]/)
+      chMsg = chMsg ? chMsg[1] || msg : msg
+
+      fetchReason(qId).then(() => {
+        setTimeout(() => {
+          message.destroy(errorMsgKey)
+        }, 5000)
+      })
+
+      const tooltip = qId ? (
+        <Tooltip title='点击查询详细信息'>
+          <InfoCircleOutlined
+            class='btn-icon'
+            style='margin-left: 4px;vertical-align: -3px;color: #1677ff'
+            onclick={showSuggestion}
+          />
+        </Tooltip>
+      ) : null
+
+      message.error({
+        key: errorMsgKey,
+        duration: !qId ? 3 : 0,
+        class: 'ai-message',
+        content: () => (
+          <span>
+            <span>{chMsg}</span>
+
+            {reasonLoading.value ? (
+              <ASpin size='small' style='margin-left: 6px'></ASpin>
+            ) : !errorReason.value ? (
+              tooltip
+            ) : null}
+
+            {errorReason.value ? (
+              <div style='margin: 4px 0 0 24px;'>
+                AI分析: {errorReason.value}
+                {tooltip}
+              </div>
+            ) : null}
+          </span>
+        ),
+      })
 
       return Promise.reject()
     }
@@ -351,17 +427,6 @@ const onFormatOk = e => {
   formState.customFormatterLabel = displayCustomFormatterLabel(e)
 }
 
-// 显示自定义格式化的文本
-const displayCustomFormatterLabel = e => {
-  if (e === undefined) return '自定义'
-
-  const _e = typeof e === 'object' ? e : JSON.parse(e)
-  const { type, digit } = _e
-  const typeStr = type === 0 ? '数字' : '百分比'
-
-  return `${typeStr}保留${digit}位小数`
-}
-
 // 字段逻辑
 const expressTextarea = ref(null)
 const insertField = item => {
@@ -382,6 +447,15 @@ const onDataTypeChange = e => {
   }
 
   hasDataTypeChanged = true
+}
+
+// 错误信息key
+const errorMsgKey = getRandomKey()
+// 查询ID
+const queryId = ref('')
+
+const showSuggestion = () => {
+  show(queryId.value)
 }
 </script>
 
@@ -404,6 +478,14 @@ const onDataTypeChange = e => {
     .expression {
       border-color: #ff4d4f;
     }
+  }
+}
+</style>
+
+<style lang="scss">
+.ai-message {
+  .ant-message-notice-content {
+    text-align: initial;
   }
 }
 </style>

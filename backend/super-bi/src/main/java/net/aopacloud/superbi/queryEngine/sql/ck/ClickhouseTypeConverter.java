@@ -60,6 +60,16 @@ public class ClickhouseTypeConverter implements TypeConverter {
     }
 
     @Override
+    public String toStartOfHour(String field) {
+        return String.format("toStartOfHour(%s)", field);
+    }
+
+    @Override
+    public String toStartOfMinute(String field, int windowMinute) {
+        return String.format("toStartOfInterval(%s, interval %d minute)", field, windowMinute);
+    }
+
+    @Override
     public String toDecimal(String field) {
         return String.format("toDecimal64(%s,6)", field);
     }
@@ -67,6 +77,21 @@ public class ClickhouseTypeConverter implements TypeConverter {
     @Override
     public boolean isDecimal(String databaseDataType) {
         return !Strings.isNullOrEmpty(databaseDataType) && databaseDataType.startsWith("Decimal");
+    }
+
+    @Override
+    public String addSeconds(String expression, int seconds) {
+        return String.format("addSeconds(%s,%d)", expression, seconds);
+    }
+
+    @Override
+    public String addMinutes(String expression, int minutes) {
+        return String.format("addMinutes(%s,%d)", expression, minutes);
+    }
+
+    @Override
+    public String addHours(String expression, int hours) {
+        return String.format("addHours(%s,%d)", expression, hours);
     }
 
     @Override

@@ -49,3 +49,25 @@ export function toPercent(num, digit = 2, thousand) {
 
   return thousand ? toThousand(n) + '%' : n + '%'
 }
+
+/**
+ * 获取分位数
+ * @param {Array<number>} arr 数字集合
+ * @param {number} q 分位数
+ * @returns
+ */
+export function quantile(arr, q) {
+  // 将数组排序
+  const sorted = arr.sort((a, b) => a - b)
+  // 计算分位数位置的近似值
+  const pos = (sorted.length - 1) * q
+  const base = Math.floor(pos)
+  const rest = pos - base
+  // 如果位置是整数，直接取该位置的数值
+  if (base + 1 - pos < 1e-10) {
+    return sorted[base]
+  } else {
+    // 线性插值计算近似的分位数
+    return sorted[base] + rest * (sorted[base + 1] - sorted[base])
+  }
+}

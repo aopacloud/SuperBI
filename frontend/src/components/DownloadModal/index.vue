@@ -25,7 +25,11 @@ import { ref } from 'vue'
 import { downloadQueryResult } from '@/apis/analysis'
 import { downloadWithBlob } from 'common/utils/file'
 
-const emits = defineEmits(['update:open'])
+defineOptions({
+  name: 'DownloadModal',
+})
+
+const emits = defineEmits(['update:open', 'download'])
 const props = defineProps({
   open: {
     type: Boolean,
@@ -50,11 +54,28 @@ const cancel = () => {
   modelValue.value = false
   loading.value = false
 }
-const ok = async () => {
+
+const ok = () => {
+  if (modelValue.value) {
+    downloadFromOrigin()
+  } else {
+    emits('download')
+    cancel()
+  }
+}
+
+/**
+ * 从原始数据源下载文件
+ * @returns 无返回值
+ */
+const downloadFromOrigin = async () => {
   try {
     loading.value = true
 
-    const res = await downloadQueryResult({ all: modelValue.value }, props.initParams)
+    const res = await downloadQueryResult(
+      { all: modelValue.value },
+      props.initParams
+    )
 
     await downloadWithBlob(res, `${props.filename}-${Date.now()}.xlsx`)
 

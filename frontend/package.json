@@ -1,6 +1,6 @@
 {
   "name": "superbi",
-  "version": "1.1.2",
+  "version": "1.1.4",
   "description": "SuperBI多维可视分析",
   "author": "huang",
   "license": "Apache-2.0",
@@ -23,6 +23,7 @@
     "ant-design-vue": "^4.1.1",
     "axios": "^1.6.7",
     "echarts": "^5.4.3",
+    "highlight.js": "^11.9.0",
     "js-cookie": "^3.0.5",
     "jsencrypt": "^3.3.2",
     "nprogress": "^0.2.0",
@@ -33,7 +34,9 @@
     "vue-router": "^4.2.5",
     "vuedraggable": "^4.1.0",
     "vxe-table": "^4.4.7",
-    "xe-utils": "^3.5.11"
+    "xe-utils": "^3.5.11",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.2/xlsx-0.20.2.tgz",
+    "xlsx-js-style": "^1.2.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.3",

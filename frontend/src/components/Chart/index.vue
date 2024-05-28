@@ -2,16 +2,17 @@
   <div class="chart-view" style="flex: 1; overflow: auto">
     <keep-alive>
       <RTable
-        v-if="isRenderTable(options.renderType)"
+        v-if="isRenderTable(renderType)"
         ref="tableRef"
-        :renderType="options.renderType"
+        :renderType="renderType"
         :columns="renderColumns"
         :data-source="list"
         :summaryRows="summaryRows"
+        :summaryMap="summaryMap"
         :options="tableConfig" />
 
       <Statistic
-        v-else-if="options.renderType === 'statistic'"
+        v-else-if="renderType === 'statistic'"
         :title="statisticOption.title"
         :value="statisticOption.value" />
 
@@ -21,7 +22,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, nextTick, watch, onBeforeUnmount } from 'vue'
+import {
+  ref,
+  reactive,
+  computed,
+  nextTick,
+  watch,
+  onBeforeUnmount,
+  toRaw,
+} from 'vue'
 import RTable from './Table/index.vue'
 import RChart from 'common/components/Charts/index.vue'
 import Statistic from 'common/components/Charts/Statistic.vue'
@@ -30,8 +39,11 @@ import createChart from './utils/createChart'
 import createPieChart from './utils/createPieChart'
 import createStatistic from './utils/createStatistic'
 import createGroupTable from './utils/createGroupTable'
+import createIntersectionTable from './utils/createIntersectionTable'
 import { CATEGORY } from '@/CONST.dict'
 import { isRenderTable } from '@/views/analysis/utils'
+import { deepClone } from '@/common/utils/help'
+import transformExport from './Table/exportUtil'
 
 defineOptions({
   name: 'Chart',
@@ -92,13 +104,29 @@ const renderType = computed(() => props.options.renderType)
 const tableConfig = computed(() => {
   const { renderType, table, compare } = props.options
 
+  let isGroupTable = false
+
+  if (renderType === 'groupTable') {
+    // 分组类型且分组(维度字段)数量大于1
+    isGroupTable =
+      props.columns.filter(t => t.category === CATEGORY.PROPERTY).length > 1
+  } else if (renderType === 'intersectionTable') {
+    // 交叉表格类型，行分组数量大于1
+    isGroupTable =
+      props.columns.filter(
+        t =>
+          t.category === CATEGORY.PROPERTY &&
+          (typeof t._group === 'undefined' || t._group === 'row')
+      ).length > 1
+  } else {
+    isGroupTable = false
+  }
+
   return {
     ...table,
     dataset: props.dataset,
     compare,
-    isGroupTable:
-      renderType === 'groupTable' &&
-      props.columns.filter(t => t.category === CATEGORY.PROPERTY).length > 1,
+    isGroupTable,
   }
 })
 // 图表配置
@@ -112,7 +140,7 @@ const chartConfig = computed(() => {
 
 // 渲染
 const render = () => {
-  console.log('--------  Components/Chart init  --------')
+  console.info('--------  Components/Chart init  --------')
   const t = renderType.value
 
   if (['bar', 'line', 'pie'].includes(t)) {
@@ -120,9 +148,7 @@ const render = () => {
       ChartInstance.value = chartRef.value?.getInstance()
     }
 
-    setTimeout(() => {
-      initChart()
-    })
+    setTimeout(initChart)
   } else if (t === 'statistic') {
     initStatistic()
   } else {
@@ -131,15 +157,10 @@ const render = () => {
 }
 
 // 源数据改变，重新绘制
-watch(
-  [() => props.dataSource, () => props.columns],
-  () => {
-    nextTick(() => {
-      render()
-    })
-  },
-  { immediate: true, deep: true }
-)
+watch([() => props.dataSource, () => props.columns], () => nextTick(render), {
+  immediate: true,
+  deep: true,
+})
 
 watch(renderType, (type, oldType) => {
   if (!type) return
@@ -150,9 +171,7 @@ watch(renderType, (type, oldType) => {
     ChartInstance.value?.clear()
   }
 
-  nextTick(() => {
-    render()
-  })
+  nextTick(render)
 })
 
 // 图表配置改变
@@ -169,15 +188,7 @@ watch(
 )
 
 // 同环比配置变化需要更新列, 重新渲染表格
-watch(
-  () => props.options.compare?.merge,
-  (n, o) => {
-    if (!tableRef.value || n === o) return
-
-    initTable()
-  },
-  { deep: true }
-)
+watch(() => props.options.compare, render, { deep: true })
 
 const renderColumns = ref([])
 const list = ref([])
@@ -189,18 +200,41 @@ const chartOptions = ref({})
 // 指标卡配置
 const statisticOption = reactive({})
 
+const summaryMap = ref()
+
+const _renderTable = () => {
+  const { dataSource, columns: originColumns } = props
+  return createTable({
+    originFields: originColumns,
+    originData: dataSource,
+    summaryRows: props.summaryRows,
+    compare: props.compare,
+    choosed: props.choosed,
+    config: tableConfig.value,
+    datasetFields: props.dataset.fields,
+  })
+}
+
 // 生成表格
 const initTable = () => {
   const { dataSource, columns: originColumns } = props
 
-  // 分组表格且分组字段列长度为1时，渲染为普通表格
-  const createFn = tableConfig.value.isGroupTable ? createGroupTable : createTable
+  const tableRenderMap = {
+    table: _renderTable,
+    groupTable: createGroupTable,
+    intersectionTable: createIntersectionTable,
+  }
 
-  const { columns, list: tList } = createFn({
+  const createFn = tableRenderMap[renderType.value]
+
+  const {
+    columns,
+    list: tList,
+    summaryMap: summary,
+  } = createFn({
     originFields: originColumns,
     originData: dataSource,
-    summaryRows:
-      props.options.renderType !== 'table' ? props.summaryRows : undefined,
+    summaryRows: renderType.value !== 'table' ? props.summaryRows : undefined,
     compare: props.compare,
     choosed: props.choosed,
     config: tableConfig.value,
@@ -209,6 +243,7 @@ const initTable = () => {
 
   renderColumns.value = columns
   list.value = tList
+  summaryMap.value = summary
 }
 
 // 生成指标卡
@@ -252,6 +287,37 @@ const renderChart = options => {
 onBeforeUnmount(() => {
   ChartInstance.value?.dispose()
 })
+
+/**
+ * 下载文件
+ * @param {string} filename 文件名
+ */
+const download = filename => {
+  let data = [],
+    columns = [],
+    summary = {}
+  if (isRenderTable(renderType.value)) {
+    data = deepClone(list.value)
+    columns = deepClone(renderColumns.value)
+    summary = deepClone(summaryMap.value)
+  } else {
+    const { columns: _columns, list, summaryMap } = _renderTable()
+    data = deepClone(list)
+    columns = deepClone(_columns)
+    summary = deepClone(summaryMap)
+  }
+
+  transformExport({
+    data,
+    columns,
+    summary,
+    dataset: toRaw(props.dataset),
+    config: toRaw(props.options),
+    filename,
+  })
+}
+
+defineExpose({ download })
 </script>
 
 <style lang="scss" scoped>

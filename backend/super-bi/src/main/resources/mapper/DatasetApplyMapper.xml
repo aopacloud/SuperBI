@@ -120,14 +120,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </select>
     <select id="selectOperationCount" resultType="java.lang.Integer">
         select count(apply.id) from
-        (select id,dataset_id, create_time from bi_dataset_apply where dataset_creator = #{username} and approve_status = 'PASSED' and authorize_status in  ('NOT_AUTHORIZED','EXPIRED')) apply
+        (select id,dataset_id,username, create_time from bi_dataset_apply where dataset_creator = #{username} and approve_status = 'PASSED' and authorize_status in  ('NOT_AUTHORIZED','EXPIRED')) apply
         join
-        (select id from bi_dataset where deleted =0) dataset
+        (select id,creator from bi_dataset where deleted =0) dataset
         on apply.dataset_id = dataset.id
         left join
-        (select dataset_id, max(create_time) as max_create_time from (<include refid="net.aopacloud.superbi.mapper.DatasetAuthorizeMapper.userAllAuthorize" />) t where username = #{username} group by dataset_id) auth
-        on apply.dataset_id = auth.dataset_id
-        where apply.create_time > auth.max_create_time or auth.max_create_time is null
+        (select dataset_id,username, max(create_time) as max_create_time from (<include refid="net.aopacloud.superbi.mapper.DatasetAuthorizeMapper.userAllAuthorize" />) t  group by dataset_id, username) auth
+        on apply.dataset_id = auth.dataset_id and apply.username = auth.username
+        where dataset.creator = #{username} and
+        (apply.create_time > auth.max_create_time or auth.max_create_time is null)
 
     </select>
     <select id="selectUnFinished" resultType="net.aopacloud.superbi.model.dto.DatasetApplyDTO">

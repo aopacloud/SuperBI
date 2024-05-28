@@ -8,7 +8,7 @@
         >{{ relationLabel }}</span
       >
       <div class="list">
-        <div class="item" v-for="(item, index) in conditions">
+        <div class="item" v-for="(item, index) in conditions" :key="index">
           <a-input-group compact>
             <a-select
               :style="{
@@ -60,7 +60,7 @@ import { h, computed } from 'vue'
 import { MinusCircleOutlined, PlusSquareOutlined } from '@ant-design/icons-vue'
 import { RELATION } from '@/CONST.dict'
 import { operatorMap, IS_NOT_NULL, IS_NULL } from '@/views/dataset/config.field'
-import { getRandomKey } from 'common/utils/help'
+import { getRandomKey } from 'common/utils/string'
 
 const emits = defineEmits(['update:conditions', 'update:relation'])
 const props = defineProps({

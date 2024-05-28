@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import net.aopacloud.superbi.enums.PermissionEnum;
 import net.aopacloud.superbi.enums.StatusEnum;
+import net.aopacloud.superbi.enums.Visibility;
 import net.aopacloud.superbi.model.dto.DashboardComponentDTO;
 import net.aopacloud.superbi.model.dto.FullFolderDTO;
 
@@ -45,7 +46,11 @@ public class DashboardVO {
 
     private Integer lastEditVersion;
 
+    private Integer refreshIntervalSeconds;
+
     private Integer deleted;
+
+    private Visibility visibility;
 
     private Date createTime;
 

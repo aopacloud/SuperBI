@@ -51,6 +51,9 @@
     <update id="updateAuthorizeExpire">
         update bi_dataset_authorize set expired = 1 where id = #{id}
     </update>
+    <update id="deleteByUsername">
+        update bi_dataset_authorize set deleted = 1 where username = #{username}
+    </update>
 
     <select id="searchUserAuthorize" resultType="net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO" parameterType="net.aopacloud.superbi.model.query.DatasetAuthorizeQuery">
         select <include refid="baseFields"/>,
@@ -91,7 +94,7 @@
                if(auth.expire_duration =0, '2099-12-30 00:00:00' , from_unixtime(UNIX_TIMESTAMP(auth.start_time) + auth.expire_duration) ) expire_time,
                r.name as role_name
         from bi_dataset_authorize auth
-        left join bi_auth_role r
+        join bi_auth_role r
         on auth.role_id = r.id
         <where>
             auth.deleted = 0 and auth.scope = 'ROLE'
@@ -115,12 +118,25 @@
     <select id="selectActiveByWorkspaceAndUsername"
             resultType="net.aopacloud.superbi.model.entity.DatasetAuthorize">
 
-        select * from
-            (<include refid="userAllAuthorize" />) t
-        join
-            bi_dataset d
-        on t.dataset_id = d.id
-        where t.is_actived = 1 and d.deleted = 0 and t.username = #{username} and d.workspace_id = #{workspaceId}
+        select t1.*
+        from
+        (select id,username,permission,dataset_id,privilege_type,start_time,expire_duration,column_privilege,row_privilege,create_time,if(expire_duration = 0 or  ( UNIX_TIMESTAMP(start_time) + expire_duration ) > UNIX_TIMESTAMP(now()),1,0) as is_actived, expired
+        from bi_dataset_authorize
+        where `scope` = 'USER' and deleted = 0 ) t1
+        join bi_dataset d
+        on t1.dataset_id = d.id
+        where t1.is_actived = 1 and d.deleted = 0 and t1.username = #{username} and d.workspace_id = #{workspaceId}
+
+        union all
+        select t2.*
+        from
+        (select a.id,r.username,a.permission,a.dataset_id,a.privilege_type,a.start_time,a.expire_duration,a.column_privilege,a.row_privilege,a.create_time,if(expire_duration = 0 or  ( UNIX_TIMESTAMP(start_time) + expire_duration ) > UNIX_TIMESTAMP(now()),1,0) as is_actived,expired
+        from bi_dataset_authorize a join bi_auth_role_user r
+        on  a.role_id = r.role_id
+        where a.`scope` = 'ROLE' and a.deleted = 0)t2
+        join bi_dataset d
+        on t2.dataset_id = d.id
+        where t2.is_actived = 1 and d.deleted = 0 and t2.username = #{username} and d.workspace_id = #{workspaceId};
 
     </select>
     <select id="selectByDatasetAndUsername" resultType="net.aopacloud.superbi.model.entity.DatasetAuthorize">

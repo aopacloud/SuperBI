@@ -620,6 +620,7 @@ CREATE TABLE `bi_workspace_member`
     `level`        varchar(20)  DEFAULT NULL COMMENT '成员等级： ADMIN 管理员，ANALYZER 业务分析，WORKER 数据生产者',
     `sys_role_id`  int(11) DEFAULT NULL COMMENT '角色ID',
     `join_time`    datetime     DEFAULT NULL COMMENT '加入时间',
+    `deleted`    int(11)     DEFAULT '0' COMMENT '是否删除',
     `create_time`  timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time`  timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
@@ -690,9 +691,9 @@ INSERT INTO bdp_super_bi.bi_sys_menu (name,name_en,parent_id,app_path,sort,icon,
      ('数据源','Datasource',0,'/super-bi',4,NULL,'/datasource',0,NULL,'','2023-12-05 16:23:05','','2023-12-20 17:15:32'),
      ('空间管理','workspace',0,'/super-bi',5,NULL,'/system/workspace',1,NULL,'','2023-12-05 16:16:16','','2023-12-20 17:15:26'),
      ('授权中心','Authorize Center',0,'/super-bi',6,NULL,'/authority',1,NULL,'','2023-12-05 16:17:11','','2023-12-20 17:15:30'),
-     ('我的申请','Apply',5,'/super-bi',1,NULL,'/authority/apply',1,NULL,'','2023-12-05 16:21:34','','2023-12-20 17:15:31'),
-     ('我的审批','Approve',5,'/super-bi',2,NULL,'/authority/approve',1,NULL,'','2023-12-05 16:22:30','','2023-12-20 17:15:32'),
-     ('申请管理','Manage',5,'/super-bi',3,NULL,'/authority/manage',1,NULL,'','2023-12-05 16:23:05','','2023-12-20 17:15:32');
+     ('我的申请','Apply',6,'/super-bi',1,NULL,'/authority/apply',1,NULL,'','2023-12-05 16:21:34','','2023-12-20 17:15:31'),
+     ('我的审批','Approve',6,'/super-bi',2,NULL,'/authority/approve',1,NULL,'','2023-12-05 16:22:30','','2023-12-20 17:15:32'),
+     ('申请管理','Manage',6,'/super-bi',3,NULL,'/authority/manage',1,NULL,'','2023-12-05 16:23:05','','2023-12-20 17:15:32');
 
 INSERT INTO bi_sys_admin(username) VALUES ('Admin');
 
@@ -711,3 +712,7 @@ CREATE TABLE `bi_dataset_extra_config` (
        PRIMARY KEY (`id`),
        UNIQUE KEY `idx_dataset_id_version` (`dataset_id`,`version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+alter table bi_dashboard add column refresh_interval_seconds int(11) default '0' comment '刷新间隔, 0不刷新' before deleted;
+
+alter table bi_dashboard add column visibility varchar(20) default 'ALL' comment '可见范围' after deleted;

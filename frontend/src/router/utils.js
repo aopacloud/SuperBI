@@ -24,9 +24,11 @@ export const hasRoleAccessWithRoute = route => {
 export const registeDynamicRoutes = resources => {
   const accessableRoutes = flat(resources).reduce((acc, cur) => {
     // 从资源中匹配路由表的路由, 或者有角色权限的路由
-    const item = [...dynamicRoutes, ...versionJs.RouterIndex.dynamicRoutes].filter(dr => {
-      return dr.path.startsWith(cur.url) || dr.alias === cur.url
-    })
+    const item = [...dynamicRoutes, ...versionJs.RouterIndex.dynamicRoutes].filter(
+      dr => {
+        return dr.path.startsWith(cur.url) || dr.alias === cur.url
+      }
+    )
 
     return acc.concat(item)
   }, [])
@@ -66,7 +68,7 @@ export const transfromResourceWithRoute = resources => {
   return resources.map(r => {
     const route =
       [...dynamicRoutes, ...versionJs.RouterIndex.dynamicRoutes].find(
-        rt => rt.path === r.url
+        rt => rt.path === r.url || rt.alias === r.url
       ) || {}
 
     return {

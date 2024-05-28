@@ -214,7 +214,7 @@ const setValue = (reset = false) => {
       formState.value.value = []
       break
     case 'TIME':
-      formState.value.value = { mode: 0, date: [], offset: [1, 1] }
+      formState.value.value = { mode: 0 }
       break
     case 'TEXT':
     case 'NUMBER':

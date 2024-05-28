@@ -1,4 +1,5 @@
-﻿import { VS_FIELD_SUFFIX } from '@/components/Chart/utils'
+﻿import { CATEGORY } from '@/CONST.dict'
+import { VS_FIELD_SUFFIX } from '@/components/Chart/utils'
 
 // 字段与聚合方式连接符(后端返回的拼接规则)
 export const AGGREGATOR_SPLIT = '@'
@@ -33,6 +34,23 @@ export const repeatIndex = (list = [], cb) => {
 
     return acc
   }, [])
+}
+
+export const sortDimension = (list = [], reversed) => {
+  const { rows, columns } = list.reduce(
+    (acc, item) => {
+      if (item._group === 'column') {
+        acc.columns.push(item)
+      } else {
+        acc.rows.push(item)
+      }
+
+      return acc
+    },
+    { rows: [], columns: [] }
+  )
+
+  return reversed ? [...columns, ...rows] : [...rows, ...columns]
 }
 
 // 处理渲染列

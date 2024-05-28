@@ -2,6 +2,7 @@ package net.aopacloud.superbi.model.entity;
 
 import lombok.Data;
 import net.aopacloud.superbi.enums.StatusEnum;
+import net.aopacloud.superbi.enums.Visibility;
 
 import java.util.Date;
 
@@ -31,7 +32,11 @@ public class Dashboard {
 
     private Integer lastEditVersion;
 
+    private Integer refreshIntervalSeconds;
+
     private Integer deleted;
+
+    private Visibility visibility;
 
     private Date createTime;
 

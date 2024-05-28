@@ -1,5 +1,6 @@
 ﻿import { LayoutOptions } from './config'
-import { getRandomKey } from 'common/utils/help'
+import { getRandomKey } from 'common/utils/string'
+
 const { colNum, rowHeight, margin } = LayoutOptions
 
 // 根据真实高度获取GridLayoutItem所需高度（组件要去必须为自然数）

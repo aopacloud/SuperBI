@@ -50,20 +50,11 @@ export const displayDateFormat = ({
   mode = 0,
   offset = [],
   date = [],
-  single = false,
   hms = ['', ''],
   format = 'YYYY-MM-DD',
   extra = {},
   timeOffset = 8,
 } = {}) => {
-  // 单个值直接显示
-  if (single) {
-    const [d = ''] = date,
-      [t] = hms
-
-    return [d + (t ? ' ' + t : '')]
-  }
-
   if (extra.dt) return ['有数的一天']
 
   const utcOffset = +timeOffset

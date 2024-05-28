@@ -1,6 +1,7 @@
 package net.aopacloud.superbi.mapper;
 
 import net.aopacloud.superbi.enums.StatusEnum;
+import net.aopacloud.superbi.enums.Visibility;
 import net.aopacloud.superbi.model.dto.DashboardDTO;
 import net.aopacloud.superbi.model.entity.Dashboard;
 import net.aopacloud.superbi.model.query.ConditionQuery;
@@ -55,4 +56,8 @@ public interface DashboardMapper {
     List<DashboardDTO> selectOnlineDashboard(@Param("workspaceId") Long workspaceId);
 
     List<Long> selectIdByWorkspaceAndCreator(@Param("workspaceId") Long workspaceId, @Param("username") String username);
+
+    void updateRefreshInterval(@Param("id") Long id, @Param("refreshIntervalSeconds") Integer refreshIntervalSeconds);
+
+    void updateVisibility(@Param("id") Long id,@Param("visibility") Visibility visibility);
 }

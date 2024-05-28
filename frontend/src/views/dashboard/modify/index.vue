@@ -143,14 +143,24 @@
   <DownloadModal
     v-model:open="downloadOpen"
     :filename="currentLayoutItem.content?.name"
-    :initParams="currentLayoutItem.request" />
+    :initParams="currentLayoutItem.request"
+    @download="handleDownload" />
 
   <!-- // dataset-apply -->
   <ApplyModal v-model:open="applyModalOpen" :initData="applyInfo" @ok="onApplyOk" />
 </template>
 
 <script setup>
-import { ref, reactive, watch, provide, onMounted, onBeforeUnmount } from 'vue'
+import {
+  ref,
+  reactive,
+  watch,
+  provide,
+  onMounted,
+  onBeforeUnmount,
+  computed,
+} from 'vue'
+import { message } from 'ant-design-vue'
 import { CaretLeftOutlined } from '@ant-design/icons-vue'
 import { useRoute } from 'vue-router'
 import LHeader from './LHeader.vue'
@@ -176,13 +186,16 @@ import { getDetailById, getLastVersionById } from '@/apis/dashboard'
 import useAppStore from '@/store/modules/app'
 import emittor from 'common/plugins/emittor'
 import useUserStore from '@/store/modules/user'
+import { uninitWorker } from '@/components/Chart/Table/exportUtil'
 
 const route = useRoute()
 const appStore = useAppStore()
 const userStore = useUserStore()
 
 // 时区偏移
-const timeOffset = ref(appStore.activeTimeOffset)
+const timeOffset = computed(() => appStore.activeTimeOffset)
+// 当前空间id
+const currentWorkspaceId = computed(() => appStore.workspaceId)
 
 const { colNum, rowHeight, margin, resizable } = LayoutOptions
 
@@ -238,6 +251,10 @@ const fetchDetail = async id => {
 
     const res = await getDetailById(id)
 
+    if (res.workspaceId && res.workspaceId !== currentWorkspaceId.value) {
+      await appStore.setWorkspaceId(res.workspaceId, true)
+    }
+
     const { version = 0, lastEditVersion = 0 } = res
     if (lastEditVersion > version) {
       mode.value = 'READONLY'
@@ -267,8 +284,42 @@ const fetchDetailWithLastVersion = async () => {
   }
 }
 
+// 全部完成
+const allDone = ref(false)
+// 刷新全部
+const refreshLoading = ref(false)
+const refreshAll = async () => {
+  const charts = layout.value.filter(t => t.type !== 'FILTER' && t.type !== 'REMARK')
+  if (!charts.length) return
+
+  allDone.value = false
+  refreshLoading.value = true
+
+  layout.value.forEach(t => {
+    t._loaded = false
+  })
+  initRequestTask()
+}
+
 provide('index', {
   timeOffset,
+  detail: {
+    get: k => (k ? detail.value[k] : detail.value),
+    set(k, v) {
+      if (!k) {
+        detail.value = { ...v }
+      } else {
+        detail.value[k] = v
+      }
+
+      return detail.value
+    },
+  },
+  allDone: allDone,
+  refresh: {
+    loading: refreshLoading,
+    run: refreshAll,
+  },
 })
 
 const initWithLayout = res => {
@@ -315,7 +366,12 @@ const onChartTaskSuccess = reportId => {
   taskQueues.value.splice(index, 1)
 
   const next = allChartQueues.value.shift()
-  if (!next) return
+  if (!next) {
+    allDone.value = true
+    refreshLoading.value = false
+
+    return
+  }
 
   taskQueues.value.push(next)
 }
@@ -379,6 +435,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   appStore.toggleSideBarHide(false)
+  uninitWorker()
 })
 
 watch(
@@ -562,12 +619,21 @@ const onSqlPreview = (response, item) => {
 
 // 下载
 const downloadOpen = ref(false)
-const onDownload = (request, item) => {
+const onDownload = (e, item) => {
+  const { payload, download } = e
   currentLayoutItem.value = {
     ...item,
-    request: { ...request, fromSource: 'dashboard' },
+    request: { ...payload, fromSource: 'dashboard' },
+    download,
   }
   downloadOpen.value = true
+}
+const handleDownload = () => {
+  if (!currentLayoutItem.value.download) {
+    message.warn('无法下载')
+  } else {
+    currentLayoutItem.value.download(currentLayoutItem.value.content?.name)
+  }
 }
 
 // 数据集权限申请

@@ -1,5 +1,10 @@
 ﻿import { transformFieldsByVs } from './index.js'
-import { transformFieldToColumn, updateColumnsWithCompare } from '../Table/utils.js'
+import {
+  transformFieldToColumn,
+  updateColumnsWithCompare,
+  transformWithQuickIndex,
+  createSummaryMap,
+} from '../Table/utils.js'
 
 export default function createTableData({
   originFields = [],
@@ -7,11 +12,14 @@ export default function createTableData({
   datasetFields = [],
   compare,
   config = {},
+  summaryRows = [],
 }) {
   // 处理对比字段
   const fields = transformFieldsByVs({ fields: originFields, compare })
 
-  let columns = fields.map(transformFieldToColumn)
+  let columns = fields
+    .map(transformWithQuickIndex)
+    .map((field, index) => transformFieldToColumn({ field, index }))
 
   const list = originData.map(arr => {
     return arr.reduce((acc, pre, i) => {
@@ -22,6 +30,9 @@ export default function createTableData({
       return acc
     }, {})
   })
+
+  // 汇总数据
+  const summaryMap = createSummaryMap(summaryRows, fields)
 
   // 对比合并显示
   if (config.compare?.merge) {
@@ -36,5 +47,6 @@ export default function createTableData({
   return {
     columns,
     list,
+    summaryMap,
   }
 }

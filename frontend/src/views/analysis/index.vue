@@ -92,12 +92,14 @@ import {
   defaultChartOptions,
 } from './defaultOptions'
 import useUserStore from '@/store/modules/user'
-import { getRandomKey, getByIncludesKeys, deepClone } from 'common/utils/help'
+import { getByIncludesKeys, deepClone } from 'common/utils/help'
+import { getRandomKey } from 'common/utils/string'
 import { storagePrefix } from '@/settings'
 import { DASHBORD_TO_REPORT_NAME } from '@/views/dashboard/modify/config'
 import useAppStore from '@/store/modules/app'
 import { versionJs } from '@/versions'
 import { getNameByJoinAggregator } from './utils'
+import { uninitWorker } from '@/components/Chart/Table/exportUtil'
 
 const route = useRoute()
 const router = useRouter()
@@ -105,7 +107,10 @@ const userStore = useUserStore()
 const appStore = useAppStore()
 
 // 时区偏移
-const timeOffset = ref(appStore.activeTimeOffset)
+const timeOffset = computed(() => appStore.activeTimeOffset)
+
+// 当前空间ID
+const currentWorkspaceId = computed(() => appStore.workspaceId)
 
 // 数据集分析权限
 const hasDatasetAnalysisPermission = computed(() => {
@@ -292,6 +297,10 @@ const fetchDatasetDetail = async id => {
 
     const res = await getDatasetDetail(id)
 
+    if (res.workspaceId && res.workspaceId !== currentWorkspaceId.value) {
+      await appStore.setWorkspaceId(res.workspaceId, true)
+    }
+
     datasetDetail.value = {
       ...res,
       extraConfig:
@@ -412,9 +421,11 @@ const onFieldListDbclick = (e, category) => {
   if (preIndex > -1 && category === CATEGORY.PROPERTY) {
     prevChoosed.splice(preIndex, 1)
   }
-  prevChoosed.push(e)
 
-  updateCompareDimensions(e)
+  const item = { ...e, _id: getRandomKey() }
+
+  prevChoosed.push(item)
+  updateCompareDimensions(item)
 }
 
 // 选中的筛选条件
@@ -505,10 +516,7 @@ const setPaging = (val = { limit: defaultQueryTotal }, key) => {
 }
 
 // 拖拽的字段
-const dragedFields = reactive({
-  dragging: {},
-  dragover: {},
-})
+const draggingField = ref()
 // 配置项
 const settingOptions = ref({
   // 渲染类型
@@ -535,7 +543,7 @@ const setOptions = (key, value) => {
 const updateByChoosedIndex = (list = []) => {
   updateTopN(list)
   updateAxisOptions(list)
-  updataComparOptions(list)
+  updateComparOptions(list)
 }
 
 // 更新默认排序
@@ -582,14 +590,16 @@ const updateAxisOptions = list => {
 }
 
 // 更新同环比配置
-const updataComparOptions = list => {
+const updateComparOptions = list => {
   // 更新同环比
   if (!list.length) {
     setCompare()
   } else {
-    if (!compare.value?.measures.length) return
+    if (!compare.value) return
 
-    compare.value.measures = compare.value.measures.filter(t =>
+    const { measures = [] } = compare.value
+
+    compare.value.measures = measures.filter(t =>
       chooseIndexes.value.some(i => i.name === t.name)
     )
   }
@@ -614,11 +624,21 @@ const updateCompareDimensions = async list => {
 }
 
 const updateCompareDimensionsByChoosed = (list = []) => {
-  const old = compare.value?.dimensions
+  if (!compare.value) return
 
-  if (typeof old === 'undefined') return
+  const { timeField, dimensions = [] } = compare.value
 
-  compare.value.dimensions = old.filter(t => list.some(i => i.name === t.name))
+  if (typeof compare.value.dimensions === 'undefined') return
+
+  compare.value.dimensions = dimensions.filter(t =>
+    list.some(i => i.name === t.name)
+  )
+
+  // 同环比配置的对比字段不在维度中，重新配置
+  if (list.every(t => t.name !== timeField)) {
+    compare.value.timeField = undefined
+    compare.value.measures = []
+  }
 }
 
 // 更新维度
@@ -751,14 +771,10 @@ provide('index', {
     update: async () => fetchDatasetLastest(datasetDetail.value.id),
   },
   // 拖拽的字段
-  dragedField: {
-    getDragging: () => dragedFields.dragging,
-    setDragging: e => {
-      dragedFields.dragging = { ...e }
-    },
-    getDragover: () => dragedFields.dragover,
-    setDragover: e => {
-      dragedFields.dragover = { ...e }
+  draggingField: {
+    get: () => draggingField.value,
+    set: e => {
+      draggingField.value = e
     },
   },
   // 选中
@@ -874,11 +890,13 @@ onMounted(() => {
     }, 10)
   }
 })
+
 onBeforeMount(() => {
   appStore.toggleSideBarHide(true)
 })
 onBeforeUnmount(() => {
   appStore.toggleSideBarHide(false)
+  uninitWorker()
 })
 </script>
 

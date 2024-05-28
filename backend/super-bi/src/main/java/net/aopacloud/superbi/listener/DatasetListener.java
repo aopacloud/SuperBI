@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.aopacloud.superbi.listener.event.DatasetDeleteEvent;
 import net.aopacloud.superbi.listener.event.DatasetOfflineEvent;
+import net.aopacloud.superbi.mapper.ReportMapper;
 import net.aopacloud.superbi.model.dto.DatasetDTO;
 import net.aopacloud.superbi.model.dto.ReportDTO;
 import net.aopacloud.superbi.service.ReportService;
@@ -18,7 +19,7 @@ import java.util.Objects;
 @Slf4j
 public class DatasetListener {
 
-    private final ReportService reportService;
+    private final ReportMapper reportMapper;
 
     @EventListener
     public void onDatasetDelete(DatasetDeleteEvent event) {
@@ -36,10 +37,11 @@ public class DatasetListener {
         if (Objects.isNull(datasetDTO)) {
             return;
         }
-        List<ReportDTO> reports = reportService.findByDataset(datasetDTO.getId());
+        List<ReportDTO> reports = reportMapper.selectByDatasetId(datasetDTO.getId());
+
         for(ReportDTO report: reports) {
             log.warn("delete report {} with dataset {} does offline or deleted", report, datasetDTO.getId());
-            reportService.deleteById(report.getId());
+            reportMapper.deleteById(report.getId());
         }
     }
 

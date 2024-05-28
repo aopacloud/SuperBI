@@ -233,6 +233,17 @@ public class SysUserServiceImpl implements SysUserService {
     }
 
     @Override
+    public boolean isActive(String username) {
+        SysUserDTO sysUserDTO = get(username);
+
+        if(Objects.isNull(sysUserDTO)) {
+            return Boolean.FALSE;
+        }
+
+        return Boolean.TRUE;
+    }
+
+    @Override
     public List<SysUserDTO> filter(String keyword) {
         SysUserQuery sysUserQuery = new SysUserQuery();
         sysUserQuery.setKeyword(keyword);

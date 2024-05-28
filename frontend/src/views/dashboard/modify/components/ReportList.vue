@@ -46,7 +46,7 @@
               <a-button
                 size="small"
                 type="text"
-                style="color: #999"
+                class="act-btn"
                 :disabled="disabled"
                 :icon="h(PlusOutlined)"
                 @click="itemClick(item)" />
@@ -120,7 +120,9 @@ const allList = shallowRef([]) // 所有的图表
 // 显示的列表
 const list = computed(() => {
   // 已选中的排除
-  const list = allList.value.filter(t => !props.exited.some(e => e.content.id === t.id))
+  const list = allList.value.filter(
+    t => !props.exited.some(e => e.content.id === t.id)
+  )
   // 关联数据集
   const list2 = !datasetValue.value
     ? list
@@ -214,6 +216,10 @@ onMounted(() => {
     flex: 1;
     margin: 0 12px;
     @extend .ellipsis;
+  }
+
+  .act-btn:not(:disabled) {
+    color: #666;
   }
 }
 </style>

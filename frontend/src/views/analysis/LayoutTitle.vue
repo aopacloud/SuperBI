@@ -7,14 +7,18 @@
     <main class="header-info">
       <div class="info-left">
         <div class="info-name">
-          <span>{{ chart.name }}</span>
+          <span>
+            {{ chart.name }}
+            <a-tooltip v-if="chart.description" :title="chart.description">
+              <InfoCircleOutlined />
+            </a-tooltip>
+          </span>
         </div>
+        <!-- 时区预览 -->
         <ComponentsTimeoffsetPreview
           :value="timeOffset"
           @change="e => emits('timeoffset-change', e)" />
       </div>
-
-      <!-- 时区预览 -->
 
       <p-a-space class="tools">
         <a-button @click="toBack">返回</a-button>
@@ -68,7 +72,11 @@
 <script setup>
 import { h, ref, computed, inject } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { LeftOutlined, MoreOutlined } from '@ant-design/icons-vue'
+import {
+  LeftOutlined,
+  MoreOutlined,
+  InfoCircleOutlined,
+} from '@ant-design/icons-vue'
 import useAppStore from '@/store/modules/app'
 import AuthorizeDrawer from '@/components/Authorize/ListDrawer.vue'
 import { MoveDrawer } from '@/components/DirTree'

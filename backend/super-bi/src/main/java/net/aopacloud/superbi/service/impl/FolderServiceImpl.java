@@ -94,11 +94,12 @@ public class FolderServiceImpl implements FolderService {
         if (children != null && !children.isEmpty()) {
             throw new ServiceException(LocaleMessages.getMessage(MessageConsist.FOLDER_EXISTS_CHILDREN_ERROR));
         }
-        int cnt = folderResourceRelMapper.countByFolderId(id);
+        int cnt = folderResourceRelMapper.countByFolder(folder);
         if (cnt > 0) {
             throw new ServiceException(LocaleMessages.getMessage(MessageConsist.FOLDER_EXISTS_RESOURCE_ERROR));
         }
         folderMapper.deleteById(id);
+        folderResourceRelMapper.deleteByFolderId(id);
         return folderConverter.entityToDTO(folder);
     }
 

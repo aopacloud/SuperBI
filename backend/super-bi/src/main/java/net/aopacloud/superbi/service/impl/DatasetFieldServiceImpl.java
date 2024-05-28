@@ -2,6 +2,7 @@ package net.aopacloud.superbi.service.impl;
 
 import com.google.common.base.Strings;
 import lombok.RequiredArgsConstructor;
+import net.aopacloud.superbi.enums.FieldTypeEnum;
 import net.aopacloud.superbi.enums.QueryStatusEnum;
 import net.aopacloud.superbi.i18n.LocaleMessages;
 import net.aopacloud.superbi.i18n.MessageConsist;
@@ -20,8 +21,11 @@ import net.aopacloud.superbi.queryEngine.model.QueryContext;
 import net.aopacloud.superbi.queryEngine.model.QueryResult;
 import net.aopacloud.superbi.queryEngine.sql.ExpressionParser;
 import net.aopacloud.superbi.queryEngine.sql.Segment;
+import net.aopacloud.superbi.queryEngine.sql.TypeConverter;
+import net.aopacloud.superbi.queryEngine.sql.TypeConverterFactory;
 import net.aopacloud.superbi.queryEngine.sql.analytic.FieldCheckAnalysisModel;
 import net.aopacloud.superbi.service.DatasetFieldService;
+import net.aopacloud.superbi.service.MetaDataService;
 import net.aopacloud.superbi.util.DateUtils;
 import net.aopacloud.superbi.util.FieldUtils;
 import org.apache.commons.compress.utils.Lists;
@@ -48,6 +52,8 @@ public class DatasetFieldServiceImpl implements DatasetFieldService {
 
     private final DatasetFieldConverter converter;
 
+    private final MetaDataService metaDataService;
+
     @Override
     public DatasetFieldCheckResultVO check(DatasetFieldCheckVO datasetFieldCheck) {
 
@@ -56,9 +62,15 @@ public class DatasetFieldServiceImpl implements DatasetFieldService {
         DatasetDTO dataset = datasetFieldCheck.getDataset();
         String expression = datasetFieldCheck.getExpression();
 
+        ConnectionParamDTO connection = metaDataService.getDatasetConnection(dataset);
+        TypeConverter typeConverter = TypeConverterFactory.getTypeConverter(connection.getEngine());
+
         FieldCheckAnalysisModel model = new FieldCheckAnalysisModel();
-        ExpressionParser parser = new ExpressionParser(dataset.getFields());
-        model.setField(new Segment(parser.parse(expression)));
+        ExpressionParser parser = new ExpressionParser(dataset.getFields(), typeConverter);
+        DatasetFieldDTO fieldDTO = new DatasetFieldDTO();
+        fieldDTO.setExpression(expression);
+        fieldDTO.setType(FieldTypeEnum.ADD);
+        model.setField(new Segment(parser.parse(fieldDTO)));
         model.setTable(String.format("%s.%s", dataset.getConfig().getDbName(), dataset.getConfig().getTableName()));
 
         if (FieldUtils.hasAggregation(expression)) {
@@ -70,9 +82,8 @@ public class DatasetFieldServiceImpl implements DatasetFieldService {
 
         QueryContext context = new QueryContext();
         context.setSql(model.getSql());
-        ConnectionParamDTO connection = new ConnectionParamDTO();
-        connection.setEngine(dataset.getConfig().getEngine());
         context.setConnectionParam(connection);
+        context.setDataset(dataset);
 
         QueryResult queryResult = queryExecuteEngine.execute(context);
         result.setQueryId(queryResult.getQueryId());

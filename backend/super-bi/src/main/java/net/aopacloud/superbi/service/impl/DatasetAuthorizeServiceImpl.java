@@ -249,6 +249,12 @@ public class DatasetAuthorizeServiceImpl implements DatasetAuthorizeService {
 
     }
 
+    @Override
+    public void deleteByUsername(String username) {
+       log.warn("delete {} all dataset authorize", username);
+       datasetAuthorizeMapper.deleteByUsername(username);
+    }
+
     public DatasetAuthorize create(DatasetAuthorizeSaveVO datasetAuthorizeSaveVO, AuthorizeScopeEnum scope, String username, Long roleId) {
 
         DatasetAuthorize authorize = new DatasetAuthorize();

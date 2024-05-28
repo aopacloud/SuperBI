@@ -1,11 +1,21 @@
 ﻿<template>
   <div class="sections" :class="{ disabled: !hasDatasetAnalysis }">
-    <!-- 维度 -->
-    <SectionList
-      v-if="renderType !== 'statistic'"
-      :dataset="dataset"
-      :category="CATEGORY.PROPERTY"
-      :data-source="dimensions" />
+    <template v-if="renderType !== 'statistic'">
+      <!-- 维度 -->
+      <SectionList
+        :group="renderType === 'intersectionTable' ? 'row' : undefined"
+        :dataset="dataset"
+        :category="CATEGORY.PROPERTY"
+        :data-source="dimensions" />
+
+      <!-- 维度 -->
+      <SectionList
+        v-if="renderType === 'intersectionTable'"
+        group="column"
+        :dataset="dataset"
+        :category="CATEGORY.PROPERTY"
+        :data-source="dimensions" />
+    </template>
 
     <!-- 指标 -->
     <SectionList
@@ -103,6 +113,7 @@ const onRenameReset = field => {
   if (!originItem) return
 
   field.displayName = originItem.displayName
+  field._modifyDisplayName = undefined
   updateRequest(field)
 }
 

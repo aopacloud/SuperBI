@@ -6,7 +6,7 @@
  * @FilePath: /dm-BDP-front/src/views/analysis/LayoutContent/components/Filter/utils.js
  */
 import { displayDateFormat } from 'common/components/DatePickers/utils'
-import { operatorMap } from '@/views/dataset/config.field'
+import { operatorMap, isTime_HHMMSS } from '@/views/dataset/config.field'
 
 /**
  * 显示过滤条件信息
@@ -15,7 +15,7 @@ import { operatorMap } from '@/views/dataset/config.field'
  * @returns
  */
 export const displayFilter = (field, { timeOffset = +8, format = 'YY/MM/DD' }) => {
-  const { dataType = '', conditions = [], logical, filterMode } = field
+  const { dataType = '', conditions = [], logical } = field
 
   if (!dataType) return
 
@@ -28,8 +28,7 @@ export const displayFilter = (field, { timeOffset = +8, format = 'YY/MM/DD' }) =
       mode: timeType === 'RELATIVE' ? 0 : 1,
       offset: args,
       date: args,
-      single: filterMode === 'single',
-      hms: dataType === 'TIME_YYYYMMDD_HHMMSS' ? timeParts : undefined,
+      hms: isTime_HHMMSS(dataType) ? timeParts : undefined,
       extra: {
         dt: useLatestPartitionValue,
         current: _this,
@@ -42,11 +41,15 @@ export const displayFilter = (field, { timeOffset = +8, format = 'YY/MM/DD' }) =
     return conditions
       .map(t => {
         const { functionalOperator, args = [] } = t
-        const hasV = args.filter(Boolean).length
+        const hasV = args.filter(t => typeof t !== 'undefined' || t !== null).length
+        const isNumber = args.every(t => typeof t === 'number')
+        const label = operatorMap.DEFAULT[functionalOperator] + ' '
 
-        return hasV
-          ? operatorMap.DEFAULT[functionalOperator] + "'" + args.join('、') + "'"
-          : operatorMap.DEFAULT[functionalOperator]
+        if (!hasV) return label
+
+        if (isNumber) return label + args.join('、')
+
+        return label + "'" + args.join('、') + "'"
       })
       .filter(Boolean)
       .join(logical === 'AND' ? '且' : '或')

@@ -82,11 +82,15 @@
 
         <template #bodyCell="{ text, column, record }">
           <template v-if="column.dataIndex === 'name'">
-            <a-dropdown v-if="column.dataIndex === 'name'" :trigger="['contextmenu']">
+            <a-dropdown
+              v-if="column.dataIndex === 'name'"
+              :trigger="['contextmenu']">
               <a
                 class="row--name"
                 target="_blank"
-                :href="hasReadPermission(record) ? getPreviewlHref(record) : undefined">
+                :href="
+                  hasReadPermission(record) ? getPreviewlHref(record) : undefined
+                ">
                 {{ text }}
               </a>
 
@@ -177,7 +181,9 @@
 
                     <template v-if="hasManagePermission(record)">
                       <a-menu-item key="share">共享 </a-menu-item>
-                      <a-menu-item key="publish" v-if="record.status === 'UN_PUBLISH'">
+                      <a-menu-item
+                        key="publish"
+                        v-if="record.status === 'UN_PUBLISH'">
                         发布
                       </a-menu-item>
                       <a-menu-item key="offline" v-if="record.status === 'ONLINE'">
@@ -200,7 +206,10 @@
   </section>
 
   <!-- 共享 -->
-  <ShareDrawer v-model:open="shareDrawerOpen" :initData="rowInfo" />
+  <ShareDrawer
+    v-model:open="shareDrawerOpen"
+    :initData="rowInfo"
+    @visibility-change="onVisibilityChange" />
 
   <!-- 移动 -->
   <MoveDrawer
@@ -345,10 +354,13 @@ const initQueryParams = computed(() => {
   }
 })
 
-const { loading, keyword, sorter, pager, list, fetchList } = useTable(getDashboardList, {
-  sorter: { field: 'updateTime', order: 'descend' },
-  initQueryParams,
-})
+const { loading, keyword, sorter, pager, list, fetchList } = useTable(
+  getDashboardList,
+  {
+    sorter: { field: 'updateTime', order: 'descend' },
+    initQueryParams,
+  }
+)
 
 const setRowClassName = row => {
   return hasReadPermission(row) ? '' : 'no-permission'
@@ -453,6 +465,11 @@ const shareDrawerOpen = ref(false)
 const share = row => {
   rowInfo.value = { ...row }
   shareDrawerOpen.value = true
+}
+const onVisibilityChange = e => {
+  const item = list.value.find(t => t.id === e.id)
+
+  item.visibility = e.visibility
 }
 
 // 移动

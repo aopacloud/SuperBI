@@ -1,12 +1,15 @@
-import { findBy } from 'common/utils/help'
-import * as numberUtils from 'common/utils/number'
 import { formatterOptions } from '@/views/dataset/config.field'
 import {
   ratioOptions,
   dateGroupTypeMap,
-  DEFAULT_DATE_GROUP,
   DEFAULT_RATIO_TYPE,
-  COMPARE_RATIO_PERIOD,
+  DEFAULT_WEEK_DISPLAY,
+  DEFAULT_DAY_DISPLAY,
+  DEFAULT_DATE_GROUP,
+  GROUP_WEEK,
+  GROUP_DAY,
+  GROUP_HOUR,
+  GROUP_MINUTE,
 } from '@/views/analysis/config'
 import dayjs from 'dayjs'
 import quarterOfYear from 'dayjs/plugin/quarterOfYear'
@@ -19,29 +22,6 @@ export const VS_FIELD_SUFFIX = ':VS:'
 
 // 是否为对比字段
 export const is_vs = (key = '') => key.includes(VS_FIELD_SUFFIX)
-
-/**
- * 获取对比值
- * @param {Number} pre 前一个值（被对比值）
- * @param {Number} cur 当前值（对比值）
- * @returns {} {0, 1, '1-1', 2, '2-2'}
- */
-export function getDiffvalue(pre, cur) {
-  // 差值
-  const dValue = cur - pre
-  // 分母为0 -
-  const isDZero = pre === 0
-  // 差值百分比
-  const dPercent = isDZero ? '-' : dValue / pre
-
-  return {
-    0: numberUtils.toThousand(cur),
-    1: dValue,
-    '1-1': numberUtils.toThousand(dValue),
-    2: dPercent,
-    '2-2': isDZero ? '-' : numberUtils.toPercent(dPercent, 2),
-  }
-}
 
 /**
  * 根据字段显示其值的格式化数据
@@ -88,7 +68,9 @@ export function createSortByOrder(isUp = false, prop) {
 
     if (typeof aV === 'string') {
       if (isDate(aV)) {
-        return isUp ? new Date(aV).getTime() - new Date(bV).getTime() : new Date(bV).getTime() - new Date(aV).getTime()
+        return isUp
+          ? new Date(aV).getTime() - new Date(bV).getTime()
+          : new Date(bV).getTime() - new Date(aV).getTime()
       } else {
         let aa = aV || '',
           bb = bV || ''
@@ -107,22 +89,30 @@ export function createSortByOrder(isUp = false, prop) {
  * @returns
  */
 export const transformFieldsByVs = ({ fields = [], compare = {} }) => {
+  const _getOptions2 = (ratioType = DEFAULT_RATIO_TYPE, timeField) => {
+    const { dateTrunc = DEFAULT_DATE_GROUP } = timeField
+    const _dateTrunc = dateTrunc.startsWith(GROUP_MINUTE) ? GROUP_MINUTE : dateTrunc
+
+    return dateGroupTypeMap[_dateTrunc][ratioType] || []
+  }
+
   const { type, timeField, measures = [] } = compare
-  const tField = fields.find(f => f.name === timeField)
+  const tField = fields.find(f => f.name === timeField) || {}
 
   // 将同环比配置字段进行处理
   const measuresFields = measures.map(t => {
     const {
       aggregator,
       ratioType = type || DEFAULT_RATIO_TYPE, // 兼容历史及兜底
-      period = COMPARE_RATIO_PERIOD.DEFAULT,
+      period = _getOptions2(ratioType, tField)[0]?.['value'],
     } = t
 
     return {
       ...t,
       ratioType,
       period,
-      renderValue: t.name + '.' + aggregator + VS_FIELD_SUFFIX + ratioType + '.' + period,
+      renderValue:
+        t.name + '.' + aggregator + VS_FIELD_SUFFIX + ratioType + '.' + period,
     }
   })
 
@@ -135,12 +125,22 @@ export const transformFieldsByVs = ({ fields = [], compare = {} }) => {
     if (mField) {
       // 同环比配置项
       const optItem = ratioOptions.find(o => o.value === mField.ratioType)
+      const dateTrunc = tField.dateTrunc?.startsWith(GROUP_MINUTE)
+        ? GROUP_MINUTE
+        : tField.dateTrunc
       // 对比周期配置
-      const periodOption = dateGroupTypeMap[tField.dateTrunc || DEFAULT_DATE_GROUP][mField.ratioType]
+      const periodOption =
+        dateGroupTypeMap[dateTrunc || DEFAULT_DATE_GROUP][mField.ratioType]
       // 对比周期
       const periodItem = periodOption?.find(p => p.value === mField.period)
 
-      newDisplayName = newDisplayName + '-' + optItem.label + (periodItem ? '(' + periodItem.label + ')' : '')
+      newDisplayName =
+        newDisplayName +
+        '-' +
+        optItem.label +
+        (periodItem ? '(' + periodItem.label + ')' : '')
+
+      item._quick = undefined // 同环比列不参与快速计算，合并列时单独处理
     }
 
     return {
@@ -167,15 +167,19 @@ const WEEK_MAP = {
  * @returns {string}
  */
 export const formatDtWithOption = (value, field) => {
-  const { dateTrunc, firstDayOfWeek, viewModel } = field
+  const { dateTrunc = '', firstDayOfWeek, viewModel, _weekStart } = field
 
-  if (dateTrunc === 'ORIGIN') return value
+  if (dateTrunc === DEFAULT_DATE_GROUP) return value
   if (dateTrunc === 'YEAR') return dayjs(value).year() + '年'
   if (dateTrunc === 'QUARTER') return '第' + dayjs(value).quarter() + '季度'
-  if (dateTrunc === 'MONTH') return dayjs(value).format('YYYY-MM')
+  if (dateTrunc === 'MOUTH') return dayjs(value).format('YYYY-MM')
 
-  if (dateTrunc === 'DAY') {
-    if (viewModel === 'DAY_SEQUENCE') {
+  if (dateTrunc === GROUP_HOUR || dateTrunc.startsWith(GROUP_MINUTE)) {
+    return value //dayjs(value).format('YYYY/MM/DD HH:mm:ss')
+  }
+
+  if (dateTrunc === GROUP_DAY) {
+    if (viewModel === DEFAULT_DAY_DISPLAY) {
       return dayjs(value).format('YYYY/MM/DD')
     }
 
@@ -187,13 +191,14 @@ export const formatDtWithOption = (value, field) => {
 
     return dayjs(value).format('YYYY-MM-DD')
   }
-  if (dateTrunc === 'WEEK') {
+
+  if (dateTrunc === GROUP_WEEK) {
     const dayValue = dayjs(value).clone()
     // dayjs 将0设置为一天的第一天, 6为最后一天，而0表示周一，所以需要减1
     const start = dayValue.startOf('week').weekday(firstDayOfWeek - 1)
     const end = dayValue.endOf('week').weekday(firstDayOfWeek - 1 + 6)
 
-    if (viewModel === 'WEEK_SEQUENCE') {
+    if (viewModel === DEFAULT_WEEK_DISPLAY) {
       return '第' + end.week() + '周'
     }
 
@@ -208,7 +213,21 @@ export const formatDtWithOption = (value, field) => {
     if (viewModel === 'WEEK_RANGE_WITHOUT_YEAR') {
       return start.format('MM/DD') + ' - ' + end.format('MM/DD')
     }
+
+    if (viewModel === 'WEEK_DAY_SEQUENCE') {
+      if (typeof _weekStart === 'undefined') return value
+
+      if (_weekStart === '1') return dayValue.startOf('week').format('YYYY/MM/DD')
+
+      if (_weekStart === '7') return dayValue.endOf('week').format('YYYY/MM/DD')
+
+      if (_weekStart === 0) return start.format('YYYY/MM/DD')
+
+      if (_weekStart === 1) return end.format('YYYY/MM/DD')
+    }
   }
 
   return value
 }
+
+export const isEmpty = v => typeof v === 'undefined' || v === null || v === ''

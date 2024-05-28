@@ -1,16 +1,25 @@
-﻿import { CATEGORY, COMPARE } from '@/CONST.dict'
+﻿import { message } from 'ant-design-vue'
+import { CATEGORY, COMPARE } from '@/CONST.dict'
 import { toPercent } from 'common/utils/number'
-import { upcaseFirst } from 'common/utils/string'
-import { getRandomKey, getWordWidth } from 'common/utils/help'
-import { is_vs, formatFieldDisplay } from '@/components/Chart/utils/index.js'
+import { upcaseFirst, getRandomKey, getWordWidth } from 'common/utils/string'
+import {
+  is_vs,
+  formatFieldDisplay,
+  isEmpty,
+} from '@/components/Chart/utils/index.js'
 import {
   TREE_GROUP_NAME,
   TREE_ROW_KEY,
   TREE_ROW_PARENT_KEY,
   SUMMARY_GROUP_NAME_JOIN,
-  GROUP_NAME,
+  GROUP_PATH,
+  MAX_GROUP_COUNT,
+  MAX_COUNT_MESSAGE,
 } from '@/components/Chart/utils/createGroupTable.js'
 import { CELL_HEADER_PADDING, CELL_BODY_PADDING, CELL_MIN_WIDTH } from './config'
+import { COLUMN_FIELDS_NAME_JOIN } from '@/components/Chart/utils/createIntersectionTable'
+import { quickCalculateOptions } from '@/views/dataset/config.field'
+import { deepFind } from 'common/utils/help'
 
 /**
  * 根据分页截取数据
@@ -56,7 +65,7 @@ export const getFixedPlace = (colIndex, allCols, fixedColumnSpan = []) => {
 export const getCompareDisplay = (origin, target, mode = 0) => {
   return function (field = {}, fields = []) {
     if (mode === COMPARE.MODE.DIFF_PERSENT) {
-      const v = toPercent((target - origin) / origin, 2)
+      const v = toPercent((target - origin) / Math.abs(origin), 2)
 
       return parseInt(v) > 0 ? '+' + v : v
     } else if (mode === COMPARE.MODE.DIFF) {
@@ -128,44 +137,87 @@ export const summaryTree = (tree = [], columns = []) => {
 }
 
 /**
+ * 转化快速计算指标字段
+ * @param {T} item
+ * @returns {T}
+ */
+export const transformWithQuickIndex = item => {
+  const { category, _quick } = item
+
+  if (category === CATEGORY.INDEX && _quick) {
+    const opt = quickCalculateOptions.find(t => t.value === _quick)
+
+    item.displayName = item.displayName + '(' + opt.label + ')'
+  }
+
+  return item
+}
+
+/**
  * 将字段信息转换为列信息
  * @param {Field} field 数据集字段
  * @param {number} i 索引
  * @returns
  */
-export function transformFieldToColumn(field, i) {
+export function transformFieldToColumn({ field, index = 0, level = 0 }) {
   const {
     align,
-    _isGroup,
     treeNode,
     displayName,
     category,
     renderName,
     dataType,
-    _isVs,
-    fields,
+    _action = true,
+    _isMergeFields,
+    _isVs, // 是否同环比字段
+    _fields,
+    _columnFields,
+    _quick,
+    children = [],
+    renderNameByValue, // 值映射的渲染名
   } = field
 
   // 默认插槽
-  const slotDefault = _isGroup
+  const slotDefault = _isMergeFields
     ? 'groupName'
     : dataType.includes('TIME')
     ? 'date'
     : _isVs
     ? 'vs'
+    : _quick
+    ? 'quickCalculate'
     : category
 
   return {
     treeNode,
-    title: displayName,
-    field: renderName,
-    sortable: true,
-    params: { field, fields },
+    title: String(displayName), // 转为字符串
+    field: renderNameByValue || renderName,
+    sortable: _action && !children.length, // 可排序
+    headerClassName: _isMergeFields ? 'merge-header' : '',
+    params: {
+      field,
+      fields: _fields, // 关联字段
+      _isVs, // 是否同环比字段
+      _isMergeFields, // 是否合并的字段
+      _columnFields, // 列分组字段
+      _quick, // 快速计算
+      formable: _action && !children.length, // 可自定义格式化
+    },
+    children: children.map((child, i) =>
+      transformFieldToColumn({
+        field: child,
+        index: i,
+        level: level + 1,
+      })
+    ),
     align,
     slots: {
       header: 'header',
       default: slotDefault,
-      footer: i === 0 ? 'footerSummary' : 'footer' + upcaseFirst(category),
+      footer:
+        level === 0 && index === 0
+          ? 'footerSummary'
+          : 'footer' + upcaseFirst(category),
     },
   }
 }
@@ -184,6 +236,15 @@ export function updateColumnsWithCompare({
   let hasDelOriginField = false
 
   return columns.slice().reduce((acc, cur, i) => {
+    if (cur.children && cur.children.length) {
+      cur.children = updateColumnsWithCompare({
+        columns: cur.children,
+        originData,
+        datasetFields,
+        compare,
+      })
+    }
+
     if (!is_vs(cur.field)) {
       hasDelOriginField = false
       acc.push(cur)
@@ -195,8 +256,13 @@ export function updateColumnsWithCompare({
         if (!cur.params.fields) {
           cur.params.fields = []
         }
-
         cur.params.fields.push(preCol.params.field)
+        cur.params._quick = preCol.params._quick
+
+        if (cur.params._quick) {
+          const opt = quickCalculateOptions.find(t => t.value === cur.params._quick)
+          cur.title = cur.title + '(' + opt.label + ')'
+        }
 
         hasDelOriginField = true
       }
@@ -240,10 +306,18 @@ export function updateColumnsWithCompare({
 /**
  * 将列表数据转换为树形结构。
  * @param {Array} list 列表数据。
- * @param {Array} keys 键数组，用于指定列表数据中哪些键作为树结构的层级划分依据。
+ * @param {Array} groupKeys 键数组，用于指定列表数据中哪些键作为树结构的层级划分依据。
  * @returns {Array} 转换后的树形结构数据。
  */
-export function listDataToTreeByKeys({ list = [], keys = [], summaryMap = {} }) {
+export function listDataToTreeByKeys({
+  list = [],
+  groupKeys = [],
+  columnGroupKeys = [],
+  summaryMap = {},
+  renderType = 'table',
+}) {
+  if (!list.length) return []
+
   // 创建树节点的函数
   const createTreeNode = ({
     key,
@@ -255,7 +329,7 @@ export function listDataToTreeByKeys({ list = [], keys = [], summaryMap = {} }) 
     // 返回一个构造好的树节点对象
     return {
       // 树节点的唯一标识
-      [TREE_GROUP_NAME]: key || '-', // 不能为空字符串
+      [TREE_GROUP_NAME]: isEmpty(key) ? '-' : key, // 不能为空字符串
       // 为每个树节点生成一个唯一的行键
       [TREE_ROW_KEY]: getRandomKey(6),
       // 父节点的键
@@ -271,13 +345,23 @@ export function listDataToTreeByKeys({ list = [], keys = [], summaryMap = {} }) 
   // 创建根节点
   const root = createTreeNode({ key: 'root', _level_: -1 })
 
+  // 记录当前分组的数量
+  let count = 0
+
+  // 没有行分组
+  if (!groupKeys.length) {
+    if (Object.keys(list[0]).length === columnGroupKeys.length) return []
+
+    return [list.reduce((acc, cur) => ((acc = { ...acc, ...cur }), acc), {})]
+  }
+
   // 遍历输入的列表数据
   for (let data of list) {
     // 当前处理的节点
     let node = root
 
     // 遍历键数组，以确定数据在树中的位置
-    keys.forEach((key, i) => {
+    groupKeys.forEach((key, i, keys) => {
       // 判断当前键是否为最后一级的键
       const isLastGroup = i === keys.length - 1
       // 获取当前键的值
@@ -285,22 +369,25 @@ export function listDataToTreeByKeys({ list = [], keys = [], summaryMap = {} }) 
 
       // 在当前节点的子节点中查找是否存在对应键值的节点
       let child = node.children.get(keyValue)
+
+      const groupPath =
+        typeof node[GROUP_PATH] !== 'undefined'
+          ? node[GROUP_PATH] + SUMMARY_GROUP_NAME_JOIN + keyValue
+          : keyValue
+
       // 如果不存在，则创建该节点
       if (!child) {
-        const groupName =
-          typeof node[GROUP_NAME] !== 'undefined'
-            ? node[GROUP_NAME] + SUMMARY_GROUP_NAME_JOIN + keyValue
-            : keyValue
+        count++
 
         // 获取父节点的汇总数据
-        const summary = summaryMap[groupName]
+        const summary = summaryMap[groupPath]
 
         // 创建子节点
         child = createTreeNode({
           _level_: node._level_ + 1,
           key: keyValue,
           parentId: i === 0 ? undefined : node[TREE_ROW_KEY],
-          [GROUP_NAME]: groupName,
+          [GROUP_PATH]: groupPath,
           ...summary,
         })
         // 如果是最后一级，则将当前数据合并到子节点中，否则只保留子节点
@@ -311,10 +398,22 @@ export function listDataToTreeByKeys({ list = [], keys = [], summaryMap = {} }) 
         }
         // 将新创建的子节点添加到当前节点的子节点列表中
         node.children.set(keyValue, child)
+      } else {
+        if (columnGroupKeys.length) {
+          child = { ...child, ...data, ...summaryMap[groupPath] }
+          node.children.set(keyValue, child)
+        }
       }
       // 更新当前节点为找到或新创建的子节点，以便下一轮循环
       node = child
     })
+  }
+
+  // 检测最大分组数量
+  if (renderType !== 'table' && count > MAX_GROUP_COUNT) {
+    message.warn(MAX_COUNT_MESSAGE)
+
+    throw Error(MAX_COUNT_MESSAGE)
   }
 
   const getValueFromMap = item => {
@@ -334,34 +433,26 @@ export function listDataToTreeByKeys({ list = [], keys = [], summaryMap = {} }) 
 }
 
 /**
- * 生成汇总map
- * @param {String<>} row 行数据
- * @param {String<>} columns 列数据
- * @returns
- */
-export const createSummaryMap = (row = [], columns = []) =>
-  row.reduce((acc, col, i) => {
-    acc[columns[i].renderName] = col
-
-    return acc
-  }, {})
-
-/**
  * 生成树节点路径汇总map
  * @param {String<>} row 行数据
  * @param {String<>} columns 列数据
  * @returns
  */
-export const createSummaryTreeMap = (rows = [], columns = []) => {
+export const createSummaryMap = (rows = [], columns = []) => {
   if (!rows.length) return {}
 
   const result = {}
-  const groupFields = columns.filter(t => t.category === CATEGORY.PROPERTY),
+
+  const pFields = columns.filter(t => t.category === CATEGORY.PROPERTY),
     iFields = columns.filter(t => t.category === CATEGORY.INDEX),
-    groupL = groupFields.length
+    rowFields = pFields.filter(
+      t => typeof t._group === 'undefined' || t._group === 'row'
+    ),
+    columnFields = pFields.filter(t => t._group === 'column')
+
   const newRows = rows.map(t =>
     t.map((c, i) => {
-      if (i >= groupFields.length) return c
+      if (i >= pFields.length) return c
 
       if (c === '') {
         c = '-'
@@ -374,19 +465,425 @@ export const createSummaryTreeMap = (rows = [], columns = []) => {
   )
 
   newRows.forEach(row => {
-    const path = row
-      .slice(0, groupL - 1)
+    const groupPath = row
+      .slice(columnFields.length, pFields.length)
       .filter(t => t !== '')
       .join(SUMMARY_GROUP_NAME_JOIN)
 
-    const rest = row.slice(groupL)
+    const rest = row.slice(pFields.length)
 
-    result[path] = rest.reduce((a, v, i) => {
-      a[iFields[i].renderName] = v
+    result[groupPath] = rest.reduce((a, v, i) => {
+      const columnPath = row
+        .slice(0, columnFields.length)
+        .join(COLUMN_FIELDS_NAME_JOIN)
+      const colIndexPath = columnPath
+        ? columnPath + COLUMN_FIELDS_NAME_JOIN
+        : columnPath
+
+      if (!iFields[i]) return a // 避免边界问题报错
+
+      a[colIndexPath + iFields[i].renderName] = v
 
       return a
-    }, {})
+    }, result[groupPath] || {})
   })
 
-  return result
+  return Object.keys(result).reduce((acc, key) => {
+    if (key === '') {
+      acc = { ...acc, ...result[key] }
+    } else {
+      acc[key] = result[key]
+    }
+
+    return acc
+  }, {})
+}
+
+/**
+ * 从一组值中获取排名
+ * @param {Array<number>} list 总的值
+ * @param {number} val 当前值
+ * @returns {string|number} 排名
+ */
+export const getRankIndex = (list = [], val) => {
+  // 无值不参与排序
+  if (typeof val === 'undefined' || val === null) return '-'
+
+  // 倒序
+  const sorted = list.sort((a, b) => b - a)
+
+  const index = sorted.findIndex(v => v === val)
+
+  if (index < 0) return '-'
+
+  return index + 1
+}
+
+const quickCalculateMap = ({
+  renderType = 'table',
+  columns = [],
+  listTree = [],
+  quickType,
+  summary = {},
+  isGroupTable,
+}) => {
+  const _getListByFlat = list => {
+    return list.reduce((acc, cur) => {
+      if (cur.children?.length) {
+        acc = acc.concat(_getListByFlat(cur.children))
+      } else {
+        acc.push(cur)
+      }
+
+      return acc
+    }, [])
+  }
+
+  // 获取分组名
+  const _getGroupName = (row, end = -1) => {
+    const columnField = columns.find(t => t.params._columnFields?.length)
+    if (columnField) {
+      return columnField.params._columnFields
+        .map(t => t.renderName)
+        .map(key => row[key])
+        .join(SUMMARY_GROUP_NAME_JOIN)
+    } else {
+      const groupKeys = columns
+        .filter(t => t.params.field.category === CATEGORY.PROPERTY)
+        .map(t => t.params.field.renderName)
+        .slice(0, end)
+
+      if (!groupKeys.length) return
+
+      return groupKeys.map(key => row[key]).join(SUMMARY_GROUP_NAME_JOIN)
+    }
+  }
+
+  // 从渲染数据树结构中获取所在父级
+  const _getParentByDfs = s => deepFind(listTree, item => item[GROUP_PATH] === s)
+
+  // 获取真实的指标渲染名
+  const _getRenderNameByVs = field =>
+    field._isVs ? field.renderName.split(VS_FIELD_SUFFIX)[0] : field.renderName
+
+  // 没有值
+  const _isNull = val => typeof val === 'undefined' || val === null
+
+  const map = {
+    // 占比 - 当前指标(包含交叉表格中的指标)在汇总指标中的占比
+    ratio: (row, field) => {
+      const fieldName = _getRenderNameByVs(field)
+      const value = row[fieldName]
+      if (_isNull(value)) return ''
+
+      return toPercent(value / summary[fieldName])
+    },
+    // 组内占比 - 当前指标在其所在组内的占比
+    ratio_group: (row, field) => {
+      const fieldName = _getRenderNameByVs(field)
+      const value = row[fieldName]
+      if (_isNull(value)) return ''
+
+      if (isGroupTable) {
+        if (row._level_ === 0) {
+          return toPercent(value / summary[fieldName])
+        }
+
+        const parent = deepFind(
+          listTree,
+          item => item[TREE_ROW_KEY] === row[TREE_ROW_PARENT_KEY]
+        )
+        if (!parent) return value
+
+        return toPercent(value / parent[fieldName])
+      } else {
+        let groupName = ''
+        if (renderType === 'intersectionTable') {
+          // 分组名
+          groupName = fieldName
+            .split(COLUMN_FIELDS_NAME_JOIN)
+            .slice(0, -1)
+            .join(COLUMN_FIELDS_NAME_JOIN)
+        } else {
+          groupName = _getGroupName(row)
+        }
+
+        if (typeof groupName === 'undefined') {
+          return toPercent(value / summary[fieldName])
+        }
+
+        // 获取树结构中的parent
+        const parent = _getParentByDfs(groupName)
+        if (parent) return toPercent(value / parent[fieldName])
+
+        return toPercent(
+          value / summary[groupName + COLUMN_FIELDS_NAME_JOIN + field.renderName]
+        )
+      }
+    },
+    // 排名 - 当前指标在所有行数据中指标集合的排名
+    rank: (row, field) => {
+      if (row.children?.length) return '-' // 只在指标上进行排名
+
+      const fieldName = _getRenderNameByVs(field)
+      const value = row[fieldName]
+      if (_isNull(value)) return ''
+
+      if (renderType === 'intersectionTable') {
+        // 交叉表格需要去具体指标值作为排名集合
+        const dataList = _getListByFlat(listTree)
+        const list = dataList.reduce((acc, item) => {
+          Object.keys(item).forEach(key => {
+            const _name = key.split(COLUMN_FIELDS_NAME_JOIN).pop()
+
+            if (_name === field.renderName) acc.push(item[key])
+          })
+          return acc
+        }, [])
+
+        return getRankIndex(list, value)
+      } else {
+        const dataList = _getListByFlat(listTree)
+        const list = dataList.map(t => t[fieldName])
+
+        return getRankIndex(list, value)
+      }
+    },
+    // 组内排名
+    rank_group: (row, field) => {
+      const fieldName = _getRenderNameByVs(field)
+      const value = row[fieldName]
+      if (_isNull(value)) return ''
+
+      if (isGroupTable) {
+        if (row._level_ === 0) {
+          let list = listTree.map(t => t[fieldName])
+
+          if (renderType === 'intersectionTable') {
+            list = list.filter(t => typeof t !== 'undefined' || t !== null)
+          }
+
+          return getRankIndex(list, value)
+        }
+
+        const parent = deepFind(
+          listTree,
+          item => item[TREE_ROW_KEY] === row[TREE_ROW_PARENT_KEY]
+        )
+        if (!parent || !parent.children) return '-'
+
+        const list = parent.children.map(t => t[fieldName])
+
+        return getRankIndex(list, value)
+      } else {
+        if (renderType === 'intersectionTable') {
+          const dataList = _getListByFlat(listTree)
+          const list = dataList.map(t => t[fieldName])
+
+          return getRankIndex(list, value)
+        } else {
+          // 分组名
+          const parentGroupName = _getGroupName(row)
+          if (typeof parentGroupName === 'undefined') {
+            const list = listTree.map(t => t[fieldName])
+            return getRankIndex(list, value)
+          }
+
+          const parent = deepFind(
+            listTree,
+            item => item[GROUP_PATH] === parentGroupName
+          )
+          if (!parent || !parent.children) return '-'
+
+          const list = parent.children.map(t => t[fieldName])
+
+          return getRankIndex(list, value)
+        }
+      }
+    },
+    total: (row, column) => {
+      const fieldName = _getRenderNameByVs(column)
+
+      if (isGroupTable) {
+        const [groupFields] = columns
+        const { fields } = groupFields.params
+
+        // 当前数据在树的第几层
+        const _level_ = row['_level_']
+        if (typeof _level_ === 'undefined') return ''
+
+        // 非日期分组显示 -
+        const _field = fields[_level_]
+        if (!isDateField(_field)) return '-'
+
+        // 所有当前层的数据
+        const flatOriginList = flat(listTree).filter(t => t._level_ === _level_)
+
+        // 当前日期值
+        const dateValue = row[TREE_GROUP_NAME]
+        const list = flatOriginList
+          .filter(t => {
+            const _dateValue = t[TREE_GROUP_NAME]
+            return new Date(dateValue) - new Date(_dateValue) >= 0
+          })
+          .map(t => t[fieldName])
+          .filter(Boolean)
+
+        return list.reduce((a, b) => a + b, 0)
+      } else {
+        // 查找最后一个日期分组的列
+        const dateColumn = findLast(columns, t => {
+          const _f = t.params.field
+          return _f.category === CATEGORY.PROPERTY && isDateField(_f)
+        })
+        if (!dateColumn) return '-'
+
+        // 日期的字段名
+        const dateFieldName = dateColumn.params.field.renderName
+        // 当前日期值
+        const dateValue = row[dateFieldName]
+
+        const list = listTree
+          .filter(t => {
+            const _dateValue = t[dateFieldName]
+
+            return new Date(dateValue) - new Date(_dateValue) >= 0
+          })
+          .map(t => t[fieldName])
+
+        return list.reduce((a, b) => a + b, 0)
+      }
+    },
+    total_group: (row, column) => {
+      const fieldName = _getRenderNameByVs(column)
+
+      if (isGroupTable) {
+        const [groupFields] = columns
+        const { fields } = groupFields.params
+
+        // 当前数据在树的第几层
+        const _level_ = row['_level_']
+        if (typeof _level_ === 'undefined') return ''
+
+        // 非日期分组显示 -
+        const _field = fields[_level_]
+        if (!isDateField(_field)) return '-'
+
+        // 当前日期值
+        const dateValue = row[TREE_GROUP_NAME]
+
+        const parent = deepFind(
+          listTree,
+          item => item[TREE_ROW_KEY] === row[TREE_ROW_PARENT_KEY]
+        )
+        if (!parent?.children.length) return row[fieldName]
+
+        // 当前分组内的数据
+        const list = parent.children
+          .filter(t => {
+            const _dateValue = t[TREE_GROUP_NAME]
+            return new Date(dateValue) - new Date(_dateValue) >= 0
+          })
+          .map(t => t[fieldName])
+
+        return list.reduce((a, b) => a + b, 0)
+      } else {
+        // 查找最后一个日期分组的列
+        const dateColumn = findLast(columns, t => {
+          const _f = t.params.field
+          return _f.category === CATEGORY.PROPERTY && isDateField(_f)
+        })
+        if (!dateColumn) return '-'
+
+        // 日期的字段名
+        const dateFieldName = dateColumn.params.field.renderName
+        // 当前日期值
+        const dateValue = row[dateFieldName]
+
+        // 日期字段的索引, 用作获取当前值的分组
+        const dateFieldI = columns.findIndex(t => t.field === dateColumn.field)
+
+        // 分组名
+        const parentGroupName = _getGroupName(row, dateFieldI)
+        // 获取树结构中的parent
+        const parent = _getParentByDfs(parentGroupName)
+        if (!parent?.children.length) return row[fieldName]
+
+        // 当前分组内的数据
+        const list = parent.children
+          .filter(t => {
+            const _dateValue = t[TREE_GROUP_NAME]
+            return new Date(dateValue) - new Date(_dateValue) >= 0
+          })
+          .map(t => t[fieldName])
+
+        return list.reduce((a, b) => a + b, 0)
+      }
+    },
+  }
+
+  return map[quickType]
+}
+
+export const displayQuickCalculateValue = ({
+  row,
+  field,
+  renderType,
+  columns,
+  listTree,
+  summary,
+  isGroupTable,
+}) => {
+  const { renderName, _quick } = field
+  const value = row[renderName]
+
+  if (!_quick) return
+
+  const quickItem = quickCalculateMap({
+    renderType,
+    columns,
+    listTree,
+    quickType: _quick,
+    summary,
+    isGroupTable,
+  })
+  if (typeof quickItem === 'undefined') return value
+
+  return quickItem(row, field)
+}
+
+export const updateFieldsWithCompare = ({ fields = [], compare = {} }) => {
+  let hasDelOriginField = false
+  return fields.reduce((acc, cur) => {
+    if (cur.children && cur.children.length) {
+      cur.children = updateFieldsWithCompare({
+        fields: cur.children,
+        compare,
+      })
+    }
+
+    if (!is_vs(cur.renderName)) {
+      hasDelOriginField = false
+    } else {
+      if (!hasDelOriginField) {
+        const preCol = acc.pop()
+
+        // 将上一列的字段加上对比字段字段中
+        if (!cur.fields) {
+          cur.fields = []
+        }
+        cur._quick = preCol._quick
+
+        if (cur._quick) {
+          const opt = quickCalculateOptions.find(t => t.value === cur._quick)
+          cur.displayName = cur.displayName + '(' + opt.label + ')'
+        }
+
+        hasDelOriginField = true
+      }
+    }
+    acc.push(cur)
+
+    return acc
+  }, [])
 }

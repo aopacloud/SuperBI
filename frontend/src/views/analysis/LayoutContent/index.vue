@@ -23,18 +23,18 @@
       @querySuccess="onQuerySuccess" />
 
     <main class="main">
-      <a-spin :spinning="runLoading">
-        <keep-alive>
-          <RenderView
-            v-if="viewComponent === 'render'"
-            :dataset="dataset"
-            :choosed="choosed"
-            :compare="compare"
-            :options="options" />
+      <keep-alive>
+        <RenderView
+          v-if="viewComponent === 'render'"
+          ref="renderViewRef"
+          :loading="runLoading"
+          :dataset="dataset"
+          :choosed="choosed"
+          :compare="compare"
+          :options="options" />
 
-          <HistoryView v-else @revert="onHistoryQuery" />
-        </keep-alive>
-      </a-spin>
+        <HistoryView v-else @revert="onHistoryQuery" />
+      </keep-alive>
     </main>
   </section>
 
@@ -49,9 +49,6 @@
   <!-- 同环比 -->
   <BasisRatioModal
     v-model:open="basisRatioModalOpen"
-    :target="
-      dimensions.find(t => t.name === compare.timeField || toContrastFiled(t))
-    "
     :dimensions="dimensions"
     :measures="indexes"
     :compare="compare"
@@ -62,7 +59,8 @@
   <DownloadModal
     v-model:open="downloadModalOpen"
     :filename="chart.id ? chart.name : dataset.name"
-    :initParams="requestResponse.request" />
+    :initParams="requestResponse.request"
+    @download="handleDownload" />
 </template>
 
 <script setup>
@@ -75,7 +73,6 @@ import HistoryView from './History.vue'
 import TopNModal from '@/views/analysis/components/TopNModal.vue'
 import BasisRatioModal from '@/views/analysis/components/BasisRatioModal.vue'
 import DownloadModal from '@/components/DownloadModal/index.vue'
-import { toContrastFiled } from '@/views/analysis/config'
 
 const props = defineProps({
   chart: {
@@ -120,6 +117,10 @@ const requestResponse = computed(() => indexRequestResponse.get())
 // 查询loading
 const runLoading = ref(false)
 const onRunLoading = running => {
+  // 查询时，清空上一次的结果
+  if (running) {
+    indexRequestResponse.set()
+  }
   runLoading.value = running
 }
 
@@ -148,10 +149,10 @@ const basisRatioModalOpen = ref(false)
 const onBasisRatio = () => {
   basisRatioModalOpen.value = true
 }
-const onBasisRatioOk = (target = {}, { type, measures = [], dimensions } = {}) => {
+const onBasisRatioOk = ({ timeField, type, measures = [], dimensions } = {}) => {
   const paylaod = {
     type,
-    timeField: target.name,
+    timeField,
     measures: measures,
     dimensions,
   }
@@ -173,6 +174,11 @@ const onReset = () => {
 const downloadModalOpen = ref(false)
 const onDownload = () => {
   downloadModalOpen.value = true
+}
+const renderViewRef = ref(null)
+const handleDownload = () => {
+  const { chart, dataset } = props
+  renderViewRef.value.download(chart.id ? chart.name : dataset.name)
 }
 
 // 历史记录

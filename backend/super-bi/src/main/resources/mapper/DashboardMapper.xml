@@ -19,7 +19,7 @@
     </resultMap>
     <sql id="Base_Column_List">
         id, workspace_id, name, description, status, version, last_edit_version, creator,
-    operator, deleted, create_time, update_time
+    operator, deleted, create_time, update_time,refresh_interval_seconds, visibility
     </sql>
 
     <select id="search" resultType="net.aopacloud.superbi.model.dto.DashboardDTO" parameterType="net.aopacloud.superbi.model.query.DashboardQuery">
@@ -80,7 +80,7 @@
         select
         <include refid="Base_Column_List"/>
         from bi_dashboard
-        where id = #{id,jdbcType=INTEGER}
+        where id = #{id,jdbcType=INTEGER} and deleted = 0
     </select>
 
 
@@ -121,7 +121,12 @@
     <update id="updateCreator">
         update bi_dashboard set creator = #{toUsername} where creator = #{fromUsername} and deleted = 0
     </update>
-
+    <update id="updateRefreshInterval">
+        update bi_dashboard set refresh_interval_seconds = #{refreshIntervalSeconds} where id = #{id}
+    </update>
+    <update id="updateVisibility">
+        update bi_dashboard set visibility = #{visibility} where id = #{id}
+    </update>
 
     <select id="selectByReport" resultType="net.aopacloud.superbi.model.dto.DashboardDTO">
         select d.*
@@ -156,6 +161,18 @@
             d.name LIKE concat('%', #{keyword}, '%')
             OR
             d.description LIKE concat('%', #{keyword}, '%')
+            <if test="searchUsernames != null and searchUsernames.size() > 0">
+                OR
+                d.creator in
+                <foreach collection="searchUsernames" item="usr" separator="," open="(" close=")">
+                    #{usr}
+                </foreach>
+                OR
+                d.operator in
+                <foreach collection="searchUsernames" item="usr" separator="," open="(" close=")">
+                    #{usr}
+                </foreach>
+            </if>
             )
         </if>
     </sql>

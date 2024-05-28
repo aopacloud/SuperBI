@@ -76,7 +76,9 @@
                 placeholder="请输入展示名称"
                 :maxlength="50"
                 v-model.lazy="row['displayName']"
-                @change="e => updateField(row.name, 'displayName', e.target.value)" />
+                @change="
+                  e => updateField(row.name, 'displayName', e.target.value)
+                " />
             </template>
           </vxe-column>
 
@@ -84,10 +86,10 @@
           <vxe-column field="dataType" title="字段类型" width="260">
             <template #default="{ row }">
               <i
-                :class="['iconfont', getFieldTypeIcon(row.dataType)['icon']]"
+                :class="['iconfont', getIconByFieldType(row.dataType)['icon']]"
                 :style="{
                   marginRight: '8px',
-                  color: getFieldTypeIcon(row.dataType)['color'],
+                  color: getIconByFieldType(row.dataType)['color'],
                 }"></i>
               <a-cascader
                 v-if="row.id !== PropertyField.id && row.id !== IndexField.id"
@@ -236,7 +238,9 @@
                 class="input"
                 v-if="row.id !== PropertyField.id && row.id !== IndexField.id"
                 v-model="row['description']"
-                @change="e => updateField(row.name, 'description', e.target.value)" />
+                @change="
+                  e => updateField(row.name, 'description', e.target.value)
+                " />
             </template>
           </vxe-column>
 
@@ -250,7 +254,9 @@
                   versionJs.ViewsDatasetModify.isRowEnableAction(row)
                 "
                 :size="12">
-                <a v-if="row.status === 'HIDE'" @click="onHideStatusChange(row, 'VIEW')">
+                <a
+                  v-if="row.status === 'HIDE'"
+                  @click="onHideStatusChange(row, 'VIEW')">
                   显示
                 </a>
                 <a v-else @click="onHideStatusChange(row, 'HIDE')">隐藏</a>
@@ -315,9 +321,11 @@ import {
   formatterOptions,
   FORMAT_DEFAULT_CODE,
   FORMAT_CUSTOM_CODE,
-  displayCustomFormatterLabel,
-  getFieldTypeIcon,
 } from '@/views/dataset/config.field'
+import {
+  displayCustomFormatterLabel,
+  getIconByFieldType,
+} from '@/views/dataset/utils'
 import { copyText, deepClone } from 'common/utils/help'
 import { findLastIndex } from 'common/utils/compatible'
 import { CATEGORY } from '@/CONST.dict.js'
@@ -662,7 +670,8 @@ const onMultipleChange = (val, key) => {
 
     if (key === 'category') {
       item.category = val
-      item.parentName = val === PropertyField.id ? PropertyField.name : IndexField.name
+      item.parentName =
+        val === PropertyField.id ? PropertyField.name : IndexField.name
       item.children = undefined
 
       const index = allList.value.findIndex(t => t.name === item.name)
@@ -773,7 +782,9 @@ const edit = row => {
 }
 // 复制
 const copy = row => {
-  const names = allList.value.filter(t => t.category === row.category).map(t => t.name)
+  const names = allList.value
+    .filter(t => t.category === row.category)
+    .map(t => t.name)
 
   modifyOpen.value = true
   modifyInfo.value = {
@@ -788,11 +799,17 @@ const onFieldInserted = payload => {
   // 插入
   if (_mode === 'insert') {
     if (category === PropertyField.id) {
-      const allPIndex = findLastIndex(allList.value, t => t.category === PropertyField.id)
+      const allPIndex = findLastIndex(
+        allList.value,
+        t => t.category === PropertyField.id
+      )
 
       allList.value.splice(allPIndex + 1, 0, payload)
     } else {
-      const allIIndx = findLastIndex(allList.value, t => t.category === IndexField.id)
+      const allIIndx = findLastIndex(
+        allList.value,
+        t => t.category === IndexField.id
+      )
 
       allList.value.splice(allIIndx + 1, 0, { ...payload, id: Date.now() })
     }

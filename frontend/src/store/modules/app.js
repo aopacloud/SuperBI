@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { setDocumentTitle } from '@/utils'
 import { storagePrefix, defaultActiveTimeOffset } from '@/settings'
 import { versionJs } from '@/versions'
+import useResourceStore from './resource'
 
 const initialWorkspaceId =
   sessionStorage.getItem(storagePrefix + 'workspaceId') ||
@@ -105,11 +106,15 @@ const useAppStore = defineStore('app', {
     },
 
     // 设置当前空间ID
-    setWorkspaceId(id) {
+    async setWorkspaceId(id, updateResource) {
       this.workspaceId = id
 
       localStorage.setItem(storagePrefix + 'workspaceId', id)
       sessionStorage.setItem(storagePrefix + 'workspaceId', id)
+
+      if (updateResource) {
+        await useResourceStore().updateResourceByWorkspaceId(id)
+      }
     },
 
     // 设置当前空间

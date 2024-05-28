@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import net.aopacloud.superbi.enums.*;
-import net.aopacloud.superbi.queryEngine.enums.AggregatorEnum;
 
 import java.util.Date;
 
@@ -39,7 +38,7 @@ public class DatasetFieldDTO {
 
     private String sourceFieldName;
 
-    private AggregatorEnum aggregator;
+    private String aggregator;
 
     private DataTypeEnum dataType;
 

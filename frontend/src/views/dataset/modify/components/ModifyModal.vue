@@ -13,10 +13,7 @@
         <a-input placeholder="请输入备注" v-model:value="formState.description" />
       </a-form-item>
       <a-form-item label="文档链接" v-bind="validateInfos.docUrl">
-        <a-input
-          placeholder="请输入文档链接"
-          v-model:value="formState.docUrl"
-          @blur="validate('docUrl', { trigger: 'blur' }).catch(() => {})" />
+        <a-input placeholder="请输入文档链接" v-model:value="formState.docUrl" />
       </a-form-item>
       <a-form-item label="位置" v-bind="validateInfos.folderId">
         <a-tree-select
@@ -84,19 +81,14 @@ const formState = reactive({
 })
 const formRuls = reactive({
   name: [{ required: true, message: '名称不能为空' }],
-  // folderId: [{ required: true, message: '位置不能为空' }],
   docUrl: [
     {
-      pattern: /(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w\.-]*)*\/?/g,
+      pattern: /^(https?:\/\/)([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w\.-]*)*\/?/g,
       message: '链接格式不正确',
-      trigger: 'blur',
     },
   ],
 })
-const { validateInfos, resetFields, validate, clearValidate } = Form.useForm(
-  formState,
-  formRuls
-)
+const { validateInfos, resetFields, validate } = Form.useForm(formState, formRuls)
 
 const init = () => {
   fetchData()

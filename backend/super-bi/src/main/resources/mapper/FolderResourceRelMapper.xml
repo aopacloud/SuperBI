@@ -25,10 +25,18 @@
         from bi_folder_resource_rel
         where target_id = #{targetId,jdbcType=INTEGER}
     </select>
-    <select id="countByFolderId" parameterType="java.lang.Long" resultType="java.lang.Integer">
+    <select id="countByFolder" parameterType="net.aopacloud.superbi.model.entity.Folder" resultType="java.lang.Integer">
         select count(*)
-        from bi_folder_resource_rel
-        where folder_id = #{folderId,jdbcType=INTEGER}
+        from bi_folder_resource_rel r
+        <if test="position.name() == 'DATASET'">
+            join bi_dataset d
+            on r.target_id = d.id and d.deleted = 0 and d.status = 'ONLINE'
+        </if>
+        <if test="position.name() == 'DASHBOARD'">
+            join bi_dashboard d
+            on r.target_id = d.id and d.deleted = 0 and d.status = 'ONLINE'
+        </if>
+        where folder_id = #{id}
     </select>
     <select id="selectByFolders" resultMap="BaseResultMap">
         select
@@ -69,6 +77,9 @@
             and creator = #{creator}
         </if>
         )
+    </delete>
+    <delete id="deleteByFolderId">
+        delete from bi_folder_resource_rel where folder_id = #{id}
     </delete>
     <insert id="insert" parameterType="net.aopacloud.superbi.model.entity.FolderResourceRel">
         insert into bi_folder_resource_rel (folder_id, target_id, resource_type)

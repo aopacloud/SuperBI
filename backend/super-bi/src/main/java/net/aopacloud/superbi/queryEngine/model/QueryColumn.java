@@ -5,7 +5,6 @@ import net.aopacloud.superbi.common.core.utils.bean.BeanUtils;
 import net.aopacloud.superbi.enums.DataTypeEnum;
 import net.aopacloud.superbi.enums.FieldTypeEnum;
 import net.aopacloud.superbi.model.dto.DatasetFieldDTO;
-import net.aopacloud.superbi.queryEngine.enums.AggregatorEnum;
 
 @Data
 public class QueryColumn {
@@ -16,7 +15,7 @@ public class QueryColumn {
 
     private String displayName;
 
-    private AggregatorEnum aggregator;
+    private String aggregator;
 
     private DataTypeEnum dataType;
 

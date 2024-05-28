@@ -90,7 +90,10 @@
                         <DownOutlined class="i-suffix-down" />
                         <CloseCircleFilled
                           class="i-suffix-close"
-                          v-if="item.conditions?.[0].args?.length > 0"
+                          v-if="
+                            item.conditions?.[0].useLatestPartitionValue ||
+                            item.conditions?.[0].args?.length > 0
+                          "
                           @click.stop="clearCondition(item)" />
                       </div>
                     </template>
@@ -143,7 +146,7 @@ import {
 } from '@ant-design/icons-vue'
 import FilterVue from '@/views/analysis/LayoutContent/components/Filter/index.vue'
 import { displayFilter } from '@/views/analysis/LayoutContent/components/Filter/utils'
-import { getRandomKey } from 'common/utils/help'
+import { getRandomKey } from 'common/utils/string'
 import { versionJs } from '@/versions'
 import dayjs from 'dayjs'
 

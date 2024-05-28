@@ -2,6 +2,7 @@ package net.aopacloud.superbi.mapper;
 
 import net.aopacloud.superbi.model.dto.FolderResourceRelCountDTO;
 import net.aopacloud.superbi.model.dto.FolderResourceRelationshipDTO;
+import net.aopacloud.superbi.model.entity.Folder;
 import net.aopacloud.superbi.model.entity.FolderResourceRel;
 
 import java.util.List;
@@ -22,7 +23,9 @@ public interface FolderResourceRelMapper {
 
     int update(FolderResourceRel row);
 
-    int countByFolderId(Long folderId);
+    int countByFolder(Folder folder);
 
     void deleteByRelationship(FolderResourceRelationshipDTO relationship);
+
+    void deleteByFolderId(Long id);
 }

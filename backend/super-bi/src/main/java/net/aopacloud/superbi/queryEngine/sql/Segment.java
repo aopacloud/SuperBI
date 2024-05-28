@@ -2,7 +2,6 @@ package net.aopacloud.superbi.queryEngine.sql;
 
 import lombok.Data;
 import net.aopacloud.superbi.constant.BiConsist;
-import net.aopacloud.superbi.queryEngine.enums.AggregatorEnum;
 
 /**
  * sql segment.
@@ -19,14 +18,14 @@ public class Segment {
      */
     private String name;
 
-    private AggregatorEnum aggregator;
+    private String aggregator;
 
     /**
      * sql segment expression that will be used in sql.
      */
     private String expression;
 
-    public Segment(String name, AggregatorEnum aggregator, String expression) {
+    public Segment(String name, String aggregator, String expression) {
         this.name = name;
         this.aggregator = aggregator;
         this.expression = expression;

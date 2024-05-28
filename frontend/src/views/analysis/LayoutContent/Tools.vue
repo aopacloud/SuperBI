@@ -67,9 +67,9 @@ import {
   LoadingOutlined,
 } from '@ant-design/icons-vue'
 import { CATEGORY } from '@/CONST.dict'
-import { IS_NOT_NULL, IS_NULL } from '@/views/dataset/config.field'
+import { IS_NOT_NULL, IS_NULL, isTime_HHMMSS } from '@/views/dataset/config.field'
 import { postAnalysisQuery } from '@/apis/analysis'
-import { repeatIndex } from '@/views/analysis/utils'
+import { repeatIndex, sortDimension } from '@/views/analysis/utils'
 import { getByIncludesKeys } from 'common/utils/help'
 import dayjs from 'dayjs'
 import { versionJs } from '@/versions'
@@ -79,6 +79,7 @@ import {
   getEndDateStr,
 } from '@/common/components/DatePickers/utils'
 import { isRenderTable } from '../utils'
+import { isDateField } from '@/views/dataset/utils'
 
 const emits = defineEmits([
   'run-loading',
@@ -192,7 +193,7 @@ const transferChoosedFilters = filterItem => {
     conditions: [cond1],
   } = filterItem
 
-  if (!versionJs.ViewsAnalysis.isDateField(filterItem)) return filterItem
+  if (!isDateField(filterItem)) return filterItem
 
   const { timeType, args, timeParts, _this, _until } = cond1
 
@@ -220,7 +221,7 @@ const transferChoosedFilters = filterItem => {
       {
         ...cond1,
         timeType: !!_until ? 'EXACT' : timeType,
-        timeParts: dataType === 'TIME_YYYYMMDD_HHMMSS' ? timeParts : undefined,
+        timeParts: isTime_HHMMSS(dataType) ? timeParts : undefined,
         args,
       },
     ],
@@ -329,17 +330,10 @@ const run = async from => {
     // 表格参数
     const tableOptions = indexOptions.get('table')
 
-    // 是否请求汇总
-    const summary = isRenderTable(renderType.value)
-      ? renderType.value === 'table'
-        ? tableOptions?.showSummary
-        : true
-      : undefined
-
     const paylaod = {
       datasetId: dataset.value.id,
       fromSource: 'temporary', // dashboard 从看板查询, report 保存图表查询, temporary 临时查询
-      summary,
+      summary: true, // 快速计算占比需要使用到汇总值，查询默认使用汇总
       compare,
       sorts,
       paging,
@@ -461,9 +455,12 @@ const transformChoosed = (choosedMap = {}) => {
   const indexRepeated = repeatIndex(choosedMap[CATEGORY.INDEX], item => {
     indexChoosed.remove(item)
   })
+  // 维度分组排序
+  const dimensionSorted = sortDimension(choosedMap[CATEGORY.PROPERTY], true)
 
   return {
-    ...choosedMap,
+    // ...choosedMap,
+    [CATEGORY.PROPERTY]: dimensionSorted,
     [CATEGORY.INDEX]: indexRepeated,
     [CATEGORY.FILTER]: mergeDashbaordFilters(choosedMap[CATEGORY.FILTER]),
   }
@@ -480,6 +477,8 @@ const transformRequiredKeys = (choosedMap = {}) => {
         'dateTrunc',
         'firstDayOfWeek',
         'viewModel',
+        '_group', // 行维度、列维度
+        '_weekStart', // 周显示的起始日
       ])
     ),
     [CATEGORY.INDEX]: choosedMap[CATEGORY.INDEX].map(t =>
@@ -489,6 +488,9 @@ const transformRequiredKeys = (choosedMap = {}) => {
         'displayName',
         'dataType',
         'aggregator',
+        '_modifyDisplayName', // 重命名
+        '_quick', // 指标快速计算
+        '_quantile', // 自定义分位数
       ])
     ),
     [CATEGORY.FILTER]: choosedMap[CATEGORY.FILTER].map(t =>
