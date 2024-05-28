@@ -99,7 +99,7 @@ const getRenameIndexList = (list = []) => {
 
     return {
       ...t,
-      _modifyDisplayName: choosedItem._modifyDisplayName,
+      _modifyDisplayName: choosedItem?._modifyDisplayName || t._modifyDisplayName,
     }
   })
 }

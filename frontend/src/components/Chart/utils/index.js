@@ -1,11 +1,8 @@
-import { findBy } from 'common/utils/help'
-import * as numberUtils from 'common/utils/number'
 import { formatterOptions } from '@/views/dataset/config.field'
 import {
   ratioOptions,
   dateGroupTypeMap,
   DEFAULT_RATIO_TYPE,
-  COMPARE_RATIO_PERIOD,
   DEFAULT_WEEK_DISPLAY,
   DEFAULT_DAY_DISPLAY,
   DEFAULT_DATE_GROUP,
@@ -170,7 +167,7 @@ const WEEK_MAP = {
  * @returns {string}
  */
 export const formatDtWithOption = (value, field) => {
-  const { dateTrunc = '', firstDayOfWeek, viewModel } = field
+  const { dateTrunc = '', firstDayOfWeek, viewModel, _weekStart } = field
 
   if (dateTrunc === DEFAULT_DATE_GROUP) return value
   if (dateTrunc === 'YEAR') return dayjs(value).year() + '年'
@@ -216,7 +213,21 @@ export const formatDtWithOption = (value, field) => {
     if (viewModel === 'WEEK_RANGE_WITHOUT_YEAR') {
       return start.format('MM/DD') + ' - ' + end.format('MM/DD')
     }
+
+    if (viewModel === 'WEEK_DAY_SEQUENCE') {
+      if (typeof _weekStart === 'undefined') return value
+
+      if (_weekStart === '1') return dayValue.startOf('week').format('YYYY/MM/DD')
+
+      if (_weekStart === '7') return dayValue.endOf('week').format('YYYY/MM/DD')
+
+      if (_weekStart === 0) return start.format('YYYY/MM/DD')
+
+      if (_weekStart === 1) return end.format('YYYY/MM/DD')
+    }
   }
 
   return value
 }
+
+export const isEmpty = v => typeof v === 'undefined' || v === null || v === ''

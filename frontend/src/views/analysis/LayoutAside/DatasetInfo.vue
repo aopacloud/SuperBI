@@ -11,7 +11,9 @@
         {{ dataset.name || '-' }}
       </div>
 
-      <a-tooltip v-if="dataset.description" :title="dataset.description">
+      <a-tooltip
+        v-if="dataset.description || dataset.docUrl"
+        :title="dataset.description">
         <a
           class="doc"
           target="_blank"

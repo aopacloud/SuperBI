@@ -86,3 +86,21 @@ export const getWordWidth = (str = '', enWidth = 8, cnWidth = 13) => {
 
   return width
 }
+
+/**
+ * 将数字索引转换为大写字母字符串
+ * @param {number } i 数字索引，默认为0
+ * @returns {string} 返回对应的大写字母字符串
+ */
+export const transformIndexToUpcaseWord = (i = 0) => {
+  i = i < 0 ? 1 : i + 1
+
+  let result = ''
+  while (i > 0) {
+    i--
+    result = String.fromCharCode((i % 26) + 'A'.charCodeAt(0)) + result
+    i = Math.floor(i / 26)
+  }
+
+  return result
+}

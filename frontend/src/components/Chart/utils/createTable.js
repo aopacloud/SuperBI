@@ -3,6 +3,7 @@ import {
   transformFieldToColumn,
   updateColumnsWithCompare,
   transformWithQuickIndex,
+  createSummaryMap,
 } from '../Table/utils.js'
 
 export default function createTableData({
@@ -11,6 +12,7 @@ export default function createTableData({
   datasetFields = [],
   compare,
   config = {},
+  summaryRows = [],
 }) {
   // 处理对比字段
   const fields = transformFieldsByVs({ fields: originFields, compare })
@@ -29,6 +31,9 @@ export default function createTableData({
     }, {})
   })
 
+  // 汇总数据
+  const summaryMap = createSummaryMap(summaryRows, fields)
+
   // 对比合并显示
   if (config.compare?.merge) {
     columns = updateColumnsWithCompare({
@@ -42,5 +47,6 @@ export default function createTableData({
   return {
     columns,
     list,
+    summaryMap,
   }
 }

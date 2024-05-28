@@ -83,6 +83,7 @@ import {
   SUMMARY_INDEX_DEFAULT,
   operatorMap,
   QUANTILE_PREFIX,
+  summaryQuantile,
 } from '@/views/dataset/config.field'
 import { isDateField } from '@/views/dataset/utils'
 import {
@@ -255,7 +256,7 @@ onMounted(() => {
 const getSummaryOptions = (category, dataType) => {
   let result = []
   if (category === CATEGORY.INDEX) {
-    result = summaryOptions.concat({ label: '分位数', value: QUANTILE_PREFIX })
+    result = summaryOptions
   } else {
     const isTextOrTime = dataType === 'TEXT' || dataType.includes('TIME')
     const isNumber = dataType === 'NUMBER'
@@ -268,7 +269,7 @@ const getSummaryOptions = (category, dataType) => {
     result = propertySummaryOptions.concat(summary)
   }
 
-  return result
+  return result.concat(summaryQuantile)
 }
 
 // 显示日期分组

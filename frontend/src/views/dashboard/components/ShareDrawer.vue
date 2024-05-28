@@ -8,12 +8,30 @@
             <b>{{ initData.name }}</b>
           </div>
         </div>
+
+        <div class="item">
+          <div class="item-label">列表可见：</div>
+          <div class="item-content">
+            <a-radio-group
+              :disabled="listVisibilityDisabled"
+              :value="listVisibility"
+              @change="onListVisibleScopeChange">
+              <a-radio value="ALL">空间内所有成员</a-radio>
+              <a-radio value="PERMISSION">共享用户可见</a-radio>
+            </a-radio-group>
+
+            <div class="font-help2" style="margin-top: 6px">
+              {{ listVisibilityHelpText }}
+            </div>
+          </div>
+        </div>
+
         <div class="item">
           <div class="item-label">共享范围：</div>
           <div class="item-content">
             <a-radio-group v-model:value="rangeValue">
               <a-radio :value="1">指定用户</a-radio>
-              <a-radio :value="0">仅自己可见</a-radio>
+              <a-radio :value="0">仅自己</a-radio>
             </a-radio-group>
           </div>
         </div>
@@ -93,7 +111,11 @@
 <script setup>
 import { h, ref, reactive, shallowRef, computed, watch } from 'vue'
 import { message } from 'ant-design-vue'
-import { LoadingOutlined, MinusCircleOutlined, PlusOutlined } from '@ant-design/icons-vue'
+import {
+  LoadingOutlined,
+  MinusCircleOutlined,
+  DownOutlined,
+} from '@ant-design/icons-vue'
 import useAppStore from '@/store/modules/app'
 import { SelectListModal } from 'common/components/ExtendSelect'
 import {
@@ -103,6 +125,7 @@ import {
   putShare,
   deleteShareRecordById,
   deleteShareById,
+  updateListVisibility,
 } from '@/apis/dashboard'
 import { getUserByWorkspaceId } from '@/apis/user'
 import { getRoleByWorkspaceId } from '@/apis/role'
@@ -121,7 +144,7 @@ const userColumn = { title: '用户', dataIndex: 'usernameAlias' }
 // 用户组列
 const gruopColumn = { title: '用户组', dataIndex: 'roleName' }
 
-const emits = defineEmits(['update:open', 'ok'])
+const emits = defineEmits(['update:open', 'ok', 'visibility-change'])
 const props = defineProps({
   open: {
     type: Boolean,
@@ -246,7 +269,9 @@ const fetchSharedGroup = async () => {
 const loading = ref(false)
 // 渲染列
 const columns = computed(() => {
-  return isUserKey.value ? [userColumn, ...tableColumns] : [gruopColumn, ...tableColumns]
+  return isUserKey.value
+    ? [userColumn, ...tableColumns]
+    : [gruopColumn, ...tableColumns]
 })
 // 渲染列表
 const list = computed(() => {
@@ -352,11 +377,12 @@ const fetchUserAll = () => {
 // 已经共享的所有用户组
 const groupListAll = shallowRef([])
 const fetchGroupAll = () => {
-  getSharedGroupgetSharedUser({ workspaceId: workspaceId.value, pageSize: 10000 }).then(
-    r => {
-      groupListAll.value = r.data
-    }
-  )
+  getSharedGroupgetSharedUser({
+    workspaceId: workspaceId.value,
+    pageSize: 10000,
+  }).then(r => {
+    groupListAll.value = r.data
+  })
 }
 
 // 选择确认
@@ -444,6 +470,31 @@ const onOnlyOwnOk = async () => {
     console.error('取消共享错误', error)
   } finally {
     onlyLoading.value = false
+  }
+}
+
+// 列表可见
+const listVisibility = computed(() => props.initData.visibility || 'ALL')
+const listVisibilityDisabled = ref(false)
+const listVisibilityHelpText = computed(() => {
+  return listVisibility.value === 'ALL'
+    ? "'全部'列表下，空间内所有成员能看见该看板"
+    : "'全部'列表下, 空间内有使用权限的人能看见该看板"
+})
+const onListVisibleScopeChange = async e => {
+  try {
+    listVisibilityDisabled.value = true
+    const visibility = e.target.value
+
+    const res = await updateListVisibility(props.initData.id, { visibility })
+
+    props.initData.visibility = res.visibility
+    message.success('更新列表可见成功')
+    emits('visibility-change', res)
+  } catch (error) {
+    console.error('更新列表可见失败', error)
+  } finally {
+    listVisibilityDisabled.value = false
   }
 }
 </script>

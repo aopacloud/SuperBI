@@ -142,10 +142,20 @@ export const dateGroupOptions_HHMMSS = [
 ]
 
 // 默认日期展示
-export const DEFAULT_WEEK_DISPLAY = 'WEEK_SEQUENCE'
-export const DEFAULT_DAY_DISPLAY = 'DAY_SEQUENCE'
-export const DEFAULT_HOUR_DISPLAY = 'HOUR'
-export const DEFAULT_MINUTE_DISPLAY = 'MINUTE'
+export const DEFAULT_WEEK_DISPLAY = 'WEEK_SEQUENCE' // 默认周显示
+export const DEFAULT_DAY_DISPLAY = 'DAY_SEQUENCE' // 默认日显示
+export const DEFAULT_WEEK_DAY_DISPLAY = 'WEEK_DAY_SEQUENCE' // 默认周的日显示
+export const DEFAULT_HOUR_DISPLAY = 'HOUR' // 默认小时显示
+export const DEFAULT_MINUTE_DISPLAY = 'MINUTE' // 默认分钟显示
+
+export const DEFAULT_WEEK_START = '1' // 默认周起始日
+// 周的起始日显示选项
+export const WEEK_START_OPTIONS = [
+  { label: '当周周一', value: DEFAULT_WEEK_START },
+  { label: '当周周日', value: '7' },
+  { label: '起始日', value: 0 },
+  { label: '结束日', value: 1 },
+]
 
 // 日期展示
 // WEEK_SEQUENCE(1, '第x周')
@@ -174,6 +184,13 @@ export const dateDisplayOptions = [
     label: 'MM/DD - MM/DD',
     value: 'WEEK_RANGE_WITHOUT_YEAR',
     group: GROUP_WEEK,
+  },
+  {
+    label: 'YYYY/MM/DD',
+    group: GROUP_WEEK,
+    value: DEFAULT_WEEK_DAY_DISPLAY,
+    width: 120,
+    children: WEEK_START_OPTIONS,
   },
   {
     label: 'YYYY/MM/DD',

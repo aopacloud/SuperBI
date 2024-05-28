@@ -82,8 +82,7 @@ export default function createTableData({
     .map((field, index) => transformFieldToColumn({ field, index }))
 
   // 汇总数据
-  const cellSummaryRows = summaryRows.slice(+config.showSummary)
-  const summaryMap = createSummaryMap(cellSummaryRows, fields)
+  const summaryMap = createSummaryMap(summaryRows, fields)
 
   // 树结构
   const treeData = listDataToTreeByKeys({
@@ -105,5 +104,6 @@ export default function createTableData({
   return {
     columns,
     list: treeData,
+    summaryMap,
   }
 }

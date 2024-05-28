@@ -55,6 +55,7 @@ export const SUMMARY_DEFAULT = 'EMPTY'
 // 分位数的前缀
 export const QUANTILE_PREFIX = 'QUANTILE_'
 
+export const summaryQuantile = { label: '分位数', value: QUANTILE_PREFIX }
 // 分位数
 export const quantileOptions = [
   { label: '99分位数', value: QUANTILE_PREFIX + '99' },
@@ -200,7 +201,7 @@ export const dataTypeOptions = [
 export const formatterOptions = [
   {
     label: '默认',
-    value: 'ORIGINAL',
+    value: FORMAT_DEFAULT_CODE,
     format: num => {
       return numberUtils.toThousand(num)
     },

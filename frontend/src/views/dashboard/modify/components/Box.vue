@@ -85,6 +85,7 @@
       <!-- 有数据 -->
       <Chart _comment_="有数据"
         v-else
+        ref="chartRef"
         :choosed="choosed"
         :columns="columns"
         :dataSource="dataSource"
@@ -161,11 +162,15 @@ const props = defineProps({
   },
 })
 
+const chartRef = ref(null)
 const onMoreMenuClick = ({ key }) => {
   if (key === 'sql') {
     emits('sql', requestResponse.response)
   } else if (key === 'download') {
-    emits('download', downloadQueryParams.value)
+    emits('download', {
+      payload: downloadQueryParams.value,
+      download: chartRef.value?.download
+    })
   }
 }
 

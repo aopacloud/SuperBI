@@ -245,3 +245,16 @@ export const postRefreshIntervalById = (id, data) =>
     method: 'post',
     data,
   })
+
+/**
+ * 更新列表可见性
+ * @param {number} id 列表ID
+ * @param {RequestPayload} data 可见性数据
+ * @returns 返回请求结果
+ */
+export const updateListVisibility = (id, data) =>
+  request({
+    url: `/dashboard/${id}/visibility`,
+    method: 'post',
+    data,
+  })

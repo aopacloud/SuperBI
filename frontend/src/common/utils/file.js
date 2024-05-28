@@ -63,3 +63,17 @@ export const exportFile = (
     URL.revokeObjectURL(bUrl) // 释放URL 对象
   }
 }
+
+/**
+ * 通过 URL 下载文件
+ * @param url 文件 URL
+ * @param filename 文件名
+ */
+export const downloadByUrl = (url, filename) => {
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+}

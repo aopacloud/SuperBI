@@ -36,6 +36,7 @@
     <!-- 查询成功 -->
     <Chart _comment_="查询成功"
       v-else
+      ref="chartRef"
       :choosed="choosed"
       :columns="columns"
       :dataSource="rows"
@@ -138,6 +139,12 @@ watch(
   { deep: true }
 )
 
+const chartRef = ref(null)
+const download = (filename) => {
+  chartRef.value?.download(filename)
+}
+
+defineExpose({ download })
 </script>
 
 <style lang="scss" scoped>

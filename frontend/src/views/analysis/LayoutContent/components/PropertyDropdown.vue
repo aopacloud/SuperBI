@@ -16,7 +16,9 @@
       <CMenuList
         style="width: 250px"
         :list="curDateDisplayOptions"
-        :value="[displayValue]"
+        :value="
+          [displayValue, field._weekStart].filter(t => typeof t !== 'undefined')
+        "
         @change="onDisplayKeyChange" />
     </a-sub-menu>
   </a-menu>
@@ -34,6 +36,8 @@ import {
   GROUP_DAY,
   toContrastFiled,
   GROUP_MINUTE,
+  DEFAULT_WEEK_DAY_DISPLAY,
+  DEFAULT_WEEK_START,
 } from '@/views/analysis/config'
 import { CATEGORY } from '@/CONST.dict.js'
 import CMenuList from '@/components/CMenuList/index.vue'
@@ -88,6 +92,7 @@ const onGroupKeyChange = key => {
 
   const oldDisplayKey = displayValue.value
   if (a === GROUP_DAY) {
+    props.field._weekStart = undefined
     if (!oldDisplayKey || !oldDisplayKey.startsWith(GROUP_DAY)) {
       displayValue.value = DEFAULT_DAY_DISPLAY
     }
@@ -95,7 +100,11 @@ const onGroupKeyChange = key => {
     if (!oldDisplayKey || !oldDisplayKey.startsWith(GROUP_WEEK)) {
       displayValue.value = DEFAULT_WEEK_DISPLAY
     }
+    if (displayValue.value === DEFAULT_WEEK_DAY_DISPLAY) {
+      props.field._weekStart = props.field._weekStart || DEFAULT_WEEK_START
+    }
   } else {
+    props.field._weekStart = undefined
     displayValue.value = undefined
   }
 }
@@ -115,7 +124,18 @@ const curDateDisplayOptions = computed(() => {
 // 显示值
 const displayValue = ref()
 const onDisplayKeyChange = key => {
-  displayValue.value = key[0]
+  const [viewModel, startWeek] = key
+  displayValue.value = viewModel
+
+  if (viewModel === DEFAULT_WEEK_DAY_DISPLAY) {
+    if (typeof startWeek === 'undefined') {
+      props.field._weekStart = props.field._weekStart || DEFAULT_WEEK_START
+    } else {
+      props.field._weekStart = startWeek
+    }
+  } else {
+    props.field._weekStart = undefined
+  }
 }
 
 const selectedKeys = computed(() => {

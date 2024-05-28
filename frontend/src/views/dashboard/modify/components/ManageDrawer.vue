@@ -7,8 +7,8 @@
     :bodyStyle="{ display: 'flex', 'flex-direction': 'column', padding: 0 }"
     @close="close">
     <div class="header">
-      图表数量 {{ layout.length }} / {{ LAYOUT_MAX }}
-      <a target="_blank" @click="toReport">图表管理</a>
+      图表数量: {{ layout.length }} / {{ LAYOUT_MAX }}
+      <a target="_blank" style="margin-left: auto" @click="toReport">图表管理</a>
     </div>
 
     <div class="content">
@@ -47,7 +47,8 @@
                 </div>
                 <template #overlay>
                   <a-menu @click="e => onMenuClick(e, item)">
-                    <template v-if="item.type !== 'REMARK' && item.type !== 'FILTER'">
+                    <template
+                      v-if="item.type !== 'REMARK' && item.type !== 'FILTER'">
                       <a-menu-item v-if="item._size !== 'large'" key="size_large"
                         >调整为大图
                       </a-menu-item>
@@ -95,7 +96,11 @@
 <script setup>
 import { h, ref, computed, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { ReloadOutlined, DownOutlined, FileTextOutlined } from '@ant-design/icons-vue'
+import {
+  ReloadOutlined,
+  DownOutlined,
+  FileTextOutlined,
+} from '@ant-design/icons-vue'
 import RemarkModal from './RemarkModal.vue'
 import { ManageLayoutOptions, LAYOUT_MAX } from '../config'
 import ReportList from './ReportList.vue'
@@ -346,7 +351,6 @@ const ok = () => {
 $borderStyle: 1px solid #f0f0f0;
 .header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   padding: 10px 12px;
   border-bottom: $borderStyle;

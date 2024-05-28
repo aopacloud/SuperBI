@@ -1,4 +1,4 @@
-export const LAYOUT_MAX = 50
+export const LAYOUT_MAX = 100
 
 // 看板 layout 配置
 export const LayoutOptions = {

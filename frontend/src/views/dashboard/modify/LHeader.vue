@@ -152,13 +152,17 @@
     @ok="onModifyOk" />
 
   <!-- 分享 -->
-  <ShareDrawer v-model:open="shareDrawerOpen" :initData="detail" />
+  <ShareDrawer
+    v-model:open="shareDrawerOpen"
+    :initData="detail"
+    @visibility-change="onVisibilityChange" />
 
   <!-- 移动 -->
   <MoveDrawer
     v-model:open="moveDrawerOpen"
     :init-data="detail"
-    :init-params="{ position: 'DASHBOARD', type: 'ALL', workspaceId }" />
+    :init-params="{ position: 'DASHBOARD', type: 'ALL', workspaceId }"
+    @ok="onMoveOk" />
 
   <!-- 推送设置 -->
   <ViewsDashboardPushSettingDrawer
@@ -345,8 +349,19 @@ const onModifyOk = e => {
   emits('update-detail', e)
 }
 
+// 共享
 const shareDrawerOpen = ref(false)
+const onVisibilityChange = e => {
+  props.detail.visibility = e.visibility
+}
+
+// 移动
 const moveDrawerOpen = ref(false)
+const onMoveOk = e => {
+  props.detail.folderId = e.folderId
+}
+
+// 设置
 const pushSettingDrawerOpen = ref(false)
 
 const onMenuClick = ({ key }) => {

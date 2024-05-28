@@ -1,6 +1,6 @@
 import { message } from 'ant-design-vue'
 import { CATEGORY } from '@/CONST.dict'
-import { transformFieldsByVs, createSortByOrder } from './index'
+import { transformFieldsByVs, createSortByOrder, isEmpty } from './index'
 import {
   transformFieldToColumn,
   listDataToTreeByKeys,
@@ -80,9 +80,14 @@ const createIndexColumn = ({
     })
 
   const [first, ...rest] = columnFields
-  const firstData = [...new Set(data.map(t => t[first.renderName] || '-'))].sort(
-    createSortByOrder(true)
-  )
+  const firstData = [
+    ...new Set(
+      data.map(t => {
+        const v = t[first.renderName]
+        return isEmpty(v) ? '-' : v
+      })
+    ),
+  ].sort(createSortByOrder(true))
 
   return firstData.map(t => {
     const renderNameByValue = prefix + t
@@ -167,17 +172,13 @@ export default function createTableData({
   // 分组字段
   const groupField = mergeGroupFields()
 
-  // 不显示汇总
-  const showSummary = groupField._showSummary !== false
-
   // 将字段信息转为列信息
   let columns = (groupField ? [groupField, ...indexColumns] : indexColumns).map(
     (field, index) => transformFieldToColumn({ field, index })
   )
 
   // 汇总数据
-  const cellSummaryRows = summaryRows.slice(+config.showSummary) // 第一行为底部汇总数据
-  const summaryMap = createSummaryMap(cellSummaryRows, fields)
+  const summaryMap = createSummaryMap(summaryRows, fields)
 
   // 树结构
   const treeData = listDataToTreeByKeys({
@@ -200,6 +201,6 @@ export default function createTableData({
   return {
     columns,
     list: treeData,
-    summaryMap: showSummary && summaryMap,
+    summaryMap,
   }
 }

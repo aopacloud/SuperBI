@@ -152,10 +152,10 @@ const ok = async () => {
       folderId: modelValue.value[0],
     }
 
-    await moveDirectory(payload)
+    const res = await moveDirectory(payload)
 
     message.success('移动成功')
-    emits('ok')
+    emits('ok', res)
     close()
   } catch (error) {
     console.error('移动错误', error)

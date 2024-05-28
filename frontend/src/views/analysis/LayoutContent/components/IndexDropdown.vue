@@ -82,6 +82,7 @@ import {
   propertyTextSummaryOptions,
   propertyNumberSummaryOptions,
   QUANTILE_PREFIX,
+  summaryQuantile,
 } from '@/views/dataset/config.field'
 import { CATEGORY } from '@/CONST.dict.js'
 import CMenuList from '@/components/CMenuList/index.vue'
@@ -127,7 +128,7 @@ const summaries = computed(() => {
 const aggregatorValue = ref()
 // 汇总方式label
 const aggregatorLabel = computed(() => {
-  const options = summaryOptions.concat({ label: '分位数', value: QUANTILE_PREFIX })
+  const options = summaryOptions.concat(summaryQuantile)
   const item = options.find(
     item =>
       item.value === props.field.aggregator || item.value.startsWith(QUANTILE_PREFIX)

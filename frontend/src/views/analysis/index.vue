@@ -99,6 +99,7 @@ import { DASHBORD_TO_REPORT_NAME } from '@/views/dashboard/modify/config'
 import useAppStore from '@/store/modules/app'
 import { versionJs } from '@/versions'
 import { getNameByJoinAggregator } from './utils'
+import { uninitWorker } from '@/components/Chart/Table/exportUtil'
 
 const route = useRoute()
 const router = useRouter()
@@ -889,11 +890,13 @@ onMounted(() => {
     }, 10)
   }
 })
+
 onBeforeMount(() => {
   appStore.toggleSideBarHide(true)
 })
 onBeforeUnmount(() => {
   appStore.toggleSideBarHide(false)
+  uninitWorker()
 })
 </script>
 

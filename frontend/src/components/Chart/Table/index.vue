@@ -91,7 +91,7 @@
 
         <!-- 快速计算插槽 -->
         <template #quickCalculate="{ column, row }">
-          {{ displayQuickIndexCell(row, column) }}
+          {{ displayQuickIndexCell(row[column.field], column, row) }}
         </template>
 
         <!-- 同环比插槽 -->
@@ -100,7 +100,7 @@
             :dataset="dataset"
             :field="column.params.field"
             :compare="config.compare"
-            :dTarget="displayQuickIndexCell(row, column, 2)"
+            :dTarget="displayQuickIndexCell(row[column.field], column, row)"
             :target="getVsTarget(column.field, row)"
             :origin="row[column.field]" />
         </template>
@@ -119,8 +119,8 @@
             :dataset="dataset"
             :field="column.params.field"
             :compare="config.compare"
-            :target="getVsTarget(column.field, bottomSummaryMap)"
-            :origin="bottomSummaryMap[column.field]" />
+            :target="getVsTarget(column.field, summaryMap)"
+            :origin="summaryMap[column.field]" />
           <span v-else>
             {{ displayBottomSummaryIndexCell(column) }}
           </span>
@@ -157,13 +157,13 @@
 import {
   h,
   ref,
-  unref,
   reactive,
   shallowRef,
   computed,
   watchEffect,
   watch,
   nextTick,
+  inject,
 } from 'vue'
 import {
   CaretDownOutlined,
@@ -184,9 +184,9 @@ import {
   getByPager,
   getCompareDisplay,
   getFixedPlace,
-  getRankIndex,
   listDataToTreeByKeys,
   createSummaryMap,
+  displayQuickCalculateValue,
 } from './utils'
 import {
   CELL_HEADER_PADDING,
@@ -252,6 +252,7 @@ const props = defineProps({
   summaryMap: {
     type: [Boolean, Object],
   },
+
 })
 
 const vTableRef = ref(null)
@@ -395,7 +396,7 @@ const getSummaryColumnWidth = ({ column, summary, field }) => {
 
 // 更新列宽度
 const updateColumnWidth = async () => {
-  const summary = bottomSummaryMap.value
+  const summary = props.summaryMap
 
   // 设置自定义宽度
   const setAutoWidth = (list = [], data = [], initialWidth = 0) => {
@@ -426,7 +427,7 @@ const updateColumnWidth = async () => {
           ...dataArr.map(t => {
             if (originField?.category === CATEGORY.INDEX) {
               if (item.params._quick) {
-                return getWordWidth(getQuickCalculateValue(t, item))
+                return getWordWidth(displayQuickIndexCell(t, item))
               } else {
                 return getWordWidth(formatIndexDisplay(t, item))
               }
@@ -917,303 +918,21 @@ const displayIndex = (row, column) => {
   return formatIndexDisplay(row[column.field], column)
 }
 
-const _getListFromOrigin = list => {
-  return list.reduce((acc, cur) => {
-    if (cur.children?.length) {
-      acc = acc.concat(_getListFromOrigin(cur.children))
-    } else {
-      acc.push(cur)
-    }
-
-    return acc
-  }, [])
-}
-
-/**
- * 最底层分组
- * @param {number} groupEnd 分组结束
- * @param {Record} row 行数据
- */
-const _getParentGroupName = (row, end = -1) => {
-  const columnField = props.columns.find(t => t.params._columnFields?.length)
-  if (columnField) {
-    const colFieldNames = columnField.params._columnFields.map(t => t.renderName)
-
-    return colFieldNames.map(key => row[key]).join(SUMMARY_GROUP_NAME_JOIN)
-  } else {
-    const groupKeys = props.columns
-      .filter(t => t.params.field.category === CATEGORY.PROPERTY)
-      .map(t => t.params.field.renderName)
-      .slice(0, end)
-
-    return groupKeys.map(key => row[key]).join(SUMMARY_GROUP_NAME_JOIN)
-  }
-}
-
-/**
- * 从渲染数据树结构中获取所在父级
- * @param {string} groupName 分组名
- */
-const _getParentFromListTree = groupName => {
-  return deepFind(listTree.value, item => item[GROUP_PATH] === groupName)
-}
-
-const _getRealRenderName = column => {
-  return column.params._isVs ? column.field.split(VS_FIELD_SUFFIX)[0] : column.field
-}
-
-const _isNull = val => typeof val === 'undefined' || val === null
-
-// 从快速计算map中获取正确值
-const _getQuickFromMap = quickType => {
-  const map = {
-    // 占比
-    ratio: (row, column) => {
-      const fieldName = _getRealRenderName(column)
-      const value = row[fieldName]
-      if (_isNull(value)) return ''
-
-      return toPercent(value / bottomSummaryMap.value[fieldName])
-    },
-    // 组内占比
-    ratio_group: (row, column) => {
-      const fieldName = _getRealRenderName(column)
-      const value = row[fieldName]
-      if (_isNull(value)) return ''
-
-      if (isGroupTable.value) {
-        if (row._level_ === 0) {
-          return toPercent(value / bottomSummaryMap.value[fieldName])
-        }
-
-        const parent = deepFind(
-          originSortedList.value,
-          item => item[TREE_ROW_KEY] === row[TREE_ROW_PARENT_KEY]
-        )
-        if (!parent) return value
-
-        return toPercent(value / parent[fieldName])
-      } else {
-        // 分组名
-        const parentGroupName = _getParentGroupName(row)
-
-        // 获取树结构中的parent
-        const parent = _getParentFromListTree(parentGroupName)
-        if (!parent) return value
-
-        return toPercent(value / parent[fieldName])
-      }
-    },
-    // 排名
-    rank: (row, column) => {
-      if (row.children?.length) return '-' // 只在指标上进行排名
-
-      const fieldName = _getRealRenderName(column)
-      const value = row[fieldName]
-      if (_isNull(value)) return ''
-
-      if (props.renderType === 'intersectionTable') {
-        // 交叉表格需要去具体指标值作为list
-        const name = fieldName.split(COLUMN_FIELDS_NAME_JOIN).pop()
-        const dataList = _getListFromOrigin(originSortedList.value)
-        const list = dataList.reduce((acc, item) => {
-          Object.keys(item).forEach(key => {
-            const _name = key.split(COLUMN_FIELDS_NAME_JOIN).pop()
-
-            if (_name === name) acc.push(item[key])
-          })
-          return acc
-        }, [])
-
-        return getRankIndex(list, value)
-      } else {
-        const list = _getListFromOrigin(originSortedList.value).map(
-          t => t[fieldName]
-        )
-
-        return getRankIndex(list, value)
-      }
-    },
-    // 组内排名
-    rank_group: (row, column) => {
-      const fieldName = _getRealRenderName(column)
-      const value = row[fieldName]
-      if (_isNull(value)) return ''
-
-      if (isGroupTable.value) {
-        if (row._level_ === 0) {
-          let list = originSortedList.value.map(t => t[fieldName])
-
-          if (props.renderType === 'intersectionTable') {
-            list = list.filter(t => typeof t !== 'undefined' || t !== null)
-          }
-
-          return getRankIndex(list, value)
-        }
-
-        const parent = deepFind(
-          originSortedList.value,
-          item => item[TREE_ROW_KEY] === row[TREE_ROW_PARENT_KEY]
-        )
-        if (!parent || !parent.children) return '-'
-
-        const list = parent.children.map(t => t[fieldName])
-
-        return getRankIndex(list, value)
-      } else {
-        // 分组名
-        const parentGroupName = _getParentGroupName(row)
-
-        // 获取树结构中的parent
-        const parent = _getParentFromListTree(parentGroupName)
-        if (!parent || !parent.children) return '-'
-
-        const list = parent.children.map(t => t[fieldName])
-
-        return getRankIndex(list, value)
-      }
-    },
-    total: (row, column) => {
-      const fieldName = _getRealRenderName(column)
-
-      if (isGroupTable.value) {
-        const [groupFields] = props.columns
-        const { fields } = groupFields.params
-
-        // 当前数据在树的第几层
-        const _level_ = row['_level_']
-        if (typeof _level_ === 'undefined') return ''
-
-        // 非日期分组显示 -
-        const _field = fields[_level_]
-        if (!isDateField(_field)) return '-'
-
-        // 所有当前层的数据
-        const flatOriginList = flat(originSortedList.value).filter(
-          t => t._level_ === _level_
-        )
-
-        // 当前日期值
-        const dateValue = row[TREE_GROUP_NAME]
-        const list = flatOriginList
-          .filter(t => {
-            const _dateValue = t[TREE_GROUP_NAME]
-            return new Date(dateValue) - new Date(_dateValue) >= 0
-          })
-          .map(t => t[fieldName])
-          .filter(Boolean)
-
-        return list.reduce((a, b) => a + b, 0)
-      } else {
-        // 查找最后一个日期分组的列
-        const dateColumn = findLast(props.columns, t => {
-          const _f = t.params.field
-          return _f.category === CATEGORY.PROPERTY && isDateField(_f)
-        })
-        if (!dateColumn) return '-'
-
-        // 日期的字段名
-        const dateFieldName = dateColumn.params.field.renderName
-        // 当前日期值
-        const dateValue = row[dateFieldName]
-
-        const list = originSortedList.value
-          .filter(t => {
-            const _dateValue = t[dateFieldName]
-
-            return new Date(dateValue) - new Date(_dateValue) >= 0
-          })
-          .map(t => t[fieldName])
-
-        return list.reduce((a, b) => a + b, 0)
-      }
-    },
-    total_group: (row, column) => {
-      const fieldName = _getRealRenderName(column)
-
-      if (isGroupTable.value) {
-        const [groupFields] = props.columns
-        const { fields } = groupFields.params
-
-        // 当前数据在树的第几层
-        const _level_ = row['_level_']
-        if (typeof _level_ === 'undefined') return ''
-
-        // 非日期分组显示 -
-        const _field = fields[_level_]
-        if (!isDateField(_field)) return '-'
-
-        // 当前日期值
-        const dateValue = row[TREE_GROUP_NAME]
-
-        const parent = deepFind(
-          originSortedList.value,
-          item => item[TREE_ROW_KEY] === row[TREE_ROW_PARENT_KEY]
-        )
-        if (!parent?.children.length) return row[fieldName]
-
-        // 当前分组内的数据
-        const list = parent.children
-          .filter(t => {
-            const _dateValue = t[TREE_GROUP_NAME]
-            return new Date(dateValue) - new Date(_dateValue) >= 0
-          })
-          .map(t => t[fieldName])
-
-        return list.reduce((a, b) => a + b, 0)
-      } else {
-        // 查找最后一个日期分组的列
-        const dateColumn = findLast(props.columns, t => {
-          const _f = t.params.field
-          return _f.category === CATEGORY.PROPERTY && isDateField(_f)
-        })
-        if (!dateColumn) return '-'
-
-        // 日期的字段名
-        const dateFieldName = dateColumn.params.field.renderName
-        // 当前日期值
-        const dateValue = row[dateFieldName]
-
-        // 日期字段的索引, 用作获取当前值的分组
-        const dateFieldI = props.columns.findIndex(t => t.field === dateColumn.field)
-
-        // 分组名
-        const parentGroupName = _getParentGroupName(row, dateFieldI)
-        // 获取树结构中的parent
-        const parent = _getParentFromListTree(parentGroupName)
-        if (!parent?.children.length) return row[fieldName]
-
-        // 当前分组内的数据
-        const list = parent.children
-          .filter(t => {
-            const _dateValue = t[TREE_GROUP_NAME]
-            return new Date(dateValue) - new Date(_dateValue) >= 0
-          })
-          .map(t => t[fieldName])
-
-        return list.reduce((a, b) => a + b, 0)
-      }
-    },
-  }
-
-  return map[quickType]
-}
-
 // 指标快速计算的显示
-const displayQuickIndexCell = (row, column) => {
-  return getQuickCalculateValue(row[column.field], column, row)
-}
+const displayQuickIndexCell = (value, column, row) => {
+  if (!column.params._quick) return
 
-// 快速计算的值
-const getQuickCalculateValue = (value, column, row) => {
-  const { params } = column
+  if (!row) return value
 
-  if (!params._quick) return value
-
-  const quickItem = _getQuickFromMap(params._quick)
-  if (typeof quickItem === 'undefined' || !row) return value
-
-  return quickItem(row, column)
+  return displayQuickCalculateValue({
+    row,
+    field: column.params.field,
+    renderType: props.renderType,
+    columns: props.columns,
+    listTree: listTree.value,
+    summary: props.summaryMap,
+    isGroupTable: isGroupTable.value,
+  })
 }
 
 // 格式化显示
@@ -1249,7 +968,7 @@ const formatIndexDisplay = (value, column) => {
 
 // 底部汇总指标的显示
 const displayBottomSummaryIndexCell = column => {
-  return formatIndexDisplay(bottomSummaryMap.value[column.field], column)
+  return formatIndexDisplay(props.summaryMap[column.field], column)
 }
 
 // 获取原始字段值

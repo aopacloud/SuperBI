@@ -330,17 +330,10 @@ const run = async from => {
     // 表格参数
     const tableOptions = indexOptions.get('table')
 
-    // 是否请求汇总
-    const summary = isRenderTable(renderType.value)
-      ? renderType.value === 'table'
-        ? tableOptions?.showSummary
-        : true
-      : undefined
-
     const paylaod = {
       datasetId: dataset.value.id,
       fromSource: 'temporary', // dashboard 从看板查询, report 保存图表查询, temporary 临时查询
-      summary,
+      summary: true, // 快速计算占比需要使用到汇总值，查询默认使用汇总
       compare,
       sorts,
       paging,
@@ -485,6 +478,7 @@ const transformRequiredKeys = (choosedMap = {}) => {
         'firstDayOfWeek',
         'viewModel',
         '_group', // 行维度、列维度
+        '_weekStart', // 周显示的起始日
       ])
     ),
     [CATEGORY.INDEX]: choosedMap[CATEGORY.INDEX].map(t =>
@@ -494,6 +488,7 @@ const transformRequiredKeys = (choosedMap = {}) => {
         'displayName',
         'dataType',
         'aggregator',
+        '_modifyDisplayName', // 重命名
         '_quick', // 指标快速计算
         '_quantile', // 自定义分位数
       ])

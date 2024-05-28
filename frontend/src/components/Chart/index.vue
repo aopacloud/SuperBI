@@ -2,9 +2,9 @@
   <div class="chart-view" style="flex: 1; overflow: auto">
     <keep-alive>
       <RTable
-        v-if="isRenderTable(options.renderType)"
+        v-if="isRenderTable(renderType)"
         ref="tableRef"
-        :renderType="options.renderType"
+        :renderType="renderType"
         :columns="renderColumns"
         :data-source="list"
         :summaryRows="summaryRows"
@@ -12,7 +12,7 @@
         :options="tableConfig" />
 
       <Statistic
-        v-else-if="options.renderType === 'statistic'"
+        v-else-if="renderType === 'statistic'"
         :title="statisticOption.title"
         :value="statisticOption.value" />
 
@@ -22,7 +22,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, nextTick, watch, onBeforeUnmount } from 'vue'
+import {
+  ref,
+  reactive,
+  computed,
+  nextTick,
+  watch,
+  onBeforeUnmount,
+  toRaw,
+} from 'vue'
 import RTable from './Table/index.vue'
 import RChart from 'common/components/Charts/index.vue'
 import Statistic from 'common/components/Charts/Statistic.vue'
@@ -34,6 +42,8 @@ import createGroupTable from './utils/createGroupTable'
 import createIntersectionTable from './utils/createIntersectionTable'
 import { CATEGORY } from '@/CONST.dict'
 import { isRenderTable } from '@/views/analysis/utils'
+import { deepClone } from '@/common/utils/help'
+import transformExport from './Table/exportUtil'
 
 defineOptions({
   name: 'Chart',
@@ -191,12 +201,26 @@ const chartOptions = ref({})
 const statisticOption = reactive({})
 
 const summaryMap = ref()
+
+const _renderTable = () => {
+  const { dataSource, columns: originColumns } = props
+  return createTable({
+    originFields: originColumns,
+    originData: dataSource,
+    summaryRows: props.summaryRows,
+    compare: props.compare,
+    choosed: props.choosed,
+    config: tableConfig.value,
+    datasetFields: props.dataset.fields,
+  })
+}
+
 // 生成表格
 const initTable = () => {
   const { dataSource, columns: originColumns } = props
 
   const tableRenderMap = {
-    table: createTable,
+    table: _renderTable,
     groupTable: createGroupTable,
     intersectionTable: createIntersectionTable,
   }
@@ -210,8 +234,7 @@ const initTable = () => {
   } = createFn({
     originFields: originColumns,
     originData: dataSource,
-    summaryRows:
-      props.options.renderType !== 'table' ? props.summaryRows : undefined,
+    summaryRows: renderType.value !== 'table' ? props.summaryRows : undefined,
     compare: props.compare,
     choosed: props.choosed,
     config: tableConfig.value,
@@ -264,6 +287,37 @@ const renderChart = options => {
 onBeforeUnmount(() => {
   ChartInstance.value?.dispose()
 })
+
+/**
+ * 下载文件
+ * @param {string} filename 文件名
+ */
+const download = filename => {
+  let data = [],
+    columns = [],
+    summary = {}
+  if (isRenderTable(renderType.value)) {
+    data = deepClone(list.value)
+    columns = deepClone(renderColumns.value)
+    summary = deepClone(summaryMap.value)
+  } else {
+    const { columns: _columns, list, summaryMap } = _renderTable()
+    data = deepClone(list)
+    columns = deepClone(_columns)
+    summary = deepClone(summaryMap)
+  }
+
+  transformExport({
+    data,
+    columns,
+    summary,
+    dataset: toRaw(props.dataset),
+    config: toRaw(props.options),
+    filename,
+  })
+}
+
+defineExpose({ download })
 </script>
 
 <style lang="scss" scoped>

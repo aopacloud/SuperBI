@@ -1,61 +1,87 @@
-import { onMounted, onBeforeUnmount, ref } from 'vue'
+import { onUnmounted, ref } from 'vue'
 
 export default function useTimer(
   callback,
-  { immediate = false, frequency = 0 } = {}
+  { immediate = false, interval = 1000 } = {}
 ) {
-  let timer = ref(null)
+  let timer = null // 定时器id
+  const times = ref(0) // 执行次数
+  const handle = ref(callback) // 执行函数
 
-  let run = () => {
+  /**
+   * 执行函数
+   * @returns 无返回值
+   */
+  let execute = () => {
     if (immediate) {
-      run = () => {
-        Promise.resolve(callback).then(() => {
-          timer = setTimeout(run, frequency)
+      execute = () => {
+        Promise.resolve(handle.value()).then(() => {
+          times.value++
+          timer = setTimeout(execute, interval)
         })
       }
     } else {
-      run = () => {
+      execute = () => {
         timer = setTimeout(() => {
-          Promise.resolve(callback).then(run)
-        }, frequency)
+          times.value++
+          Promise.resolve(handle.value()).then(execute)
+        }, interval)
       }
     }
 
-    run()
+    execute()
   }
 
+  /**
+   * 运行函数
+   * @param e 事件对象
+   * @returns 无返回值
+   */
+  const run = e => {
+    handle.value = e
+
+    stop()
+    start()
+  }
+
+  /**
+   * 开始计时器
+   * @throws 当 handle.value 不是函数时，抛出 TypeError 异常
+   */
   const start = () => {
-    if (typeof callback !== 'function') {
+    if (typeof handle.value !== 'function') {
       throw TypeError('useTimer callback must be a function')
     }
 
-    run()
+    execute()
   }
 
+  /**
+   * 停止定时器
+   * @returns 无返回值
+   */
   const stop = () => {
     clearTimeout(timer)
     timer = null
   }
 
-  const handler = () => {
-    if (document.visibilityState === 'hidden') {
-      // 页面不可见时
-      stop()
-    } else {
-      start()
-    }
+  /**
+   * 重置函数
+   * @returns 无返回值
+   */
+  const reset = () => {
+    times.value = 0
+    stop()
+    start()
   }
 
-  onMounted(() => {
-    window.addEventListener('visibilitychange', handler)
-  })
-
-  onBeforeUnmount(() => {
-    window.removeEventListener('visibilitychange', handler)
-  })
+  onUnmounted(stop)
 
   return {
+    times,
     start,
     stop,
+    reset,
+    run,
   }
 }

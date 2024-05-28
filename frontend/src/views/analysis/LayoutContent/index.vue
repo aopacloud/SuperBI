@@ -26,6 +26,7 @@
       <keep-alive>
         <RenderView
           v-if="viewComponent === 'render'"
+          ref="renderViewRef"
           :loading="runLoading"
           :dataset="dataset"
           :choosed="choosed"
@@ -58,7 +59,8 @@
   <DownloadModal
     v-model:open="downloadModalOpen"
     :filename="chart.id ? chart.name : dataset.name"
-    :initParams="requestResponse.request" />
+    :initParams="requestResponse.request"
+    @download="handleDownload" />
 </template>
 
 <script setup>
@@ -71,7 +73,6 @@ import HistoryView from './History.vue'
 import TopNModal from '@/views/analysis/components/TopNModal.vue'
 import BasisRatioModal from '@/views/analysis/components/BasisRatioModal.vue'
 import DownloadModal from '@/components/DownloadModal/index.vue'
-import { toContrastFiled } from '@/views/analysis/config'
 
 const props = defineProps({
   chart: {
@@ -173,6 +174,11 @@ const onReset = () => {
 const downloadModalOpen = ref(false)
 const onDownload = () => {
   downloadModalOpen.value = true
+}
+const renderViewRef = ref(null)
+const handleDownload = () => {
+  const { chart, dataset } = props
+  renderViewRef.value.download(chart.id ? chart.name : dataset.name)
 }
 
 // 历史记录
