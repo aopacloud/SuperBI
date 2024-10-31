@@ -63,13 +63,17 @@ export function clearQuerys(query = []) {
   } else {
     const pathname = location.href.split('?')[0]
     const params = deepCloneByJson(getLocationQuery())
+    let hasQueryChanged = false
     querys.forEach(key => {
       if (key in params) {
         delete params[key]
+        hasQueryChanged = true
       }
     })
 
-    const href = obj2Querys(params)
-    location.href = pathname + href
+    if (hasQueryChanged) {
+      const href = obj2Querys(params)
+      location.href = pathname + href
+    }
   }
 }

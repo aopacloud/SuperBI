@@ -10,6 +10,7 @@ export default function useTable(requestApi, initParams = {}) {
     transform,
     onSuccess,
     onError,
+    onEnd
   } = initParams
 
   // 请求loading
@@ -24,6 +25,7 @@ export default function useTable(requestApi, initParams = {}) {
   // 筛选
   const filters = ref(initFilters || {})
 
+  const showTotal = total => `总共 ${total} 条记录`
   // 分页
   const pager = reactive(
     Object.assign(
@@ -31,14 +33,24 @@ export default function useTable(requestApi, initParams = {}) {
         current: 1,
         pageSize: 20,
         total: 0,
-        showSizeChanger: true,
+        showSizeChanger: true
       },
-      initPager
+      {
+        ...initPager,
+        showTotal:
+          typeof initPager?.showTotal === 'function'
+            ? e => initPager.showTotal(e)
+            : !!initPager?.showTotal
+              ? showTotal
+              : undefined
+      }
     )
   )
 
   // 处理过来字段
   const _transformFilters = filters => {
+    if (!filters) return
+
     const filterKeys = Object.keys(filters)
 
     if (!filterKeys.length) return
@@ -66,7 +78,7 @@ export default function useTable(requestApi, initParams = {}) {
       sortField: field,
       sortType: order?.slice(0, -3),
       ...flts,
-      ...unref(initQueryParams),
+      ...unref(initQueryParams)
     }
   })
 
@@ -74,7 +86,7 @@ export default function useTable(requestApi, initParams = {}) {
   const list = ref([])
 
   // 查询请求
-  const fetchList = async () => {
+  const fetchList = async params => {
     try {
       loading.value = true
 
@@ -83,11 +95,12 @@ export default function useTable(requestApi, initParams = {}) {
       if (typeof initQueryParams === 'function') {
         payload = {
           ...payload,
-          ...initQueryParams(),
+          ...initQueryParams()
         }
       }
+      payload = { ...payload, ...params }
 
-      const res = await requestApi(payload)
+      const res = await unref(requestApi)(payload)
 
       if (transform && typeof transform === 'function') {
         const { total = 0, data = [] } = transform(res)
@@ -101,10 +114,11 @@ export default function useTable(requestApi, initParams = {}) {
 
       onSuccess && onSuccess()
     } catch (e) {
-      console.error(`${requestApi.name} 请求失败`, e)
+      console.error(`useTable ${requestApi.name} 请求失败`, e)
       onError && onError(e)
     } finally {
       loading.value = false
+      onEnd && onEnd()
     }
   }
 
@@ -127,6 +141,6 @@ export default function useTable(requestApi, initParams = {}) {
     queryParams,
     list,
     onTableChange,
-    fetchList,
+    fetchList
   }
 }

@@ -18,6 +18,16 @@ export default {
       el.$destroyCopy = () => el.removeEventListener('click', handler)
     }
   },
+  updated(el, { value, arg }) {
+    if (arg === 'success') {
+      el.$success = value
+    } else {
+      el.$copyValue = value
+    }
+  },
+  beforeUnmount(el) {
+    el.$destroyCopy?.()
+  }
 }
 
 function copyTextToClipboard(input, { target = document.body } = {}) {

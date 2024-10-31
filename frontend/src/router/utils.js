@@ -24,18 +24,19 @@ export const hasRoleAccessWithRoute = route => {
 export const registeDynamicRoutes = resources => {
   const accessableRoutes = flat(resources).reduce((acc, cur) => {
     // 从资源中匹配路由表的路由, 或者有角色权限的路由
-    const item = [...dynamicRoutes, ...versionJs.RouterIndex.dynamicRoutes].filter(
-      dr => {
-        return dr.path.startsWith(cur.url) || dr.alias === cur.url
-      }
-    )
+    const item = [
+      ...dynamicRoutes,
+      ...versionJs.RouterIndex.dynamicRoutes
+    ].filter(dr => {
+      return dr.path.startsWith(cur.url) || dr.alias === cur.url
+    })
 
     return acc.concat(item)
   }, [])
 
   const uniqueRoutes = unique(accessableRoutes, 'path')
 
-  registe(uniqueRoutes)
+  register(uniqueRoutes)
 
   return uniqueRoutes
 }
@@ -45,26 +46,32 @@ export const registeDynamicRoutes = resources => {
  * @param {array} accessableRoutes 有权限的资源
  * @param {string} parentRouteName 父级路由name
  */
-function registe(accessableRoutes, parentRouteName = 'Index') {
+function register(accessableRoutes, parentRouteName = 'Index') {
   accessableRoutes.forEach(route => {
     if (!route.matched) {
-      router.addRoute(parentRouteName, route)
+      if (route.meta.parentRouteName === null) {
+        router.addRoute(route)
+      } else {
+        router.addRoute(parentRouteName, route)
+      }
+
       route.matched = true
 
       if (route.meta?.related?.length) {
         const relatedRoutes = route.meta.related.map(r => {
-          return [...dynamicRoutes, ...versionJs.RouterIndex.dynamicRoutes].find(
-            rt => rt.name === r
-          )
+          return [
+            ...dynamicRoutes,
+            ...versionJs.RouterIndex.dynamicRoutes
+          ].find(rt => rt.name === r)
         })
 
-        registe(relatedRoutes)
+        register(relatedRoutes)
       }
     }
   })
 }
 
-export const transfromResourceWithRoute = resources => {
+export const transformResourceWithRoute = resources => {
   return resources.map(r => {
     const route =
       [...dynamicRoutes, ...versionJs.RouterIndex.dynamicRoutes].find(
@@ -73,9 +80,10 @@ export const transfromResourceWithRoute = resources => {
 
     return {
       ...r,
-      children: transfromResourceWithRoute(r.children),
+      children: transformResourceWithRoute(r.children),
+      redirect: route.redirect,
       routeName: route.name,
-      meta: route.meta,
+      meta: route.meta
     }
   })
 }

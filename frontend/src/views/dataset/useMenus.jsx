@@ -7,7 +7,7 @@ import {
   exportById,
   postPublishById,
   postOfflineById,
-  deleteById,
+  deleteById
 } from '@/apis/dataset'
 import { postFavorite, postUnFavorite } from '@/apis/favorite'
 
@@ -17,7 +17,7 @@ export default function useMenus() {
   const getAnalysisHref = row => {
     const routeRes = router.resolve({
       name: 'DatasetAnalysis',
-      params: { id: row.id },
+      params: { id: row.id }
     })
     if (!routeRes) return '/'
 
@@ -28,7 +28,7 @@ export default function useMenus() {
     const folderId = row.folder?.id
     const routeRes = router.resolve({
       name: 'DatasetList',
-      query: { type: 'ALL', folderId },
+      query: { type: 'ALL', folderId }
     })
     if (!routeRes) return
 
@@ -41,7 +41,7 @@ export default function useMenus() {
     } else {
       const routeRes = router.resolve({
         name: 'DatasetAnalysis',
-        params: { id: row.id },
+        params: { id: row.id }
       })
       if (!routeRes) return
 
@@ -57,7 +57,7 @@ export default function useMenus() {
   const edit = row => {
     const routeRes = router.resolve({
       name: 'DatasetModify',
-      params: { id: row.id },
+      params: { id: row.id }
     })
     if (!routeRes) return
 
@@ -128,18 +128,27 @@ export default function useMenus() {
   // 删除
   const del = (row, cb) => {
     Modal.confirm({
-      content: h(
-        <p>
-          确认删除数据集<b>【{row.name}】</b>吗？
-        </p>
+      title: '提示',
+      content: (
+        <div>
+          <p>
+            您正在操作删除数据集<b> [{row.name}] </b>
+            <p>
+              删除数据集会将基于此数据集创建的图表同步删除，删除后
+              <b> 30 </b>
+              天内您可以在回收站将其找回
+            </p>
+          </p>
+        </div>
       ),
+      okType: 'danger',
       onOk() {
         return deleteById(row.id).then(() => {
           message.success('删除成功')
 
           cb && cb()
         })
-      },
+      }
     })
   }
 
@@ -152,6 +161,6 @@ export default function useMenus() {
     handleExport,
     publish,
     offline,
-    del,
+    del
   }
 }

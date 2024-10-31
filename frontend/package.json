@@ -1,6 +1,6 @@
 {
   "name": "superbi",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "description": "SuperBI多维可视分析",
   "author": "huang",
   "license": "Apache-2.0",
@@ -20,21 +20,33 @@
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
+    "@antv/x6": "^2.18.1",
+    "@antv/x6-plugin-dnd": "^2.1.1",
+    "@antv/x6-plugin-snapline": "^2.1.7",
+    "@antv/x6-vue-shape": "^2.1.2",
+    "@interactjs/actions": "^1.10.27",
+    "@interactjs/auto-start": "^1.10.27",
+    "@interactjs/dev-tools": "^1.10.27",
+    "@interactjs/interactjs": "^1.10.27",
+    "@interactjs/modifiers": "^1.10.27",
     "ant-design-vue": "^4.1.1",
     "axios": "^1.6.7",
     "echarts": "^5.4.3",
+    "element-resize-detector": "^1.2.4",
     "highlight.js": "^11.9.0",
     "js-cookie": "^3.0.5",
     "jsencrypt": "^3.3.2",
     "nprogress": "^0.2.0",
     "pinia": "^2.1.7",
+    "spark-md5": "^3.0.2",
     "splitpanes": "^3.1.5",
-    "vue": "^3.4.15",
+    "vite-plugin-lazy-import": "^1.0.7",
+    "vue": "^3.5.1",
     "vue-grid-layout": "3.0.0-beta1",
     "vue-router": "^4.2.5",
     "vuedraggable": "^4.1.0",
-    "vxe-table": "^4.4.7",
-    "xe-utils": "^3.5.11",
+    "vxe-pc-ui": "^4.1.27",
+    "vxe-table": "^4.7.79",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.2/xlsx-0.20.2.tgz",
     "xlsx-js-style": "^1.2.0"
   },
@@ -43,6 +55,9 @@
     "@vitejs/plugin-vue-jsx": "^3.1.0",
     "@vue/compiler-sfc": "^3.4.15",
     "consola": "^3.2.3",
+    "husky": "^9.1.4",
+    "lint-staged": "^15.2.8",
+    "prettier": "^3.3.3",
     "rollup-plugin-visualizer": "^5.12.0",
     "sass": "^1.70.0",
     "unplugin-auto-import": "^0.17.5",
@@ -54,5 +69,16 @@
     "vite-plugin-style-import": "^2.0.0",
     "vite-plugin-svg-icons": "^2.0.1",
     "vite-plugin-vue-setup-extend": "^0.4.0"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "src/**.{js,css,json,md,jsx}": [
+      "prettier --config .prettierrc.js --write",
+      "git add"
+    ]
   }
 }

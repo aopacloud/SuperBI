@@ -8,7 +8,7 @@ export const gridCommon = {
   right: 80,
   bottom: 55,
   top: 55,
-  containLabel: true,
+  containLabel: true
 }
 
 export const legendCommon = {
@@ -19,8 +19,8 @@ export const legendCommon = {
   itemWidth: 10,
   itemGap: 20,
   textStyle: {
-    color: '#556677',
-  },
+    color: '#556677'
+  }
 }
 
 export const legendPositionMap = {
@@ -29,48 +29,48 @@ export const legendPositionMap = {
   topRight: { top: 0, right: 0 },
   bottomLeft: { bottom: 0, left: 0 },
   bottom: { bottom: 0 },
-  bottomRight: { bottom: 0, right: 0 },
+  bottomRight: { bottom: 0, right: 0 }
 }
 
 export const xAxisCommon = {
   type: 'category',
   nameLocation: 'middle',
   splitLine: {
-    show: false,
+    show: false
   },
   axisTick: {
-    show: false,
+    show: false
   },
   axisLine: {
-    show: false,
+    show: false
   },
   axisLabel: {
-    hideOverlap: true,
+    hideOverlap: true, // 是否隐藏重叠的标签。
     showMinLabel: true,
-    showMaxLabel: true,
-  },
+    showMaxLabel: true
+  }
 }
 
 export const yAxisCommon = {
-  scale: true,
+  scale: true, // 不强制包含0刻度
   _barMaxWidth: 40,
   nameLocation: 'middle',
   // 刻度线对齐
-  alignTicks: true,
+  // alignTicks: true,
   // 网格分割线
   splitLine: {
     lineStyle: {
-      color: '#F3F4F4',
-    },
+      color: '#F3F4F4'
+    }
   },
   // 轴刻度
   axisTick: {
-    show: false,
+    show: false
   },
   // 轴线
   axisLine: {
-    show: false,
-  },
+    show: false
+  }
 }
 
 export const colors = [
@@ -123,5 +123,5 @@ export const colors = [
   '#FCBCC7',
   '#FFCA59',
   '#9A2668',
-  '#798AA4',
+  '#798AA4'
 ]

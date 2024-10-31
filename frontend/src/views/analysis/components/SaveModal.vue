@@ -4,7 +4,8 @@
     :title="title"
     :confirmLoading="confirmLoading"
     @cancel="cancel"
-    @ok="ok">
+    @ok="ok"
+  >
     <a-form :label-col="{ span: 4 }" :wrapper-col="{ span: 20 }">
       <a-form-item label="名称" v-bind="validateInfos.name">
         <a-input placeholder="请输入名称" v-model:value="formState.name" />
@@ -14,7 +15,8 @@
         <a-textarea
           placeholder="请输入描述"
           :rows="3"
-          v-model:value="formState.description" />
+          v-model:value="formState.description"
+        />
       </a-form-item>
     </a-form>
   </a-modal>
@@ -26,18 +28,18 @@ import { Form, message } from 'ant-design-vue'
 import { postReport, putReport } from '@/apis/report'
 import { CATEGORY } from '@/CONST.dict'
 import { isDateField } from '@/views/dataset/utils'
-import { sortDimension } from '@/views/analysis/utils'
+import { sortDimension, validateSummaryOptions } from '@/views/analysis/utils'
 
 const emits = defineEmits(['update:open', 'cancel', 'ok'])
 const props = defineProps({
   open: {
     type: Boolean,
-    fefault: false,
+    fefault: false
   },
   initData: {
     type: Object,
-    default: () => ({}),
-  },
+    default: () => ({})
+  }
 })
 
 const title = computed(() => {
@@ -48,17 +50,20 @@ const {
   choosed: indexChoosed,
   dataset: indexDataset,
   options: indexOptions,
-  requestResponse: indexRequestResponse,
+  requestResponse: indexRequestResponse
 } = inject('index', {})
 
 const formState = reactive({
   name: '',
-  description: '',
+  description: ''
 })
 const formRules = reactive({
-  name: [{ required: true, message: '请输入名称' }],
+  name: [{ required: true, message: '请输入名称' }]
 })
-const { validate, resetFields, validateInfos } = Form.useForm(formState, formRules)
+const { validate, resetFields, validateInfos } = Form.useForm(
+  formState,
+  formRules
+)
 
 watch(
   () => props.open,
@@ -90,7 +95,7 @@ const ok = () => {
 }
 
 // 处理重命名后的指标
-const getRenameIndexList = (list = []) => {
+const getIndexList = (list = []) => {
   // 选中的指标
   const choosedIndex = indexChoosed.get(CATEGORY.INDEX)
 
@@ -99,19 +104,35 @@ const getRenameIndexList = (list = []) => {
 
     return {
       ...t,
-      _modifyDisplayName: choosedItem?._modifyDisplayName || t._modifyDisplayName,
+      _modifyDisplayName:
+        choosedItem?._modifyDisplayName || t._modifyDisplayName,
+      _formatter: choosedItem?._formatter ?? t._formatter
     }
   })
 }
 
 // 更新日期筛选项
 const updateFilterDate = filterItem => {
+  const { nested, tableFilter, children = [] } = filterItem
+  if (nested) {
+    return {
+      ...filterItem,
+      tableFilter: {
+        ...tableFilter,
+        children: (tableFilter.children || []).map(updateFilterDate)
+      }
+    }
+  }
+
+  if (children.length)
+    return { ...filterItem, children: children.map(updateFilterDate) }
+
   if (!isDateField(filterItem)) return filterItem
 
   const choosedFilters = indexChoosed.get(CATEGORY.FILTER)
   const {
     name,
-    conditions: [cond1],
+    conditions: [cond1]
   } = filterItem
 
   const { timeType, _until } = cond1
@@ -119,7 +140,7 @@ const updateFilterDate = filterItem => {
   if (_until) {
     const item = choosedFilters.find(t => t.name === name)
     const {
-      conditions: [cond2],
+      conditions: [cond2]
     } = item
     const { timeType: timeType2, args: args2 } = cond2
 
@@ -135,7 +156,7 @@ const updateFilterDate = filterItem => {
 
   return {
     ...filterItem,
-    conditions: [{ ...cond1 }],
+    conditions: [{ ...cond1 }]
   }
 }
 
@@ -151,6 +172,14 @@ const submit = async params => {
     const options = indexOptions.get()
     const requestResponse = indexRequestResponse.get()
 
+    // 只保存当前图表类型的排序配置
+    const { sorters, renderType } = options
+    options.sorters = { [renderType]: sorters[renderType] }
+
+    if (!validateSummaryOptions(options)) {
+      return
+    }
+
     const payload = {
       name,
       workspaceId,
@@ -162,14 +191,14 @@ const submit = async params => {
         [CATEGORY.PROPERTY.toLowerCase() + 's']: sortDimension(
           requestResponse.request[CATEGORY.PROPERTY.toLowerCase() + 's']
         ),
-        [CATEGORY.INDEX.toLowerCase() + 's']: getRenameIndexList(
+        [CATEGORY.INDEX.toLowerCase() + 's']: getIndexList(
           requestResponse.request[CATEGORY.INDEX.toLowerCase() + 's']
         ),
         [CATEGORY.FILTER.toLowerCase() + 's']: filterDashboardFilters(
           requestResponse.request[CATEGORY.FILTER.toLowerCase() + 's']
-        ),
+        )
       }),
-      layout: JSON.stringify(options),
+      layout: JSON.stringify(options)
     }
 
     const fn = !!id ? () => putReport(id, payload) : () => postReport(payload)

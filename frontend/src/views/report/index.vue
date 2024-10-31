@@ -5,7 +5,8 @@
         v-model:activeKey="tabActiveKey"
         type="card"
         @change="onTabChange"
-        style="margin: 20px 20px 0">
+        style="margin: 20px 20px 0"
+      >
         <a-tab-pane key="CREATE" tab="我创建的" />
         <a-tab-pane key="PRIVILEGE" tab="我有权限的" />
         <a-tab-pane key="FAVORITE" tab="我收藏的" />
@@ -16,14 +17,16 @@
             placeholder="请输入搜索"
             allow-clear
             v-model:value="keyword"
-            @search="fetchList" />
+            @search="fetchList"
+          />
           <a-button
             v-permission="'REPORT:VIEW:CREATE'"
             style="margin-left: 8px"
             type="primary"
             :disabled="createDisabled"
             :loading="datasetListLoading"
-            @click="toCreate">
+            @click="toCreate"
+          >
             新建图表
           </a-button>
         </template>
@@ -39,32 +42,43 @@
         :pagination="pager"
         :scroll="{ x: 1200, y: 'auto' }"
         @change="onTableChange"
-        style="margin: 0 10px 0">
+        style="margin: 0 10px 0"
+      >
         <template #bodyCell="{ text, column, record }">
           <a
             v-if="column.dataIndex === 'name'"
-            :href="hasReadPermission(record) ? getDetailHref(record) : undefined"
-            target="_blank">
+            :href="
+              hasReadPermission(record) ? getDetailHref(record) : undefined
+            "
+            target="_blank"
+          >
             {{ text }}
           </a>
 
           <template v-if="column.dataIndex === 'dashboardCount'">
-            <span v-if="!record.dashboardCount">-</span>
+            <span v-if="!text">-</span>
             <a-popover
               v-else
               placement="rightTop"
               overlayClassName="dashboardList-popover"
-              @openChange="e => onDashboardCountOpenChange(e, record)">
+              @openChange="e => onDashboardCountOpenChange(e, record)"
+            >
               <template #content>
                 <a-spin :spinning="record._dashboardLoading">
-                  <span v-for="dashboard in record.dashboards" :key="dashboard.id">
-                    <a :href="getDashboardUrl(dashboard.id)" target="_blank">
-                      {{ dashboard.name }}
-                    </a>
-                  </span>
+                  <div class="d-list">
+                    <div
+                      class="d-item"
+                      v-for="dashboard in record.dashboards"
+                      :key="dashboard.id"
+                    >
+                      <a :href="getDashboardUrl(dashboard.id)" target="_blank">
+                        {{ dashboard.name }}
+                      </a>
+                    </div>
+                  </div>
                 </a-spin>
               </template>
-              <a>{{ record.dashboardCount }}</a>
+              <a>{{ text }}</a>
             </a-popover>
           </template>
 
@@ -76,32 +90,69 @@
                   type="text"
                   :style="{ color: record.favorite ? '#e6a23c' : '' }"
                   :icon="h(record.favorite ? StarFilled : StarOutlined)"
-                  @click="favor(record)" />
+                  @click="favor(record)"
+                />
               </a-tooltip>
 
-              <a-tooltip v-if="hasWritePermission(record)" title="编辑" placement="top">
+              <a-tooltip
+                v-if="hasWritePermission(record)"
+                title="编辑"
+                placement="top"
+              >
                 <a-button
                   size="small"
                   type="text"
                   :icon="h(EditOutlined)"
-                  @click="edit(record)" />
+                  @click="edit(record)"
+                />
               </a-tooltip>
 
-              <a-tooltip v-if="hasManagePermission(record)" title="删除" placement="top">
+              <a-dropdown v-if="hasManagePermission(record)" trigger="click">
+                <a-button size="small" type="text" :icon="h(MoreOutlined)" />
+
+                <template #overlay>
+                  <a-menu @click="e => onMenuClick(e, record)">
+                    <ViewsReportActionDropdownMenuitemWarning />
+                    <a-menu-item key="transfer">移交</a-menu-item>
+                    <a-menu-item key="delete" style="color: red">
+                      删除
+                    </a-menu-item>
+                  </a-menu>
+                </template>
+              </a-dropdown>
+
+              <!-- <a-tooltip
+                v-if="hasManagePermission(record)"
+                title="删除"
+                placement="top">
                 <a-button
                   size="small"
                   type="text"
                   :icon="h(DeleteOutlined)"
                   @click="del(record)" />
-              </a-tooltip>
+              </a-tooltip> -->
             </a-space>
           </template>
         </template>
       </a-table>
     </main>
   </section>
+
+  <ViewsReportComponentsWarningDrawer
+    :info="rowInfo"
+    v-model:open="warningDrawerOpen"
+  />
+
+  <!-- 移交 -->
+  <TransferModal
+    resourceType="REPORT"
+    :initData="rowInfo"
+    v-model:open="transferDrawerOpen"
+    @close="rowInfo = {}"
+    @ok="onTransferOk"
+  />
 </template>
-<script setup>
+<script setup lang="jsx">
 import { h, ref, computed, onMounted, shallowRef, watch } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import {
@@ -109,7 +160,7 @@ import {
   StarOutlined,
   EditOutlined,
   DeleteOutlined,
-  ExclamationCircleOutlined,
+  MoreOutlined
 } from '@ant-design/icons-vue'
 import { useRouter } from 'vue-router'
 import { getDatasetList } from '@/apis/dataset'
@@ -117,6 +168,12 @@ import { getReportList, deleteById } from '@/apis/report'
 import { getDasboardsByReportId } from '@/apis/dashboard'
 import { postFavorite, postUnFavorite } from '@/apis/favorite'
 import { tableColumns } from './config'
+import { versionVue } from '@/versions'
+const {
+  ViewsReportActionDropdownMenuitemWarning,
+  ViewsReportComponentsWarningDrawer
+} = versionVue
+import TransferModal from '@/components/TransferModal/index.vue'
 
 import useTable from 'common/hooks/useTable'
 import useAppStore from '@/store/modules/app'
@@ -189,15 +246,18 @@ const initQueryParams = computed(() => {
 
   return {
     ...payload,
-    workspaceId: workspaceId.value,
+    workspaceId: workspaceId.value
   }
 })
 
-const { loading, sorter, keyword, pager, list, fetchList } = useTable(getReportList, {
-  keyword: '',
-  sorter: { field: 'createTime', order: 'descend' },
-  initQueryParams,
-})
+const { loading, sorter, keyword, pager, list, fetchList } = useTable(
+  getReportList,
+  {
+    keyword: '',
+    sorter: { field: 'createTime', order: 'descend' },
+    initQueryParams
+  }
+)
 
 const columns = computed(() => {
   const { field, order } = sorter.value || {}
@@ -205,7 +265,7 @@ const columns = computed(() => {
   return tableColumns.map(col => {
     return {
       ...col,
-      sortOrder: col.dataIndex === field && order,
+      sortOrder: col.dataIndex === field && order
     }
   })
 })
@@ -237,7 +297,10 @@ const toCreate = () => {
   const first = datasetList.value[0]
   if (!first) return
 
-  const routeRes = router.resolve({ name: 'DatasetAnalysis', params: { id: first.id } })
+  const routeRes = router.resolve({
+    name: 'DatasetAnalysis',
+    params: { id: first.id }
+  })
   if (!routeRes) return
 
   window.open(routeRes.href, '_blank')
@@ -288,20 +351,32 @@ const edit = row => {
 const del = row => {
   Modal.confirm({
     title: '提示',
-    content: '确定删除图表【 ' + row.name + ' 】?',
+    content: (
+      <div>
+        <p>
+          您正在操作删除图表<b> [{row.name}] </b>
+        </p>
+        <p>
+          删除后<b> 30 </b>天内您可以在回收站将其找回
+        </p>
+      </div>
+    ),
     okType: 'danger',
     async onOk() {
       await deleteById(row.id)
 
       message.success('删除成功')
       fetchList()
-    },
+    }
   })
 }
 
 // 获取详情href
 const getDetailHref = row => {
-  const routeRes = router.resolve({ name: 'ReportDetail', params: { id: row.id } })
+  const routeRes = router.resolve({
+    name: 'ReportDetail',
+    params: { id: row.id }
+  })
   if (!routeRes) return '/'
 
   return routeRes.href
@@ -334,8 +409,59 @@ const getDashboardUrl = id => {
 
   return routeRes.href
 }
+
+const onMenuClick = ({ key }, row) => {
+  switch (key) {
+    case 'delete':
+      del(row)
+      break
+    case 'warning':
+      warnSetting(row)
+      break
+    case 'transfer':
+      transfer(row)
+      break
+    default:
+      break
+  }
+}
+
+const rowInfo = shallowRef({})
+
+// 预警设置
+const warningDrawerOpen = ref(false)
+const warnSetting = row => {
+  rowInfo.value = { ...row }
+  warningDrawerOpen.value = true
+}
+
+// 移交
+const transferDrawerOpen = ref(false)
+const transfer = row => {
+  rowInfo.value = { ...row }
+  transferDrawerOpen.value = true
+}
+const onTransferOk = () => {
+  fetchList()
+}
 </script>
 
+<style lang="scss" scoped>
+.d-list {
+  min-width: 120px;
+  max-width: 520px;
+  max-height: 600px;
+  margin-right: -10px;
+  padding-right: 10px;
+  overflow: auto;
+}
+.d-item {
+  & + & {
+    margin-top: 4px;
+  }
+  @extend .ellipsis;
+}
+</style>
 <style lang="scss">
 .dashboardList-popover {
   .ant-popover-content {

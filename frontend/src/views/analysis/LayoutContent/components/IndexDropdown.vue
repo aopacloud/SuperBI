@@ -1,15 +1,13 @@
 ﻿<template>
   <!-- 使用 multiple 模式避免选中时menu就关掉 -->
   <!-- triggerSubMenuAction="click" -->
-  <a-menu
-    overlayClassname="indexDropdown"
-    :selectedKeys="selectedKeys"
-    @click="onMenuClick">
+  <a-menu :selectedKeys="selectedKeys" @click="onMenuClick">
     <!-- :popupOffset="[10, -18]" -->
     <a-sub-menu
       v-if="props.field.aggregator !== SUMMARY_DEFAULT"
       popupClassName="index-submenu-dropdown"
-      key="summary">
+      key="summary"
+    >
       <template #title>
         汇总方式
         <span v-if="field.aggregator" class="float-right font-help font-12">
@@ -21,16 +19,18 @@
       </a-menu-item>
 
       <!-- :popupOffset="[10, -210]" -->
+      <!-- style="width: 120px" -->
       <a-sub-menu
         popupClassName="index-submenu-dropdown"
-        style="width: 120px"
         key="quantile"
-        title="分位数">
+        title="分位数"
+      >
         <a-menu-item
           v-for="item in quantileOptions"
           :key="item.value"
-          :disabled="item.value === QUANTILE_PREFIX">
-          <span v-if="item.value === QUANTILE_PREFIX">
+          :disabled="item.value === QUANTILE_PREFIX"
+        >
+          <div v-if="item.value === QUANTILE_PREFIX">
             <a-input-number
               style="width: 100px"
               :placeholder="item.label"
@@ -42,8 +42,9 @@
               :parser="v => v.replace('分位数', '')"
               @pressEnter.stop
               @blur="onQuantileBlur"
-              @change="onQuantileChange" />
-          </span>
+              @change="onQuantileChange"
+            />
+          </div>
           <span v-else>{{ item.label }} </span>
         </a-menu-item>
       </a-sub-menu>
@@ -53,26 +54,48 @@
     <a-sub-menu popupClassName="index-submenu-dropdown" key="quick">
       <template #title>
         快速计算
-        <span v-if="field._quick" class="float-right font-help font-12">
+        <span v-if="field.fastCompute" class="float-right font-help font-12">
           {{ quickLabel }}
         </span>
       </template>
 
-      <a-menu-item v-for="item in quickCalculateOptions" :key="item.value">{{
-        item.label
-      }}</a-menu-item>
+      <a-menu-item v-for="item in quickCalculateOptions" :key="item.value">
+        {{ item.label }}
+      </a-menu-item>
     </a-sub-menu>
 
-    <a-menu-item key="rename">
+    <a-sub-menu
+      v-if="!field.fastCompute"
+      popupClassName="index-submenu-dropdown"
+      key="formatter"
+    >
+      <template #title>
+        数据格式
+        <span v-if="!!formatItem" class="float-right font-help font-12">
+          {{ formatLabel }}
+        </span>
+      </template>
+
+      <a-menu-item v-for="item in formatterOptions" :key="item.value">
+        {{
+          item.value === FORMAT_CUSTOM_CODE
+            ? displayCustomFormatterLabel(formatItem.config) || item.label
+            : item.label
+        }}
+      </a-menu-item>
+    </a-sub-menu>
+
+    <a-menu-item
+      key="rename"
+      :class="{ 'selected-with-icon-right': field._modifyDisplayName }"
+    >
       重命名
-      <span v-if="field._modifyDisplayName" class="nameModified"></span>
     </a-menu-item>
   </a-menu>
 </template>
 
 <script setup lang="jsx">
-import { ref, computed, inject, nextTick } from 'vue'
-import { InfoCircleOutlined } from '@ant-design/icons-vue'
+import { ref, computed, inject } from 'vue'
 import {
   SUMMARY_DEFAULT,
   summaryOptions,
@@ -83,27 +106,31 @@ import {
   propertyNumberSummaryOptions,
   QUANTILE_PREFIX,
   summaryQuantile,
+  formatterOptions,
+  FORMAT_CUSTOM_CODE
 } from '@/views/dataset/config.field'
 import { CATEGORY } from '@/CONST.dict.js'
-import CMenuList from '@/components/CMenuList/index.vue'
+import { displayCustomFormatterLabel } from '@/views/dataset/utils'
 
 const emits = defineEmits(['update:open'])
 const props = defineProps({
   dataset: { type: Object, default: () => ({}) },
   field: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
   category: {
     type: String,
-    default: CATEGORY.INDEX,
+    default: CATEGORY.INDEX
   },
   open: {
-    type: Boolean,
-  },
+    type: Boolean
+  }
 })
 
 const contentHeaderReject = inject('contentHeader')
+
+const { options: indexOptions } = inject('index')
 
 const summaries = computed(() => {
   const { category } = props.field
@@ -117,10 +144,10 @@ const summaries = computed(() => {
     const summary = isTextOrTime
       ? propertyTextSummaryOptions
       : isNumber
-      ? propertyNumberSummaryOptions
-      : []
+        ? propertyNumberSummaryOptions
+        : []
 
-    return propertySummaryOptions.concat(summary)
+    return propertySummaryOptions.concat(summary).filter(t => !t.hidden)
   }
 })
 
@@ -131,7 +158,8 @@ const aggregatorLabel = computed(() => {
   const options = summaryOptions.concat(summaryQuantile)
   const item = options.find(
     item =>
-      item.value === props.field.aggregator || item.value.startsWith(QUANTILE_PREFIX)
+      item.value === props.field.aggregator ||
+      item.value.startsWith(QUANTILE_PREFIX)
   )
 
   return item?.label
@@ -165,33 +193,52 @@ const onQuantileChange = e => {
 const quickValue = ref()
 // 快速计算label
 const quickLabel = computed(() => {
-  if (!props.field._quick) return ''
+  if (!props.field.fastCompute) return ''
 
-  const item = quickCalculateOptions.find(t => t.value === props.field._quick)
-
+  const item = quickCalculateOptions.find(
+    t => t.value === props.field.fastCompute
+  )
   return item.label
 })
 
 watchEffect(() => {
-  const { aggregator, _quick } = props.field
+  const { aggregator, fastCompute } = props.field
 
   aggregatorValue.value = aggregator
-  quickValue.value = _quick
+  quickValue.value = fastCompute
+})
+
+const fieldName = computed(
+  () => props.field.name + '.' + props.field.aggregator
+)
+
+// 格式化
+const formatters = computed(() => indexOptions.get('formatters') || [])
+const formatItem = computed(
+  () => formatters.value.find(t => t.field === fieldName.value) || {}
+)
+// 数据格式label
+const formatLabel = computed(() => {
+  if (!formatItem.value) return ''
+
+  const item = formatterOptions.find(t => t.value === formatItem.value.code)
+  return item?.label
 })
 
 const selectedKeys = computed(() => {
   return [
     props.field._quantile ? QUANTILE_PREFIX : aggregatorValue.value,
     quickValue.value,
+    formatItem.value?.code
   ].filter(Boolean)
 })
 watch(selectedKeys, () => {
   props.field.aggregator = aggregatorValue.value
-  props.field._quick = quickValue.value
+  props.field.fastCompute = quickValue.value
 })
 
 const onMenuClick = item => {
-  const { key, keyPath } = item
+  const { key, keyPath, domEvent } = item
 
   if (key === 'rename') {
     contentHeaderReject.fieldRename(props.field)
@@ -199,7 +246,28 @@ const onMenuClick = item => {
     props.field._quantile = undefined // 自定义分位数
     aggregatorValue.value = key
   } else if (keyPath.includes('quick')) {
-    quickValue.value = key
+    quickValue.value = key ?? undefined
+  } else if (keyPath.includes('formatter')) {
+    if (key === 'CUSTOM') {
+      emits('update:open', true)
+      contentHeaderReject.onCustomFormatterShow(props.field, domEvent)
+      return
+    } else {
+      const fieldName = props.field.name + '.' + props.field.aggregator
+      const item = formatters.value.find(t => t.field === fieldName)
+      if (item) {
+        item.code = key
+        item.config = undefined
+      } else {
+        indexOptions.set(
+          'formatters',
+          formatters.value.concat({
+            field: fieldName,
+            code: key
+          })
+        )
+      }
+    }
   }
 
   emits('update:open', false)
@@ -209,21 +277,6 @@ const onMenuClick = item => {
 <style scoped>
 .font-help {
   margin-top: 3px;
-}
-.nameModified {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-}
-.nameModified::before {
-  content: '';
-  display: block;
-  width: 6px;
-  height: 10px;
-  border: 2px solid #1677ff;
-  border-top: 0;
-  border-left: 0;
-  transform: rotate(45deg) scale(1) translate(-50%, -50%);
 }
 </style>
 
@@ -238,7 +291,9 @@ const onMenuClick = item => {
   .ant-dropdown-menu-submenu-selected {
     background-color: initial !important;
     @extend .selected-with-icon-left;
-    padding-left: 0;
+  }
+  .ant-dropdown-menu-submenu-selected {
+    padding-left: 0 !important;
   }
 }
 </style>

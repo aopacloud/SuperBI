@@ -1,15 +1,24 @@
 ﻿import { CATEGORY } from '@/CONST.dict.js'
-import { createIsEqualFromKey, getDiffColor } from 'common/utils/help'
+import {
+  createIsEqualFromKey,
+  deepClone,
+  getDiffColor,
+  createSortByOrder
+} from 'common/utils/help'
 import { lightenColor } from 'common/utils/color'
-import { toDigit, toThousand, toPercent } from 'common/utils/number'
-import { colors, CHART_GRID_HEIGHT } from 'common/components/Charts/utils/default.js'
+import { toDigit, toThousand, toPercent, sum } from 'common/utils/number'
+import {
+  colors,
+  CHART_GRID_HEIGHT
+} from 'common/components/Charts/utils/default.js'
 import {
   VS_FIELD_SUFFIX,
   formatDtWithOption,
-  formatFieldDisplay,
-  createSortByOrder,
+  formatFieldDisplay
 } from './index.js'
 import { isDateField } from '@/views/dataset/utils'
+import { FORMAT_DEFAULT_CODE } from '@/views/dataset/config.field.js'
+import { isSameMeasure, getNewNameByMeasure } from '@/views/analysis/utils.js'
 
 // 连接分组的字符(唯一，需要做分割)
 export const GROUP_SPLIT = '§'
@@ -27,7 +36,7 @@ export function getStrLength(val) {
  * @param {Number} cur 当前值（对比值）
  * @returns
  */
-export function getDiffvalue(origin, target, mode) {
+export function getDiffValue(origin, target, mode) {
   if (mode === 2) {
     const v = toPercent((target - origin) / Math.abs(origin), 2)
 
@@ -69,10 +78,10 @@ export function getChartSize(chart) {
   if (!chart) {
     return console.error('getChartSize: chart is not exist')
   }
-  const widht = chart.getWidth()
+  const width = chart.getWidth()
   const height = chart.getHeight()
 
-  return { widht, height }
+  return { width, height }
 }
 
 /**
@@ -82,10 +91,25 @@ export function getChartSize(chart) {
  * @param {array<K>} originData 源数据
  * @returns {{fields: array<T>, data: array<K>}}
  */
-export const transformOriginBySort = ({ originFields = [], originData = [] }) => {
-  const xIndex = originFields.findIndex(
-    t => t.category === CATEGORY.PROPERTY && isDateField(t)
-  )
+export const transformOriginBySort = ({
+  originFields = [],
+  originData = [],
+  sorters = { row: [], column: [] }
+}) => {
+  const pFields = originFields.filter(t => t.category === CATEGORY.PROPERTY)
+
+  let [rowSort] = deepClone(sorters.row || [])
+
+  let xIndex
+  if (rowSort) {
+    xIndex = pFields.findIndex(t => t.name === rowSort.field)
+  } else {
+    xIndex = pFields.findIndex(isDateField)
+    rowSort = {}
+  }
+  rowSort.field = 0
+  rowSort.order = rowSort.order ?? 'asc'
+
   const fields = originFields.slice()
 
   // 维度排序换位到首位
@@ -106,7 +130,7 @@ export const transformOriginBySort = ({ originFields = [], originData = [] }) =>
 
       return row
     })
-    .sort(createSortByOrder(true, 0))
+    .sort(createSortByOrder(rowSort))
   // 按照维度的升序进行排序
 
   return { fields, data }
@@ -125,14 +149,14 @@ export const generateDataMap = ({
   originFields = [],
   yFields = [],
   data = [],
-  group = [],
+  group = []
 }) => {
   const xData = [
     ...new Set(
       data.map(row => {
         return row[0]
       })
-    ),
+    )
   ]
 
   // 获取非分组数据
@@ -142,7 +166,7 @@ export const generateDataMap = ({
         acc[cur.renderName] = {
           field: cur,
           data: Array(data.length).fill(),
-          max: 0,
+          max: 0
         }
       }
 
@@ -176,7 +200,10 @@ export const generateDataMap = ({
     const _displayGroupName = (name, i) => {
       const field = originFields[i + 1]
 
-      if (field.category === CATEGORY.PROPERTY && field.dataType.includes('TIME')) {
+      if (
+        field.category === CATEGORY.PROPERTY &&
+        field.dataType.includes('TIME')
+      ) {
         return formatDtWithOption(name, field)
       }
 
@@ -199,7 +226,7 @@ export const generateDataMap = ({
           resMap[mapKey] = {
             field: t,
             data: Array(xData.length).fill(),
-            max: 0,
+            max: 0
           }
         }
       })
@@ -230,7 +257,7 @@ export const generateDataMap = ({
 
   return {
     dataMap: result,
-    xData,
+    xData
   }
 }
 
@@ -243,6 +270,8 @@ export const generateDataMap = ({
  * @returns {Array<T>}
  */
 export function generateGrid({ splited, chart, fields = [], grid = {} }) {
+  if (!chart) return
+
   if (!splited || fields.length < 2) {
     chart.resize({ width: 'auto', height: 'auto' })
 
@@ -254,14 +283,14 @@ export function generateGrid({ splited, chart, fields = [], grid = {} }) {
 
   chart.resize({
     width: 'auto',
-    height: gridsHeight > domHeight ? gridsHeight : 'auto',
+    height: gridsHeight > domHeight ? gridsHeight : 'auto'
   })
 
   return fields.map((v, i) => {
     return {
       ...grid,
       top: i * CHART_GRID_HEIGHT + 55,
-      height: CHART_GRID_HEIGHT - 55,
+      height: CHART_GRID_HEIGHT - 55
     }
   })
 }
@@ -277,7 +306,7 @@ export const generateXAxis = ({ yFields = [], xAxis = {} }) => {
   return yFields.map((_t, i) => {
     return {
       ...xAxis,
-      gridIndex: i,
+      gridIndex: i
     }
   })
 }
@@ -298,6 +327,8 @@ export const generateYAxis = ({
   axis = [],
   splited = false,
   dataMap,
+  formatters = [],
+  xData = []
 }) => {
   const getDataByGroup = () => {
     return Object.keys(dataMap).reduce((acc, cur) => {
@@ -319,27 +350,44 @@ export const generateYAxis = ({
   if (splited) {
     return yFields.map((field, i) => {
       const axisItem = axis.find(a => a.name === field.name)
-      const max = Math.max(...dataGrouped[field.renderName].map(t => t.max || 0))
-      const maxFormat = formatFieldDisplay(max, field, datasetFields)
+      const max = Math.max(
+        ...dataGrouped[field.renderName].map(t => t.max || 0)
+      )
+      // 这里会导致数据格式为默认时，小数点很长（比如经纬度），导致y轴name偏移量过多而无法显示
+      const maxFormat = formatFieldDisplay(
+        max,
+        field,
+        datasetFields,
+        formatters
+      )
 
       return {
         ...yAxis,
         gridIndex: i,
         position: axisItem?.yAxisPosition || 'left',
-        name: field.displayName,
-        nameGap: getStrLength(maxFormat),
+        name: yAxis.name && field.displayName,
+        nameGap: yAxis.nameGap ?? getStrLength(maxFormat),
         axisLabel: {
-          ...axis.axisLabel,
+          ...yAxis.axisLabel,
           formatter: v => {
-            return formatFieldDisplay(v, field, datasetFields)
-          },
-        },
+            const fastCompute = field.fastCompute
+            if (!fastCompute) {
+              return formatFieldDisplay(v, field, datasetFields, formatters)
+            } else {
+              if (fastCompute.includes('ratio')) {
+                return (v * 100).toFixed(2) + '%'
+              } else {
+                return v
+              }
+            }
+          }
+        }
       }
     })
   }
 
   // 左右轴字段
-  const [leftAxis, rightAxis] = axis.reduce(
+  const [leftAxis, rightAxis] = deepClone(axis).reduce(
     (acc, cur) => {
       if (cur.yAxisPosition === 'right') {
         acc[1].push(cur)
@@ -351,70 +399,126 @@ export const generateYAxis = ({
     },
     [[], []]
   )
-  // 拼接一个左轴一个右轴
-  return yFields.reduce(
-    (acc, cur) => {
-      const axisItem = axis.find(a => a.name === cur.name)
 
-      const genYAxis = () => {
-        const axisFields = axisItem?.yAxisPosition === 'right' ? rightAxis : leftAxis
-
-        const max = Math.max(
-          ...(dataGrouped[cur.renderName] || []).map(t => t.max || 0)
-        )
-
-        // const max = Math.max(
-        //   ...(axisFields.map(field => dataMap[field.renderName]?.['max']) || 0)
-        // )
-        const isFormatSamed = isSameFieldFormat(
-          axisFields.map(t => datasetFields.find(d => d.renderName === t.renderName))
-        )
-        const maxFormat = isFormatSamed
-          ? formatFieldDisplay(max, axisFields[0], datasetFields)
-          : toDigit(max, 2)
-
-        return {
-          ...yAxis,
-          alignTicks: true,
-          position: axisItem?.yAxisPosition,
-          name: axisFields.map(t => t.displayName).join('/'),
-          nameGap: getStrLength(maxFormat),
-          axisLabel: {
-            ...axis.axisLabel,
-            formatter: v => {
-              if (v === 0) return 0
-
-              return isFormatSamed
-                ? formatFieldDisplay(v, axisFields[0], datasetFields)
-                : toDigit(v, 2)
-            },
-          },
-        }
-      }
-
-      if (axisItem?.yAxisPosition === 'left') {
-        if (!Object.keys(acc[0]).length) {
-          acc[0] = genYAxis()
-        }
-      }
-
-      if (axisItem?.yAxisPosition === 'right') {
-        if (!Object.keys(acc[1]).length) {
-          acc[1] = genYAxis()
-        }
-      }
-
-      return acc
-    },
-    [{}, {}]
+  // 坐轴字段
+  const leftAxisFields = yFields.filter(a =>
+    leftAxis.some(b => isSameMeasure(a, b))
   )
+  // 右轴字段
+  const rightAxisFields = yFields.filter(a =>
+    rightAxis.some(b => isSameMeasure(a, b))
+  )
+
+  const createAxis = (fields = []) => {
+    if (!fields.length) return {}
+
+    const first = fields[0]
+
+    // 相同的字段数据格式
+    let isFormatSamed = false
+    if (fields.length === 1) {
+      isFormatSamed = true
+    } else {
+      const mergesFormatters = fields.map(t => {
+        const fmt = formatters.find(f => f.field === t.renderName)
+        if (fmt) {
+          return { ...fmt }
+        } else {
+          const oField = datasetFields.find(a => a.name === t.name)
+          return {
+            field: t.renderName,
+            code: oField?.dataFormat || FORMAT_DEFAULT_CODE
+          }
+        }
+      })
+
+      isFormatSamed = new Set(mergesFormatters.map(t => t.code)).size === 1
+    }
+
+    // 最大值的宽度
+    const maxValueWidths = fields.map(t => {
+      // 快速计算的 nameGap
+      const fastCompute = t?.fastCompute
+      if (fastCompute?.includes('ratio')) {
+        return getStrLength('100.00%')
+      } else if (fastCompute?.includes('rank')) {
+        const maxDataLength = Math.max(
+          ...dataGrouped[t.renderName].map(a => a.data.length)
+        )
+        return getStrLength(maxDataLength)
+      }
+
+      let maxValue = dataGrouped[t.renderName]?.[0]?.max || 0
+      maxValue = maxValue.toFixed(0) // 轴标签不显示小数（格式化去除了尾0）
+
+      const oField = datasetFields.find(a => a.name === t.name)
+
+      const formatItem = formatters.find(a => a.field === t.renderName)
+      // 默认格式使用整数参与宽度计算，避免小数点位数过长（例如经纬度）导致y轴name偏移量过多而无法显示
+      let mts = formatters
+      if (!formatItem || formatItem.code === FORMAT_DEFAULT_CODE) {
+        if (!oField || oField?.dataFormat === FORMAT_DEFAULT_CODE) {
+          mts = [{ field: t.renderName, code: 'INTEGER' }]
+        }
+      }
+      return getStrLength(formatFieldDisplay(maxValue, t, datasetFields, mts))
+    })
+
+    // alignTicks: 在多个 y 轴为数值轴的时候，可以开启该配置项自动对齐刻度。只对'value'和'log'类型的轴有效。
+    return {
+      ...yAxis,
+      position: first?.yAxisPosition,
+      name: yAxis.name && fields.map(t => t.displayName).join('/'),
+      nameGap: yAxis.nameGap ?? Math.max(...maxValueWidths),
+      scale: xData.length > 1 ? true : undefined,
+      alignTicks:
+        leftAxisFields.length && rightAxisFields.length ? true : undefined,
+      axisLabel: {
+        ...yAxis.axisLabel,
+        formatter: v => {
+          if (v === 0) return 0
+
+          const fastCompute = first.fastCompute
+
+          if (!fastCompute) {
+            if (!isFormatSamed) {
+              return toDigit(v, 2)
+            } else {
+              return formatFieldDisplay(
+                v,
+                first,
+                datasetFields,
+                formatters,
+                (_, format = {}) => {
+                  // 如果格式化为整数，但是轴刻度为小数，则不进行格式化
+                  if (format.code === 'INTEGER' && String(v).includes('.')) {
+                    return v
+                  }
+                }
+              )
+            }
+          } else {
+            if (fastCompute.includes('ratio')) {
+              return (v * 100).toFixed(2) + '%'
+            } else {
+              return v
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const left = createAxis(leftAxisFields)
+  const right = createAxis(rightAxisFields)
+
+  return [left, right]
 }
 
 /**
  * 生成系列数据
- * @param {{ chartType: string, xData: string[], yFields: array, dataMap: any, group: array, config: any, datasetFields: array }}
+ * @param {{ chartType: string, yFields: array, dataMap: any, group: array, config: any, datasetFields: array }}
  * @param {string} chartType 图表类型
- * @param {string[]} xData 维度数据
  * @param {string[]} yFields y轴字段
  * @param {any} dataMap 数据表
  * @param {string} group 分组
@@ -422,51 +526,98 @@ export const generateYAxis = ({
  * @param {string[]} datasetFields 数据集字段
  */
 export const generateSeries = ({
-  instance,
-  chartType = 'line',
-  xData = [],
+  chartType: _chartType = 'line',
   yFields = [],
   dataMap = {},
   group = [],
   config = {},
-  axis = [],
   datasetFields = [],
+  formatters = []
 }) => {
+  // 数据标签
   const labelVisible = config.labelShow || false
+
+  // 指标拆分
   const splited = config.splited
 
-  const getColor = () => {
-    let colorIndex = 0
+  // 轴设置
+  const axis = (config.yAxis?.axis ?? config.axis) || []
+
+  // 堆积柱图 类型
+  const barType = config.style?.bar?.type
+  // 柱图指标并列
+  const barFlatted = config.style?.bar.flat
+  // 堆积柱图
+  const isBarStacked = config.renderType === 'bar' && barType === 'stacked'
+  // 百分比堆积柱图
+  const isPercentStacked =
+    config.renderType === 'bar' && barType === 'stackedPercent'
+
+  const getStyle = () => {
+    // 线条 lineStyle.type 样式
+    const lineStyle = [
+      [10, 4],
+      [4, 4],
+      [24, 12],
+      [48, 24],
+      [36, 12, 6, 12],
+      [36, 12, 6, 12, 6, 12],
+      [60, 12, 16, 12]
+    ]
+    let colorIndex = 0,
+      pColor = '',
+      vsIndex = 0,
+      type // lineStyle.type 默认undefined为直线 = [0, 0] solid
     return yIndex => {
       const field = yFields[yIndex]
       let color = colors[colorIndex]
 
       if (field._isVs) {
-        color = lightenColor(colors[colorIndex - 1], 0.7)
+        pColor = colors[colorIndex - 1]
+        color = lightenColor(pColor, 0.7 ** (vsIndex + 1))
+        pColor = color
+        vsIndex++
+        type = lineStyle[vsIndex % lineStyle.length]
       } else {
         colorIndex++
+        vsIndex = 0
+        pColor = ''
+        type = 'solid'
       }
 
-      return color
+      return { color, type }
     }
   }
   // 获取 label
   const getCommonSeriesLabel = () => {
     return {
       show: labelVisible,
-      position: [0, -15],
+      position: 'outside',
       formatter(series) {
         const { seriesName, value } = series
+        // 百分比堆叠
+        if (isPercentStacked) {
+          return Math.round(value * 1000) / 10 + '%'
+        } else {
+          const ySourceFieldName = group.length
+            ? seriesName.split(GROUP_SPLIT).slice(group.length).join('')
+            : seriesName
+          const field = yFields.find(t => t.displayName === ySourceFieldName)
 
-        const ySourceFieldName = group.length
-          ? seriesName.split(GROUP_SPLIT).slice(group.length).join('')
-          : seriesName
-        const field = yFields.find(t => t.displayName === ySourceFieldName)
+          const fastCompute = field.fastCompute
 
-        return formatFieldDisplay(value, field, datasetFields)
-      },
+          if (!field.fastCompute) {
+            return formatFieldDisplay(value, field, datasetFields, formatters)
+          } else if (fastCompute.includes('ratio')) {
+            return (value * 100).toFixed(2) + '%'
+          } else {
+            return value
+          }
+        }
+      }
     }
   }
+
   // 获取 name
   const getCommonSeriesName = (name, field) => {
     return group.length
@@ -476,31 +627,104 @@ export const generateSeries = ({
       : field.displayName
   }
 
+  // 获取百分比堆积柱图的总和
+  const getTotal = (list = []) => {
+    const res = []
+    for (let i = 0; i < list[0].length; i++) {
+      let sum = 0
+      for (let j = 0; j < list.length; j++) {
+        sum += list[j][i] || 0
+      }
+      res.push(sum)
+    }
+    return res
+  }
+
   const getCommonSeries = () => {
-    const getSeriesColor = getColor()
+    const getSeriesStyle = getStyle()
+    // 用作百分比堆积柱图的总和
+    const total = isPercentStacked
+      ? getTotal(Object.values(dataMap).map(t => t.data))
+      : []
 
     return Object.keys(dataMap).reduce((acc, mapKey) => {
-      const { field, data } = dataMap[mapKey]
-      const fieldIndex = yFields.findIndex(t => t.renderName === field.renderName)
-      const color = getSeriesColor(fieldIndex)
-      const axisItem = axis.find(t => t.name === field.name)
+      let { field, data } = dataMap[mapKey]
+
+      const fieldIndex = yFields.findIndex(
+        t => t.renderName === field.renderName
+      )
+      const { color, type } = getSeriesStyle(fieldIndex)
+      const axisItem = axis.find(
+        t => getNewNameByMeasure(t) === field.renderName
+      )
+
+      const chartType = axisItem?.chartType ?? _chartType
+
+      // 折线图特殊值置0处理
+      const isLineEmptyWith0 = chartType
+        ? config.lineEmptyWith === '0'
+        : undefined
+      data = data.map(t => {
+        return t ? t : isLineEmptyWith0 ? 0 : t
+      })
+
+      // 百分比堆叠
+      if (isPercentStacked) {
+        data = data.map((t, i) => {
+          return total[i] <= 0 ? 0 : t / total[i]
+        })
+      }
+
+      // 堆积名称 - 按照坐标轴去堆叠
+      let stack
+      // 折线图不参与堆积
+      if (isBarStacked && chartType === 'bar') {
+        stack = axisItem?.yAxisPosition ?? ''
+
+        if (!splited) {
+          if (!barFlatted) {
+            // 非指标并列
+            stack += '-' + 'stacked' // 'left-stacked'
+          } else {
+            stack += '-' + field.name + '-' + 'stacked' // 'left-uid-stacked'
+          }
+        } else {
+          if (!barFlatted) {
+            stack = field.name + '-' + 'stacked'
+          } else {
+            stack = undefined
+          }
+        }
+      }
 
       const seriesItem = {
         _y: field,
-        type: axisItem?.chartType ?? chartType,
+        type: chartType,
         name: getCommonSeriesName(mapKey, field),
         barMaxWidth: 40,
         color,
         data,
+        stack,
+        lineStyle: { type },
+        connectNulls: config.lineEmptyWith === 'connect',
         label: getCommonSeriesLabel(),
-        labelLayout: { hideOverlap: true },
+        // 对label标签的布局设置
+        labelLayout: ({ rect }) => {
+          if (!rect.height) {
+            return { dy: -20, hideOverlap: true }
+          } else {
+            return {
+              hideOverlap: true
+            }
+          }
+        },
         position: axisItem?.yAxisPosition,
         xAxisIndex: splited ? fieldIndex : 0,
         yAxisIndex: splited
           ? fieldIndex
           : axisItem?.yAxisPosition === 'right'
-          ? 1
-          : 0,
+            ? 1
+            : 0
       }
 
       return acc.concat(seriesItem)
@@ -526,6 +750,7 @@ export function tooltipFormat({
   datasetFields = [],
   compareMode = 0,
   group = [],
+  formatters
 }) {
   const list = Array.isArray(series)
     ? series
@@ -536,7 +761,10 @@ export function tooltipFormat({
   // 按照指标分组显示
   const listMap = list.reduce((acc, pre, i) => {
     const { seriesName, axisIndex } = pre
-    const yName = seriesName.split(GROUP_SPLIT).slice(group.length).join(YNAME_SPLIT)
+    const yName = seriesName
+      .split(GROUP_SPLIT)
+      .slice(group.length)
+      .join(YNAME_SPLIT)
     // 原始字段
     const originField = yFields.find(t => t.displayName === yName)
     // 原始字段渲染名
@@ -545,7 +773,7 @@ export function tooltipFormat({
     if (typeof acc[originRenderName] === 'undefined') {
       acc[originRenderName] = {
         originField,
-        data: [],
+        data: []
       }
     }
 
@@ -591,7 +819,13 @@ export function tooltipFormat({
       let displayValue =
         typeof value === 'undefined'
           ? '-'
-          : formatFieldDisplay(value, originField, datasetFields)
+          : formatFieldDisplay(value, originField, datasetFields, formatters)
+
+      const fastCompute = originField.fastCompute
+      if (fastCompute?.includes('ratio')) {
+        displayValue = (displayValue * 100).toFixed(2) + '%'
+      }
+
       let targetValue = value
 
       // 是否对比字段
@@ -599,21 +833,22 @@ export function tooltipFormat({
 
       if (isVs) {
         // 字段的原始name
-        const [fieldOriginRenderName] = originField.renderName.split(VS_FIELD_SUFFIX)
+        const [fieldOriginRenderName] =
+          originField.renderName.split(VS_FIELD_SUFFIX)
 
-        targetValue = listMap[fieldOriginRenderName]['data'][0].value
-      }
+        if (listMap[fieldOriginRenderName]) {
+          targetValue = listMap[fieldOriginRenderName]['data'][0].value
+        }
 
-      if (isVs) {
         if (compareMode === 2) {
           displayValue += `
           <span style="color: ${getDiffColor(value, targetValue)}">
-            (${getDiffvalue(value, targetValue, compareMode)})
+            (${getDiffValue(value, targetValue, compareMode)})
           </span>`
         } else if (compareMode === 1) {
           displayValue += `
           <span style="color: ${getDiffColor(value, targetValue)}">
-            (${getDiffvalue(value, targetValue, compareMode)})
+            (${getDiffValue(value, targetValue, compareMode)})
           </span>`
         }
       }

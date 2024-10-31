@@ -8,8 +8,12 @@
           style="width: 100%"
           placeholder="请选择数据库"
           v-model:value="sourceValue"
-          @change="onSourceChange">
-          <a-select-option v-for="item in sourcesList" :key="item.datasourceName">
+          @change="onSourceChange"
+        >
+          <a-select-option
+            v-for="item in sourcesList"
+            :key="item.datasourceName"
+          >
             {{ item.datasourceName }}
           </a-select-option>
         </a-select>
@@ -19,37 +23,40 @@
           placeholder="输入表名模糊搜索"
           allow-clear
           v-model:value="keyword"
-          @search="onKeywordSearch" />
+          @search="onKeywordSearch"
+        />
 
         <a-empty v-if="list.length === 0" style="margin-top: 20px" />
 
-        <a-radio-group
-          v-else
-          class="list flex flex-column"
-          :value="tableValue"
-          @change="onTableChane">
-          <a-radio
+        <div v-else class="list">
+          <div
             class="item"
             v-for="item in list"
-            :disabled="item.disabled"
             :key="item.tableName"
-            :value="item.tableName"
-            :title="item.tableName">
+            :disabled="selectedDisabled || item.disabled || unmovable(item)"
+            :class="{
+              active: isActive(item),
+              disabled: selectedDisabled || unmovable(item)
+            }"
+            :title="item.tableName"
+            @click="onClick(item)"
+            @mousedown="e => onMousedown(e, item)"
+          >
             {{ item.tableName }}
-          </a-radio>
-        </a-radio-group>
+          </div>
+        </div>
       </a-spin>
     </main>
   </section>
 </template>
 
 <script setup>
-import { ref, computed, shallowRef, watch } from 'vue'
+import { ref, computed, shallowRef, watch, inject, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { Modal } from 'ant-design-vue'
 import useAppStore from '@/store/modules/app'
 import { getDatabase, getTableListByDatabaseItem } from '@/apis/metaData'
 import { clearQuerys } from '@/common/utils/window'
+import { MAX_TABLES_COUNT } from '../config'
 
 const route = useRoute()
 const appStore = useAppStore()
@@ -60,48 +67,64 @@ const emits = defineEmits(['on-table-change'])
 const props = defineProps({
   detail: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
+
   // 当前组件接口参数需要依赖外层详情接口的返回值
-  shouldMount: Boolean,
+  shouldMount: Boolean
 })
 
-const initConfig = computed(() => props.detail.config || {})
+const { selectedContent, graph } = inject('index')
+const graphCore = computed(() => graph.get())
+
+// 选中的表
+const selectedTable = computed(() => selectedContent.get('tables') || [])
+const selectedDisabled = computed(
+  () => selectedTable.value.length >= MAX_TABLES_COUNT
+)
+watch(
+  selectedTable,
+  ts => {
+    tableValues.value = ts.map(t => t.tableName)
+  },
+  { deep: true }
+)
+
+const reloadSelected = () => {
+  tableValues.value = selectedTable.value.map(t => t.tableName)
+}
+defineExpose({ reloadSelected })
+
+// const initConfig = computed(() => props.detail.config || {})
+// const configContent = computed(() => initConfig.value?.content || { tables: [] })
 
 const loading = ref(false)
 // 数据源
 const sourceValue = ref(route.query.db)
 clearQuerys('db')
 
+const sourceListLoaded = ref(false)
 const sourcesList = shallowRef([])
+let sourcePm = null
 // 获取数据源
-const fetchSource = async (fromDetail = false) => {
+const fetchSource = async () => {
   try {
+    sourceListLoaded.value = true
     loading.value = true
 
     const res = await getDatabase({ workspaceId: workspaceId.value })
+
     if (!res.length) return
 
     sourcesList.value = res
-    // 初始化参数 > initConfig > 默认第一个
-    sourceValue.value =
-      sourceValue.value ?? (initConfig.value.datasourceName || res[0].datasourceName)
 
-    const payload = res.find(t => t.datasourceName === sourceValue.value)
-    if (!payload && fromDetail) {
-      // 无匹配的库，或编辑初始化
-      const { workspaceId, engine, datasourceName } = initConfig.value
-
-      fetchTableList({ workspaceId, engine, datasourceName })
-    } else {
-      fetchTableList(payload)
-    }
+    return res
   } catch (error) {
-    if (fromDetail) {
-      const { workspaceId, engine, datasourceName } = initConfig.value
-
-      fetchTableList({ workspaceId, engine, datasourceName })
-    }
+    sourceListLoaded.value = false
+    // if (fromDetail) {
+    //   const { workspaceId, engine, datasourceName } = initConfig.value
+    //   fetchTableList({ workspaceId, engine, datasourceName })
+    // }
   } finally {
     loading.value = false
   }
@@ -124,9 +147,51 @@ const tableEnabled = computed(() => {
 const tableList = shallowRef([])
 // 渲染表
 const list = ref([])
-const tableValue = ref(route.query.tb)
-const hasRouteQuery = !!route.query.tb
+const tableValues = ref(
+  typeof route.query.tb === 'string' ? route.query.tb.split('|') : []
+)
 clearQuerys('tb')
+
+const canClick = computed(() => !tableValues.value.length)
+
+const isActive = item => {
+  return tableValues.value.some(t => t === item.tableName)
+}
+
+const alias = Array.from({ length: MAX_TABLES_COUNT }).map(
+  (_, i) => 't' + (i + 1)
+)
+const getNextAlias = () =>
+  alias.find(t => !selectedTable.value.some(s => s.alias === t))
+
+const onClick = item => {
+  if (!canClick.value) return
+
+  const newItem = { ...item, alias: getNextAlias() }
+  graphCore.value.__initNode__(newItem).then(({ node }) => {
+    node.position(30, 40)
+  })
+  emits('on-table-change', newItem)
+  tableValues.value.push(newItem.tableName)
+  selectedContent.addTable(newItem)
+}
+
+const unmovable = item => {
+  // return tableValues.value.includes(item.tableName)
+  return false
+}
+
+const onMousedown = (e, item) => {
+  if (selectedDisabled.value) return // 最多只能选择3张表
+  if (unmovable(item)) return // 已经选中的表不能拖动
+  if (canClick.value) return
+
+  const newItem = { ...item, alias: getNextAlias() }
+  graphCore.value.__insertNode__(e, newItem, (source, target) => {
+    tableValues.value.push(newItem.tableName)
+    selectedContent.addTable(newItem, { source, target })
+  })
+}
 
 /**
  * 获取表
@@ -138,21 +203,17 @@ const fetchTableList = async payload => {
     loading.value = true
 
     const res = await getTableListByDatabaseItem(payload)
-
-    list.value = tableList.value = res.map(t => ({ ...t, disabled: !tableEnabled.value }))
-
     // 无表，使用编辑初始化的参数
     if (!res.length) return
 
-    tableValue.value = tableValue.value ?? initConfig.value.tableName
-    if (!tableValue.value) return
+    list.value = tableList.value = res.map(t => ({
+      ...t,
+      disabled: !tableEnabled.value
+    }))
 
-    const _payload = res.find(t => t.tableName === tableValue.value)
-    if (!_payload) return
-
-    if (initConfig.value.tableName || hasRouteQuery) {
-      emits('on-table-change', _payload, +hasRouteQuery)
-    }
+    tableValues.value = tableValues.value.length
+      ? tableValues.value
+      : selectedTable.value.map(t => t.tableName)
   } catch (error) {
     console.error('获取数据表错误', error)
   } finally {
@@ -160,14 +221,30 @@ const fetchTableList = async payload => {
   }
 }
 
+onMounted(() => {
+  sourcePm = fetchSource()
+})
+
 watch(
   () => props.shouldMount,
-  mounted => {
+  async mounted => {
     if (mounted) {
-      fetchSource(!!props.detail.id)
+      sourcePm.then(() => {
+        sourceValue.value =
+          sourceValue.value ??
+          (selectedTable.value.length
+            ? selectedTable.value[0]?.dbName
+            : sourcesList.value[0]?.dbName)
+
+        tableValues.value = selectedTable.value.map(t => t.tableName)
+
+        const item = sourcesList.value.find(
+          t => t.datasourceName === sourceValue.value
+        )
+        item && fetchTableList(item)
+      })
     }
-  },
-  { immediate: true }
+  }
 )
 
 const keyword = ref('')
@@ -180,37 +257,15 @@ const onKeywordSearch = str => {
     list.value = tableList.value.filter(t => t.tableName.includes(str))
   }
 }
-
-const tableChanged = value => {
-  const item = list.value.find(t => t.tableName === value)
-
-  if (!item) return
-
-  tableValue.value = item.tableName
-  emits('on-table-change', item, 1)
-}
-
-const onTableChane = e => {
-  if (!initConfig.value.tableName) {
-    tableChanged(e.target.value)
-
-    return
-  }
-
-  Modal.confirm({
-    content: '目前只支持单表，请确认是否要替换当前数据源',
-    okText: '确认',
-    onOk() {
-      tableChanged(e.target.value)
-    },
-  })
-}
 </script>
 
 <style lang="scss" scoped>
 .section {
   display: flex;
   flex-direction: column;
+  padding: 12px 16px;
+  height: 100%;
+  background-color: #fff;
 }
 .main {
   flex: 1;
@@ -230,19 +285,26 @@ const onTableChane = e => {
 .list {
   flex: 1;
   overflow: auto;
-  display: flex !important;
+  user-select: none;
 }
 
 .item {
-  padding: 2px 4px;
+  padding: 0px 8px;
   margin-bottom: 2px;
   border-radius: 2px;
-  &:hover {
-    background-color: #eff1f3;
+  line-height: 26px;
+  transition: background 0.2s;
+  cursor: pointer;
+  @extend .ellipsis;
+  &.active {
+    background-color: #e6f4ff;
+    color: #1677ff;
   }
-  :deep(.ant-radio) + span {
-    flex: 1;
-    @extend .ellipsis;
+  &:not(.active):hover {
+    background-color: rgba(0, 0, 0, 0.06);
+  }
+  &.disabled {
+    cursor: not-allowed;
   }
 }
 </style>

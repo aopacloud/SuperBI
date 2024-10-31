@@ -11,6 +11,6 @@ export const postParseExcel = data =>
     method: 'post',
     data,
     headers: {
-      ContentType: 'multipart/form-data', // 设置内容类型为 JSON
-    },
+      'content-type': 'multipart/form-data' // 设置内容类型为 JSON
+    }
   })

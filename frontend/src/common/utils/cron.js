@@ -11,7 +11,14 @@
  * @param {string} datetime 仅一次
  * @returns {Cron} cron 表达式
  */
-export const getCron = ({ frequency, hour, minute, week, month, datetime } = {}) => {
+export const getCron = ({
+  frequency,
+  hour,
+  minute,
+  week,
+  month,
+  datetime
+} = {}) => {
   const transformWeekDay = n => (n === 7 ? 1 : n + 1)
 
   if (frequency === 'daily') {
@@ -29,9 +36,9 @@ export const getCron = ({ frequency, hour, minute, week, month, datetime } = {})
 
     return `0 ${minute} ${hours} * * ?`
   } else {
-    const [[year, month, day], [hour, minute]] = datetime
-      .split(' ')
-      .map(v => v.split('-'))
+    const [yymmdd = '', hhmm = ''] = (datetime ?? '').split(' ')
+    const [year, month, day] = yymmdd.split('-')
+    const [hour, minute] = hhmm.split(':')
 
     return `0 ${minute} ${hour} ${day} ${month} ? ${year}`
   }
@@ -53,20 +60,16 @@ export const getNext = (
     frequency,
     onceValue,
     minutelyValue,
-    hourlyValue,
+    hourlyValue = [],
     dailyValue,
-    weeklyValue,
-    monthlyValue,
+    weeklyValue = [],
+    monthlyValue = []
   } = {},
   format = 'YYYY-MM-DD HH:mm'
 ) => {
   // 仅一次时
   if (frequency === 'once') {
-    return onceValue ? onceValue.format(format) : ' - '
-  } else {
-    if (!dailyValue) {
-      return ' - '
-    }
+    return onceValue ? dayjs(onceValue).format(format) : ' - '
   }
 
   // 当前时间
@@ -76,7 +79,9 @@ export const getNext = (
     date = now.date() // 日
 
   // 下一次推送的时分（需要用来计算是不是今天）
-  let [nextHour, nextMinute] = dailyValue
+  let [nextHour, nextMinute] = (
+    dailyValue ? dayjs(dailyValue, 'HH:mm') : dayjs()
+  )
     .format('HH:mm')
     .split(':')
     .map(n => +n) // 转化为数字
@@ -112,12 +117,12 @@ export const getNext = (
     nextPush = nextPush.hour(nextHour || hours[0])
 
     if (shouldNext()) {
-      nextPush = nextPush.date(nextPush.date() + 1)
+      // nextPush = nextPush.date(nextPush.date() + 1)
+      nextPush.push(1, 'day')
     }
   } else if (frequency === 'daily') {
     if (shouldNext()) {
-      const d = nextPush.date()
-      nextPush = nextPush.date(d + 1)
+      nextPush = nextPush.add(1, 'day')
     }
   } else {
     if (!monthlyValue.length && !weeklyValue.length) {
@@ -127,7 +132,6 @@ export const getNext = (
     if (frequency === 'monthly') {
       const _date = nextPush.date()
       const monthDays = monthlyValue.sort((a, b) => a - b)
-
       // 下一个月的周几
       const nextDate = monthDays.find(d => {
         if (shouldNext()) {
@@ -140,11 +144,13 @@ export const getNext = (
       nextPush = nextPush.date(nextDate || monthDays[0])
 
       if (shouldNext()) {
-        nextPush = nextPush.date(nextPush.date() + 31)
+        nextPush = nextPush.add(1, 'month')
       }
     } else {
       const _day = nextPush.day()
-      const weekDays = weeklyValue.map(n => (n === 7 ? 0 : n)).sort((a, b) => a - b)
+      const weekDays = weeklyValue
+        .map(n => (n === 7 ? 0 : n))
+        .sort((a, b) => a - b)
 
       // 下一个周几
       const nextDay = weekDays.find(d => {
@@ -158,7 +164,7 @@ export const getNext = (
       nextPush = nextPush.day(nextDay || weekDays[0] + 7)
 
       if (shouldNext()) {
-        nextPush = nextPush.day(nextPush.day() + 7)
+        nextPush = nextPush.add(1, 'week')
       }
     }
   }

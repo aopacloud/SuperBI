@@ -4,9 +4,13 @@
     theme="dark"
     :style="{ backgroundColor: 'transparent' }"
     :selectedKeys="selectedKeys"
-    @click="onMenuClick">
+    @click="onMenuClick"
+  >
     <template v-for="item in menus">
-      <a-menu-item v-if="!item.children || !item.children.length" :key="item.id">
+      <a-menu-item
+        v-if="!item.children || !item.children.length"
+        :key="item.id"
+      >
         <span>{{ item.name }}</span>
       </a-menu-item>
 
@@ -16,7 +20,8 @@
     <a-sub-menu
       v-if="authorizeMenu"
       :key="authorizeMenu.id"
-      @titleClick="onAuthorityMenuTitleClick">
+      @titleClick="onAuthorityMenuTitleClick"
+    >
       <template #title>
         <span>{{ authorizeMenu.name }}</span>
 
@@ -31,9 +36,10 @@
               minWidth: '16px',
               height: '16px',
               lineHeight: '16px',
-              padding: '0 4px',
+              padding: '0 4px'
             }"
-            :count="getCountByItem(child.routeName)">
+            :count="getCountByItem(child.routeName)"
+          >
             {{ child.name }}
           </a-badge>
         </router-link>
@@ -79,14 +85,18 @@ const authorizeMenu = computed(() =>
 // 顶部菜单(一级)
 const menus = computed(() => {
   if (!parentAppInfo.value) {
-    return navbarResources.value.filter(t => !t.hidden && t.url !== AUTHORITY_PATH)
+    return navbarResources.value.filter(
+      t => !t.hidden && t.url !== AUTHORITY_PATH
+    )
   } else {
     return parentAppInfo.value.children
-      .filter(t => !t.hidden || t.url !== AUTHORITY_PATH)
+      .filter(t => !t.hidden && t.url !== AUTHORITY_PATH)
       .map(item => {
         return {
           ...item,
-          children: item.children?.filter(t => !t.hidden),
+          children: item.children?.filter(
+            t => !t.hidden && t.url !== AUTHORITY_PATH
+          )
         }
       })
   }
@@ -134,9 +144,7 @@ const onMenuClick = ({ key }) => {
   }
 
   // 应用内
-  if (_appPath === '/' + appPath) {
-    router.push(url)
-  } else {
+  if (_appPath !== '/' + appPath) {
     window.open(_appPath + '#' + url, '_blank')
   }
 }
@@ -157,7 +165,7 @@ const countMsg = ref({})
 const countMap = {
   AuthorityApply: 'applyingCount',
   AuthorityApprove: 'reviewCount',
-  AuthorityApplyManage: 'operationCount',
+  AuthorityApplyManage: 'operationCount'
 }
 const getCountByItem = name => {
   return countMsg.value[countMap[name]] || 0

@@ -17,7 +17,8 @@
         <!-- 时区预览 -->
         <ComponentsTimeoffsetPreview
           :value="timeOffset"
-          @change="e => emits('timeoffset-change', e)" />
+          @change="e => emits('timeoffset-change', e)"
+        />
       </div>
 
       <p-a-space class="tools">
@@ -25,9 +26,11 @@
 
         <a-button
           v-if="
-            chart.id && (chartPermission.hasWrite() || chartPermission.hasRead())
+            chart.id &&
+            (chartPermission.hasWrite() || chartPermission.hasRead())
           "
-          @click="saveAs">
+          @click="saveAs"
+        >
           另存为
         </a-button>
 
@@ -35,16 +38,33 @@
           v-if="chartPermission.hasWrite()"
           type="primary"
           :disabled="queryResponse.status !== 'SUCCESS'"
-          @click="save">
+          @click="save"
+        >
           {{ chart.id ? '更新图表' : '保存图表' }}
         </a-button>
 
-        <a-dropdown v-if="datasetPermission.hasManage()">
+        <a-dropdown trigger="click" v-model:open="dropdownOpen">
           <a-button :icon="h(MoreOutlined)"></a-button>
           <template #overlay>
             <a-menu @click="onMenuClick">
-              <a-menu-item key="authorize">授权</a-menu-item>
-              <a-menu-item key="move">移动至</a-menu-item>
+              <a-menu-item v-if="datasetPermission.hasManage()" key="authorize">
+                授权
+              </a-menu-item>
+              <ViewsReportActionDropdownMenuitemWarning
+                v-if="chartPermission.hasManage()"
+              />
+              <a-menu-item v-if="datasetPermission.hasManage()" key="move">
+                移动至
+              </a-menu-item>
+              <ReportInfoPopover
+                :title="chart.id ? '图表信息' : '数据集信息'"
+                :chart="chart"
+                :dataset="dataset"
+              >
+                <a-menu-item key="info">
+                  {{ chart.id ? '图表信息' : '数据集信息' }}
+                </a-menu-item>
+              </ReportInfoPopover>
             </a-menu>
           </template>
         </a-dropdown>
@@ -59,46 +79,63 @@
       v-model:open="moveDrawerOpen"
       :initParams="{ position: 'DATASET', type: 'ALL', workspaceId }"
       :initData="dataset"
-      @ok="onMoveOk" />
+      @ok="onMoveOk"
+    />
 
     <!-- 保存 -->
     <SaveModal
       v-model:open="modifyModalOpen"
       :initData="{ ...modifyInfo, workspaceId }"
-      @ok="onModifyOk" />
+      @ok="onModifyOk"
+    />
+
+    <ViewsReportComponentsWarningDrawer
+      :info="chart"
+      v-model:open="warningDrawerOpen"
+    />
   </section>
 </template>
 
 <script setup>
 import { h, ref, computed, inject } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { message } from 'ant-design-vue'
 import {
   LeftOutlined,
   MoreOutlined,
-  InfoCircleOutlined,
+  InfoCircleOutlined
 } from '@ant-design/icons-vue'
 import useAppStore from '@/store/modules/app'
 import AuthorizeDrawer from '@/components/Authorize/ListDrawer.vue'
 import { MoveDrawer } from '@/components/DirTree'
 import SaveModal from './components/SaveModal.vue'
 import { versionVue } from '@/versions'
+import ReportInfoPopover from '@/components/ReportInfoPopover/index.vue'
 
-const { ComponentsTimeoffsetPreview } = versionVue
+const {
+  ComponentsTimeoffsetPreview,
+  ViewsReportActionDropdownMenuitemWarning,
+  ViewsReportComponentsWarningDrawer
+} = versionVue
 
 const { requestResponse, permissions, timeOffset } = inject('index', {})
 const { dataset: datasetPermission, chart: chartPermission } = permissions
 const queryResponse = computed(() => requestResponse.get().response || {})
 
-const emits = defineEmits(['update-chart', 'update-dataset', 'timeoffset-change'])
+const emits = defineEmits([
+  'update-chart',
+  'update-dataset',
+  'timeoffset-change'
+])
 const props = defineProps({
   chart: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
   dataset: {
     type: Object,
-    default: () => ({}),
-  },
+    default: () => ({})
+  }
 })
 
 const appStore = useAppStore()
@@ -116,11 +153,21 @@ const toBack = () => {
   }
 }
 
+const dropdownOpen = ref(false)
 const onMenuClick = ({ key }) => {
+  // trigger 如何从 popover 中来的？？？
+  if (key === 'info' || key === 'trigger') {
+    dropdownOpen.value = true
+    return
+  }
+
+  dropdownOpen.value = false
   if (key === 'authorize') {
     authorize()
   } else if (key === 'move') {
     move()
+  } else if (key === 'warning') {
+    warnSetting()
   }
 }
 
@@ -151,6 +198,13 @@ const move = () => {
 }
 const onMoveOk = e => {
   emits('update-dataset', { folderId: e.folderId })
+}
+
+// 预警设置
+const warningDrawerOpen = ref(false)
+const warnSetting = () => {
+  if (!props.chart.id) return message.error('请先保存图表')
+  warningDrawerOpen.value = true
 }
 </script>
 

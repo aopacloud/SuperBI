@@ -4,6 +4,7 @@
       class="item"
       v-for="item in list"
       :key="item.value"
+      :style="{ paddingRight: item.children?.length ? '36px' : '12px' }"
       :disabled="item.disabled"
       :class="{
         active: isActive(item.value),

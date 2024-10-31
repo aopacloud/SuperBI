@@ -39,7 +39,7 @@ const {
   LayoutComponentsNavbarLogo,
   LayoutComponentsNavbarAppName,
   LayoutComponentsNavbarNotification,
-  LayoutComponentsCluster,
+  LayoutComponentsCluster
 } = versionVue
 </script>
 

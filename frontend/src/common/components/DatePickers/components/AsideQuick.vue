@@ -16,8 +16,9 @@
 
     <Teleport v-if="isCustomActive" :to="`#pick-custom-placeholder-${id}`">
       <div class="custom">
-        <select class="select no-border">
+        <select class="select no-border" v-model="customMode">
           <option value="pass">过去</option>
+          <option value="recent">最近</option>
         </select>
         <select class="select no-border" v-model="customValue">
           <option
@@ -28,7 +29,10 @@
           </option>
         </select>
         <select class="select no-border" v-model="customType">
-          <option v-for="item in customMode" :key="item.value" :value="item.value">
+          <option
+            v-for="item in customTypeOptions"
+            :key="item.value"
+            :value="item.value">
             {{ item.label }}
           </option>
         </select>
@@ -38,8 +42,8 @@
 </template>
 
 <script setup>
-import { ref, watch, watchEffect, computed, compile } from 'vue'
-import { presetOptions, customRangeOptions, customMode } from '../config'
+import { ref, watch, watchEffect, computed } from 'vue'
+import { presetOptions, customRangeOptions, customTypeOptions } from '../config'
 import { getStartDateStr, getEndDateStr } from '../utils'
 
 const emits = defineEmits(['click'])
@@ -69,6 +73,7 @@ const props = defineProps({
   },
 })
 
+const customMode = ref('pass') // pass, recent
 // 自定义值
 const customValue = ref(-1)
 const customType = ref('day')
@@ -117,23 +122,25 @@ const isItemActive = item => {
 watch(
   () => props.extra,
   e => {
-    const { isCustom, current, until } = e
+    const { isCustom, current } = e
 
     isCustomActive.value = isCustom
 
     if (current) {
-      const [type, offset] = current.toLowerCase().split('_')
-      customType.value = type
+      const [type, offset, mode = 'pass'] = current.toLowerCase().split('_')
+
+      customMode.value = mode
       customValue.value = +offset
+      customType.value = type
     }
   },
   { immediate: true, deep: true }
 )
 
-watch([customValue, customType], val => {
-  const [v, t] = val
+watch([customMode, customValue, customType], val => {
+  const [m, v, t] = val
 
-  emits('click', { offset: v, type: t, custom: isCustomActive.value })
+  emits('click', { custom: isCustomActive.value, mode: m, offset: v, type: t })
 })
 
 watchEffect(() => {
@@ -171,6 +178,13 @@ const itemClick = item => {
   if (type === 'custom') {
     customValue.value = -1
     customType.value = 'day'
+
+    emits('click', {
+      custom: true,
+      mode: customMode.value,
+      offset: -1,
+      type: 'day',
+    })
   } else {
     emits('click', { type, offset: value })
   }

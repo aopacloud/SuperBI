@@ -1,19 +1,25 @@
 ﻿<template>
   <a-drawer title="全局筛选配置" width="700" :open="open" @close="cancel">
-    <section class="page flex-column">
-      <main class="flex-1 flex scroll">
+    <section class="page">
+      <main class="main flex-1 flex scroll">
         <FilterList
           ref="filterListRef"
           class="left-side"
-          :data-source="list"
-          @select="onFilterItemSelect" />
+          v-model:data-source="list"
+          @select="onFilterItemSelect"
+        />
 
-        <RelatedCharts
-          ref="relatedChartsRef"
-          class="right-side"
-          :charts="reports"
-          :item="filterItemInfo"
-          v-model:value="filterItemInfo.charts" />
+        <a-spin tip="图表正在加载中..." :spinning="loading">
+          <RelatedCharts
+            :loading="loading"
+            ref="relatedChartsRef"
+            class="right-side"
+            :charts="reports"
+            :list="list"
+            :item="filterItemInfo"
+            v-model:value="filterItemInfo.charts"
+          />
+        </a-spin>
       </main>
 
       <footer class="footer">
@@ -36,21 +42,23 @@ import FilterList from './components/FilterList.vue'
 import RelatedCharts from './components/RelatedCharts.vue'
 import FilterBottom from './components/FilterBottom.vue'
 import { deepClone } from 'common/utils/help'
+import { nextTick } from 'vue'
 
 const emits = defineEmits(['update:open', 'ok'])
 const props = defineProps({
   open: {
     type: Boolean,
-    default: false,
+    default: false
   },
+  loading: Boolean,
   dataSource: {
     type: Array,
-    default: () => [],
+    default: () => []
   },
   reports: {
     type: Array,
-    default: () => [],
-  },
+    default: () => []
+  }
 })
 
 const list = ref([])
@@ -62,13 +70,17 @@ watch(
 )
 
 const init = () => {
-  list.value = deepClone(props.dataSource)
+  list.value = props.dataSource
 
   if (!list.value.length) {
     filterItemInfo.value = {}
   } else {
     filterItemInfo.value = { ...list.value[0] }
   }
+
+  nextTick(() => {
+    filterListRef.value.init()
+  })
 }
 
 const reset = () => {
@@ -100,9 +112,10 @@ const cancel = () => {
 }
 const ok = async () => {
   const listValidateRes = filterListRef.value.validate()
+  const relatedRes = relatedChartsRef.value.validate()
   const bottomValidateRes = await filterBottomRef.value.validate()
 
-  if (!listValidateRes || !bottomValidateRes) {
+  if (!listValidateRes || !relatedRes || !bottomValidateRes) {
     return false
   } else {
     const payload = filterListRef.value.getData()
@@ -125,5 +138,19 @@ const ok = async () => {
   height: 240px;
   padding-top: 16px;
   border-top: 1px solid #d9d9d9;
+}
+.page {
+  display: flex;
+  flex-direction: column;
+}
+.main > .ant-spin-nested-loading {
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+  :deep(.ant-spin-container) {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+  }
 }
 </style>

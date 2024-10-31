@@ -1,5 +1,5 @@
 ﻿<template>
-  <section class="remark-layout graggable-handler">
+  <section class="remark-layout draggable-handler">
     <header class="title">
       <h4 style="margin: 0" class="title-text">{{ initialValue.title }}</h4>
 
@@ -9,7 +9,8 @@
         size="small"
         type="text"
         :icon="h(EditOutlined)"
-        @click="onEdit"></a-button>
+        @click="onEdit"
+      ></a-button>
     </header>
     <main class="content" v-if="initialValue.content">
       <RichInput
@@ -17,7 +18,8 @@
         readonly
         :contentStyle="{ minHeight: 'initial', padding: 0 }"
         v-model:value="initialValue.content"
-        @tag-click="onTagClick" />
+        @tag-click="onTagClick"
+      />
     </main>
   </section>
 </template>
@@ -27,19 +29,19 @@ import RichInput from 'common/components/RichInput'
 import { EditOutlined } from '@ant-design/icons-vue'
 
 const { ctx } = getCurrentInstance()
-const emits = defineEmits(['edit', 'change'])
+const emits = defineEmits(['edit', 'change', 'update'])
 const props = defineProps({
   id: {
-    type: [String, Number],
+    type: [String, Number]
   },
   mode: {
     type: String,
-    default: 'EDIT',
+    default: 'EDIT'
   },
   initialValue: {
     type: Object,
-    default: () => ({}),
-  },
+    default: () => ({})
+  }
 })
 
 watch(

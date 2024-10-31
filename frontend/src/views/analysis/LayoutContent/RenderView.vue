@@ -2,8 +2,11 @@
   <div class="render-view">
     <!-- 使用 keepAlive 会导致图表渲染闪烁 -->
 
+    <!-- 无权限 -->
+    <UnAccess _comment_="无权限" v-if="!hasDatasetAnalysis" :dataset="dataset" />
+
     <!-- loading -->
-    <a-spin _comment_="loading" v-if="loading" class="flex-column flex-center" />
+    <a-spin _comment_="loading" v-else-if="loading" class="flex-column flex-center" />
 
     <!-- 初始胡 -->
     <a-empty _comment_="初始胡" v-else-if="!queryStarted" class="flex-column flex-center">
@@ -11,9 +14,6 @@
         <div style="color: #999">请拖入/更改分析字段</div>
       </template>
     </a-empty>
-
-    <!-- 无权限 -->
-    <UnAccess _comment_="无权限" v-else-if="!hasDatasetAnalysis" :dataset="dataset" />
 
     <!-- 查询异常 -->
     <div _comment_="查询异常" v-else-if="queryStatus === 'FAILED'" class="flex-column flex-center">
@@ -89,7 +89,7 @@ const requestRes = computed(() => indexRequestResponse.get('request'))
 watch(
   requestRes,
   r => {
-    if (Object.keys(r).length === 0) return
+    if (!r || Object.keys(r).length === 0) return
 
     createColumns()
   },
@@ -128,7 +128,7 @@ const resError = computed(() => {
 const queryStatus = ref('')
 watch(
   responseRes,
-  r => {
+  (r = {}) => {
     queryStarted.value = !!Object.keys(r).length
     queryStatus.value = r.status
 

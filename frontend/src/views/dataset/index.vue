@@ -1,41 +1,49 @@
 ﻿<template>
   <section class="page dataset flex relative">
-    <aside class="aside-tree" :class="{ collapsed }">
-      <DirTree
-        ref="dirTreeRef"
-        style="padding: 16px"
-        position="DATASET"
-        v-model:type="type"
-        @select="onSelect" />
-    </aside>
-
-    <div
-      class="aside-collapse-trigger"
-      :class="{ collapsed }"
-      @click="collapsed = !collapsed">
-      <CaretLeftOutlined />
-    </div>
+    <Resize
+      class="resize-theme-1"
+      :directions="['right']"
+      :style="{ width: asideWidth + 'px' }"
+      @resized="onResized"
+    >
+      <aside class="aside-tree">
+        <DirTree
+          ref="dirTreeRef"
+          style="padding: 16px 0 16px 16px"
+          position="DATASET"
+          v-model:type="type"
+          @select="onSelect"
+        />
+      </aside>
+    </Resize>
 
     <main class="main flex-1 flex flex-column">
-      <div class="flex justify-between align-center" style="margin-bottom: 16px">
+      <div
+        class="flex justify-between align-center"
+        style="margin-bottom: 16px"
+      >
         <div>
           <span>{{ typeLabel }}</span>
           <div
             class="select-tag"
             style="margin-left: 10px"
-            v-if="typeof dirInfo.id === 'number'">
+            v-if="typeof dirInfo.id === 'number'"
+          >
             {{ dirInfo.name }}
 
             <CloseOutlined
               class="pointer"
               style="margin-left: 10px"
-              @click="onSelectClear" />
+              @click="onSelectClear"
+            />
           </div>
         </div>
 
         <a-space>
           <span style="color: #bfbfbf">
-            <ExclamationCircleFilled style="color: #1890ff; vertical-align: -2px" />
+            <ExclamationCircleFilled
+              style="color: #1890ff; vertical-align: -2px"
+            />
             数据集权限可点击右侧操作列中的图标进行申请
           </span>
 
@@ -44,12 +52,14 @@
             placeholder="输入关键字搜索"
             allow-clear
             v-model:value="keyword"
-            @search="onSearch" />
+            @search="onSearch"
+          />
 
           <a-button
             v-permission="'DATASET:VIEW:CREATE'"
             type="primary"
-            @click="toCreate">
+            @click="toCreate"
+          >
             新建数据集
           </a-button>
         </a-space>
@@ -65,7 +75,8 @@
         :scroll="{ x: 1200, y: 'auto' }"
         :pagination="pager"
         :row-class-name="setRowClassName"
-        @change="onTableChange">
+        @change="onTableChange"
+      >
         <template #emptyText>
           <a-empty :description="!isPersonal ? '暂无数据' : ''" />
           <div v-if="isPersonal">
@@ -74,7 +85,8 @@
               type="primary"
               size="small"
               style="margin-right: 4px"
-              @click="jumpToAll">
+              @click="jumpToAll"
+            >
               跳转公共
             </a-button>
             列表查看更多数据
@@ -85,10 +97,15 @@
             <span
               v-if="record.permission === 'EXPIRED'"
               class="expire-flag"
-              data-text="已过期"></span>
+              data-text="已过期"
+            ></span>
 
             <a-dropdown :trigger="['contextmenu']">
-              <a class="row--name" :href="getAnalysisHref(record)" target="_blank">
+              <a
+                class="row--name"
+                :href="getAnalysisHref(record)"
+                target="_blank"
+              >
                 {{ text }}
               </a>
               <template #overlay>
@@ -106,12 +123,17 @@
                     <a-menu-item key="authorize">授权</a-menu-item>
                     <a-menu-item
                       v-if="
-                        record.status === 'UN_PUBLISH' || record.status === 'OFFLINE'
+                        record.status === 'UN_PUBLISH' ||
+                        record.status === 'OFFLINE'
                       "
-                      key="publish">
+                      key="publish"
+                    >
                       发布
                     </a-menu-item>
-                    <a-menu-item v-if="record.status === 'ONLINE'" key="offline">
+                    <a-menu-item
+                      v-if="record.status === 'ONLINE'"
+                      key="offline"
+                    >
                       下线
                     </a-menu-item>
                     <a-menu-item key="export">导出</a-menu-item>
@@ -119,6 +141,14 @@
                 </a-menu>
               </template>
             </a-dropdown>
+          </template>
+
+          <template v-if="column.dataIndex === 'source'">
+            <span v-if="record.upload">本地上传文件</span>
+            <template v-else-if="text">
+              <div v-for="s in text.split(',')">{{ s }}</div>
+            </template>
+            <template v-else></template>
           </template>
 
           <template v-if="column.dataIndex === 'action'">
@@ -130,12 +160,14 @@
                     record.permission === 'EXPIRED') &&
                   !record.applying
                 "
-                title="申请">
+                title="申请"
+              >
                 <a-button
                   size="small"
                   type="text"
                   :icon="h(LockOutlined)"
-                  @click="apply(record)" />
+                  @click="apply(record)"
+                />
               </a-tooltip>
 
               <a-tooltip title="收藏">
@@ -144,7 +176,8 @@
                   type="text"
                   :style="{ color: record.favorite ? '#e6a23c' : '' }"
                   :icon="h(record.favorite ? StarFilled : StarOutlined)"
-                  @click="favor(record)" />
+                  @click="favor(record)"
+                />
               </a-tooltip>
 
               <a-tooltip v-if="hasAnalysisPermission(record)" title="分析">
@@ -152,7 +185,8 @@
                   size="small"
                   type="text"
                   :icon="h(LineChartOutlined)"
-                  @click="toAnalysis(record, true)" />
+                  @click="toAnalysis(record, true)"
+                />
               </a-tooltip>
 
               <a-dropdown
@@ -161,7 +195,8 @@
                   hasManagePermission(record) ||
                   isPersonal
                 "
-                :trigger="['click']">
+                :trigger="['click']"
+              >
                 <a-button size="small" type="text" :icon="h(MoreOutlined)" />
 
                 <template #overlay>
@@ -178,7 +213,8 @@
 
                       <a-menu-item
                         v-if="hasManagePermission(record) || isPersonal"
-                        key="move">
+                        key="move"
+                      >
                         移动至
                       </a-menu-item>
 
@@ -188,15 +224,20 @@
                             record.status === 'UN_PUBLISH' ||
                             record.status === 'OFFLINE'
                           "
-                          key="publish">
+                          key="publish"
+                        >
                           发布
                         </a-menu-item>
-                        <a-menu-item v-if="record.status === 'ONLINE'" key="offline">
+                        <a-menu-item
+                          v-if="record.status === 'ONLINE'"
+                          key="offline"
+                        >
                           下线
                         </a-menu-item>
-                        <a-menu-item key="delete" style="color: red"
-                          >删除</a-menu-item
-                        >
+                        <a-menu-item key="transfer">移交</a-menu-item>
+                        <a-menu-item key="delete" style="color: red">
+                          删除
+                        </a-menu-item>
                       </template>
                     </template>
                   </a-menu>
@@ -210,14 +251,19 @@
   </section>
 
   <!-- 权限申请 -->
-  <ApplyModal v-model:open="applyDrawerOpen" :init-data="rowInfo" @ok="onApplyOk" />
+  <ApplyModal
+    v-model:open="applyDrawerOpen"
+    :init-data="rowInfo"
+    @ok="onApplyOk"
+  />
 
   <!-- 移动至 -->
   <MoveDrawer
     v-model:open="moveDrawerOpen"
     :init-data="rowInfo"
     :init-params="{ position: 'DATASET', type, workspaceId }"
-    @ok="onMoveOk" />
+    @ok="onMoveOk"
+  />
 
   <!-- 授权 -->
   <AuthorizeDrawer v-model:open="authorizeDrawerOpen" :init-data="rowInfo" />
@@ -226,7 +272,24 @@
   <SearchPageDrawer
     v-model:open="searchPageDrawerOpen"
     :initParams="searchPageParams"
-    @close="onSearchPageDrawerClose" />
+    @close="onSearchPageDrawerClose"
+  />
+
+  <UploadModal
+    mode="EDIT"
+    :id="uploadId"
+    v-model:open="uploadOpen"
+    @ok="onUploadOk"
+  />
+
+  <!-- 移交 -->
+  <TransferModal
+    resourceType="DATASET"
+    :initData="rowInfo"
+    v-model:open="transferDrawerOpen"
+    @close="rowInfo = {}"
+    @ok="onTransferOk"
+  />
 </template>
 
 <script setup lang="jsx">
@@ -240,7 +303,7 @@ import {
   MoreOutlined,
   CaretLeftOutlined,
   CloseOutlined,
-  ExclamationCircleFilled,
+  ExclamationCircleFilled
 } from '@ant-design/icons-vue'
 import { tableColumns } from './config'
 import { getDatasetList } from '@/apis/dataset'
@@ -252,6 +315,9 @@ import useMenus from './useMenus'
 import useTable from 'common/hooks/useTable'
 import useAppStore from '@/store/modules/app'
 import useUserStore from '@/store/modules/user'
+import Resize from 'common/components/Layout/Resize/index.vue'
+import UploadModal from '@/components/DatasetUploadModal/index.vue'
+import TransferModal from '@/components/TransferModal/index.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -265,7 +331,7 @@ const {
   handleExport,
   publish,
   offline,
-  del,
+  del
 } = useMenus()
 
 // 分析权限
@@ -342,7 +408,7 @@ const onSelect = node => {
 // 新建modal
 const toCreate = () => {
   const routeRes = router.resolve({
-    name: 'DatasetModify',
+    name: 'DatasetModify'
   })
   if (!routeRes) return
 
@@ -354,7 +420,7 @@ const initQueryParams = computed(() => {
   return {
     workspaceId: workspaceId.value,
     folderType: type.value,
-    folderId: dirInfo.value.id,
+    folderId: dirInfo.value.id
   }
 })
 
@@ -362,15 +428,17 @@ const { loading, keyword, sorter, pager, list, fetchList } = useTable(
   getDatasetList,
   {
     sorter: { field: 'updateTime', order: 'descend' },
-    initQueryParams,
+    initQueryParams
   },
   {
-    error: e => console.error('列表请求失败', e),
+    error: e => console.error('列表请求失败', e)
   }
 )
 
 const setRowClassName = ({ permission, status }) => {
-  return permission === 'NONE' || permission === 'EXPIRED' || status === 'OFFLINE'
+  return permission === 'NONE' ||
+    permission === 'EXPIRED' ||
+    status === 'OFFLINE'
     ? 'no-permission'
     : ''
 }
@@ -387,7 +455,7 @@ const columns = computed(() => {
   return tableColumns.map(col => {
     return {
       ...col,
-      sortOrder: col.dataIndex === field && order,
+      sortOrder: col.dataIndex === field && order
     }
   })
 })
@@ -426,6 +494,18 @@ onMounted(() => {
   fetchList()
 })
 
+// 上传
+const uploadOpen = ref(false)
+const uploadId = ref()
+const editUpload = id => {
+  uploadId.value = id
+  uploadOpen.value = true
+}
+const onUploadOk = () => {
+  uploadOpen.value = false
+  fetchList()
+}
+
 const onMenuClick = async ({ key }, row) => {
   switch (key) {
     case '_self':
@@ -435,7 +515,11 @@ const onMenuClick = async ({ key }, row) => {
       toAnalysis(row, true)
       break
     case 'edit':
-      edit(row)
+      if (row.upload) {
+        editUpload(row.id)
+      } else {
+        edit(row)
+      }
       break
     case 'export':
       handleExport(row)
@@ -455,6 +539,9 @@ const onMenuClick = async ({ key }, row) => {
       break
     case 'delete':
       del(row, fetchList)
+      break
+    case 'transfer':
+      transfer(row)
       break
     default:
       break
@@ -493,12 +580,33 @@ const onMoveOk = () => {
   dirTreeRef.value.reload()
   fetchList()
 }
+
+const asideWidth = computed(() => {
+  const width = appStore.appLayout?.dataset?.aside?.width
+
+  if (typeof width === 'undefined') {
+    return 300
+  }
+  return width
+})
+const onResized = e => {
+  appStore.setLayout('dataset', { aside: { width: e.width } })
+}
+
+// 移交
+const transferDrawerOpen = ref(false)
+const transfer = row => {
+  rowInfo.value = { ...row }
+  transferDrawerOpen.value = true
+}
+const onTransferOk = () => {
+  fetchList()
+}
 </script>
 
 <style lang="scss" scoped>
-$asideWidth: 300px;
 .aside-tree {
-  width: $asideWidth;
+  height: 100%;
   overflow: hidden;
   border-right: 1px solid #f3f3f3;
   transition: all 0.15s;
@@ -506,25 +614,7 @@ $asideWidth: 300px;
     width: 0;
   }
 }
-.aside-collapse-trigger {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  padding: 12px 1px;
-  background-color: #f6f7ff;
-  border-top-right-radius: 4px;
-  border-bottom-right-radius: 4px;
-  transition: all 0.15s;
-  transform: translateX($asideWidth);
-  cursor: pointer;
-  z-index: 9;
-  &.collapsed {
-    transform: translateX(0);
-    .anticon-caret-left {
-      transform: rotateY(180deg);
-    }
-  }
-}
+
 .main {
   padding: 10px;
   overflow: auto;

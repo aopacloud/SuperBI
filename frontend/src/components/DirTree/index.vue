@@ -1,11 +1,12 @@
 ﻿<template>
   <div class="flex-column dir-tree">
-    <div class="flex justify-between align-center">
+    <div class="flex justify-between align-center" style="padding-right: 12px">
       <a-radio-group
         class="dir-type"
         button-style="solid"
         :value="type"
-        @change="onTypeChange">
+        @change="onTypeChange"
+      >
         <a-radio-button title="公共" value="ALL">
           <span style="font-size: 14px; font-weight: 600">公共</span>
         </a-radio-button>
@@ -18,24 +19,36 @@
         class="pointer"
         style="font-size: 30px; color: #1677ff"
         v-permission="addPermissions"
-        @click="add" />
+        @click="add"
+      />
     </div>
 
     <a-spin :spinning="loading">
       <a-directory-tree
+        blockNode
+        :showIcon="false"
+        :draggable="addPermissions"
         :expandAction="false"
         :tree-data="treeData"
         :field-names="{
           ttile: 'name',
-          key: 'id',
+          key: 'id'
         }"
         v-model:expandedKeys="expandedKeys"
         v-model:selectedKeys="modelValue"
-        @select="onSelect">
-        <template #title="{ id: treenodeId, name, parentId, resourceNum }">
+        :allowDrop="onAllowDrop"
+        @select="onSelect"
+        @drop="onDrop"
+      >
+        <template
+          #title="{ id: treenodeId, name, parentId, resourceNum, _level }"
+        >
           <a-dropdown :trigger="['contextmenu']">
             <div class="tree-title">
-              <span class="tree-title--name">{{ name }}</span>
+              <span
+                :class="['tree-title--name', `tree-node-level-${_level}`]"
+                >{{ name }}</span
+              >
               <span class="tree-title--count" v-if="resourceNum > -1">
                 {{ resourceNum }}
               </span>
@@ -44,8 +57,14 @@
               <a-menu
                 @click="
                   ({ key: menuKey }) =>
-                    onContextMenuClick(menuKey, { id: treenodeId, name, parentId, num })
-                ">
+                    onContextMenuClick(menuKey, {
+                      id: treenodeId,
+                      name,
+                      parentId,
+                      num
+                    })
+                "
+              >
                 <a-menu-item key="edit">编辑</a-menu-item>
                 <a-menu-item key="del">删除</a-menu-item>
               </a-menu>
@@ -59,7 +78,8 @@
       :init-params="{ type, position, workspaceId }"
       :init-data="nodeInfo"
       v-model:open="modalOpen"
-      @success="fetchData" />
+      @success="fetchData"
+    />
   </div>
 </template>
 <script setup>
@@ -69,8 +89,12 @@ import { FolderAddOutlined } from '@ant-design/icons-vue'
 import { useRoute } from 'vue-router'
 import useAppStore from '@/store/modules/app'
 import ModifyModal from './components/ModifyModal.vue'
-import { deepFind, flat } from 'common/utils/help'
-import { getDirectory, delDirectory } from '@/apis/directory'
+import { deepClone, deepFind, flat } from 'common/utils/help'
+import {
+  getDirectory,
+  delDirectory,
+  updateDirectoryList
+} from '@/apis/directory'
 import { clearQuerys } from 'common/utils/window'
 import useUserStore from '@/store/modules/user'
 
@@ -82,12 +106,12 @@ const props = defineProps({
   type: {
     type: String,
     default: 'ALL',
-    validator: val => ['ALL', 'PERSONAL'].includes(val),
+    validator: val => ['ALL', 'PERSONAL'].includes(val)
   },
   position: {
     type: String,
-    default: 'DASHBOARD',
-  },
+    default: 'DASHBOARD'
+  }
 })
 
 const addPermissions = computed(() => {
@@ -97,7 +121,7 @@ const addPermissions = computed(() => {
     position,
     'VIEW',
     type === 'PERSONAL' ? 'PRIVATE' : 'PUBLIC',
-    'FOLDER',
+    'FOLDER'
   ].join(':')
 
   return userStore.hasPermission(str)
@@ -105,22 +129,37 @@ const addPermissions = computed(() => {
 
 const workspaceId = computed(() => appStore.workspaceId)
 
+const _setLevel = (list = [], level = 0) => {
+  return list.map(item => {
+    return {
+      ...item,
+      _level: level,
+      children: _setLevel(item.children, level + 1)
+    }
+  })
+}
+
 const loading = ref(false)
 const treeData = ref([])
 const expandedKeys = ref([])
-const fetchData = async () => {
+const fetchData = async cb => {
   try {
     loading.value = true
 
     const payload = {
       type: props.type,
       position: props.position,
-      workspaceId: workspaceId.value,
+      workspaceId: workspaceId.value
     }
 
     const res = await getDirectory(payload)
 
-    treeData.value = res.children
+    if (cb) {
+      cb(_setLevel(res.children))
+      return
+    }
+
+    treeData.value = _setLevel(res.children)
     expandedKeys.value = flat(treeData.value, 'children').map(t => t.id)
 
     if (route.query.folderId) {
@@ -129,6 +168,7 @@ const fetchData = async () => {
       clearQuerys(['type', 'folderId'])
     }
   } catch (error) {
+    console.error('获取文件夹列表失败', error)
   } finally {
     loading.value = false
   }
@@ -159,7 +199,7 @@ const del = ({ id, name, num }) => {
   if (num) {
     Modal.warning({
       title: '提示',
-      content: '请先移除该文件夹下的内容后再进行文件夹删除',
+      content: '请先移除该文件夹下的内容后再进行文件夹删除'
     })
   } else {
     try {
@@ -173,7 +213,7 @@ const del = ({ id, name, num }) => {
 
           message.success('删除成功')
           fetchData()
-        },
+        }
       })
     } catch (error) {
       console.error('删除文件夹错误', error)
@@ -230,14 +270,144 @@ watch(
     fetchData()
   },
   {
-    immediate: true,
+    immediate: true
   }
 )
+
+const findRootNode = item => {
+  if (item.parentId === -1) return item
+  const parent = flat(treeData.value).find(t => t.id === +item.parentId)
+  return parent ? findRootNode(parent) : item
+}
+
+const onAllowDrop = e => {
+  const {
+    dragNode: { dataRef: startNode },
+    dropNode,
+    dropPosition
+  } = e
+
+  // 预置文件夹不能拖动、放置
+  if (startNode.id < 0) return
+  if (dropNode.id < 0) return
+
+  // 拖动的是创建的目录
+  if (dropNode.id > 0) {
+    // 放置在目录下一位
+    // if (dropPosition === 0) return
+    // 放置在文件下
+    // if (dropNode.parentId > 0) {
+    //   // 放置节点是否是顶级节点
+    //   const endRoot = findRootNode(dropNode)
+    //   if (endRoot.parentId < 0) return
+    // }
+    const startRoot = findRootNode(startNode)
+    const endRoot = findRootNode(dropNode)
+    // 拖动节点的顶级节点和放置节点的顶级节点 是 预置的
+    if (startRoot.id < 0 && endRoot.id < 0) {
+      // 不可在不同的预置的顶级目录中拖动
+      if (startRoot.id !== endRoot.id) return
+    }
+  }
+
+  return true
+}
+
+const onDrop = ({ dragNode, node, dropPosition: position, dropToGap }) => {
+  const { key: dropKey, pos: dropPos } = node
+  const { key: dragKey } = dragNode
+  const dropPosition = position - Number(dropPos[dropPos.length - 1])
+
+  const loop = (data, key, callback) => {
+    data.forEach((item, index) => {
+      if (item.id === key) {
+        return callback(item, index, data)
+      }
+      if (item.children) {
+        return loop(item.children, key, callback)
+      }
+    })
+  }
+  const data = deepClone(treeData.value)
+
+  // Find dragObject
+  let dragObj
+  loop(data, dragKey, (item, index, arr) => {
+    arr.splice(index, 1)
+    dragObj = item
+  })
+
+  if (!dropToGap) {
+    // Drop on the content
+    loop(data, dropKey, item => {
+      item.children = item.children || []
+      // where to insert 示例添加到尾部，可以是随意位置
+      dropPosition === 1
+        ? item.children.push(dragObj)
+        : item.children.unshift(dragObj)
+    })
+  } else if (
+    (node.children || []).length > 0 && // Has children
+    node.expanded && // Is expanded
+    dropPosition === 1 // On the bottom gap
+  ) {
+    loop(data, dropKey, item => {
+      item.children = item.children || []
+      // where to insert 示例添加到尾部，可以是随意位置
+      item.children.unshift(dragObj)
+    })
+  } else {
+    let ar
+    let i
+    loop(data, dropKey, (item, index, arr) => {
+      ar = arr
+      i = index
+    })
+    if (dropPosition === -1) {
+      ar.splice(i, 0, dragObj)
+    } else {
+      ar.splice(i + 1, 0, dragObj)
+    }
+  }
+
+  // treeData.value = data
+  updateTreeList(_toUpdateDate(data))
+}
+
+const _toUpdateDate = (tree, pId = -1) => {
+  return flat(
+    tree.map((item, index) => {
+      const { id, name, parentId } = item
+
+      return {
+        id,
+        parentId: pId,
+        name,
+        sortId: typeof parentId !== 'undefined' ? index : undefined,
+        children: _toUpdateDate(item.children, id)
+      }
+    })
+  )
+}
+
+const updateTreeList = async payload => {
+  try {
+    loading.value = true
+    await updateDirectoryList(payload)
+    await fetchData(r => {
+      treeData.value = r
+    })
+  } catch (e) {
+    console.error('更新文件夹失败', e)
+  } finally {
+    loading.value = false
+  }
+}
 
 defineExpose({
   reload: fetchData,
   add,
-  set,
+  set
 })
 </script>
 
@@ -263,24 +433,55 @@ defineExpose({
     }
   }
   :deep(.ant-tree) {
-    $treenodeHeight: 28px;
-
     height: 100%;
+    padding-right: 12px;
     overflow: auto;
 
-    .ant-tree-switcher {
-      line-height: $treenodeHeight;
+    &.ant-tree-directory .ant-tree-treenode:before {
+      top: 2px;
+      bottom: 2px;
     }
+
+    .ant-tree-indent-unit {
+      width: 16px;
+    }
+    .ant-tree-switcher {
+      line-height: 32px;
+    }
+
+    .ant-tree-drop-indicator {
+      bottom: 0 !important;
+      transform: translate(3px, -3px);
+    }
+
     .ant-tree-treenode {
+      overflow: hidden;
+      padding: 0;
+      &:not(.dragging) {
+        .ant-tree-node-selected {
+          .tree-title--name {
+            color: #fff !important;
+          }
+        }
+        .tree-title--name {
+          color: #7f7f7f;
+          @extend .ellipsis;
+          &.tree-node-level-0 {
+            color: #000;
+            font-weight: 600;
+          }
+          &.tree-node-level-1 {
+            color: #333;
+          }
+        }
+      }
+
       .ant-tree-node-content-wrapper {
         display: flex;
         width: 100%;
-        min-height: $treenodeHeight;
-        padding-left: 0;
         overflow: hidden;
-        & > * {
-          line-height: $treenodeHeight;
-        }
+        line-height: 32px;
+        padding: 0;
       }
       .ant-tree-title {
         flex: 1;
@@ -293,20 +494,18 @@ defineExpose({
     width: 100%;
     justify-content: space-between;
     align-items: center;
-    &--name {
-      flex: 1;
-      @extend .ellipsis;
-    }
+
     &--count {
       display: inline-block;
       min-width: 22px;
       height: 22px;
       line-height: 1;
       padding: 3px;
+      margin-right: 3px;
       background-color: #f2f2f2;
       border-radius: 10px;
       text-align: center;
-      color: initial;
+      color: #333;
     }
   }
 }

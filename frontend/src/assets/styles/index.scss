@@ -17,8 +17,14 @@ body {
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  font-family: Helvetica Neue, Helvetica, PingFang SC, Hiragino Sans GB,
-    Microsoft YaHei, Arial, sans-serif;
+  font-family:
+    Helvetica Neue,
+    Helvetica,
+    PingFang SC,
+    Hiragino Sans GB,
+    Microsoft YaHei,
+    Arial,
+    sans-serif;
 }
 
 #app {
@@ -29,4 +35,88 @@ body {
 *:before,
 *:after {
   box-sizing: inherit;
+}
+
+.sql-area {
+  display: block;
+  height: 100%;
+  margin: 0;
+  padding: 16px;
+  overflow: auto;
+  background-color: #000;
+  color: #fff;
+  font-weight: bold;
+  font-family: 'microsoft yahei';
+  font-size: 16px;
+  line-height: 28px;
+}
+
+.resize-theme-1.resize-container {
+  --triggerSize: 8px;
+  border: none !important;
+  .resize-handle::before {
+    opacity: 1;
+    background-color: #f7f7f7;
+  }
+  .resize-handle:hover {
+    &::before {
+      background-color: #b4b4ff;
+    }
+  }
+
+  .resize-handle-right,
+  .resize-handle-left {
+    height: 100%;
+    &::before {
+      height: 100%;
+    }
+    &::after {
+      width: 100%;
+      writing-mode: vertical-lr;
+    }
+  }
+  .resize-handle-top,
+  .resize-handle-bottom {
+    width: 100%;
+    &::before {
+      width: inherit;
+    }
+  }
+
+  .resize-handle-right,
+  .resize-handle-left,
+  .resize-handle-top,
+  .resize-handle-bottom {
+    &::after {
+      content: '···';
+      position: absolute;
+      line-height: var(--triggerSize, 12px);
+      text-align: center;
+      color: #666;
+      font-size: 16px;
+    }
+  }
+}
+
+.autoheight-input {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  right: 10px;
+  width: initial !important;
+  min-height: 32px;
+  height: 32px;
+  transition: height 0.2s !important;
+  resize: none;
+  &:focus {
+    height: 100px;
+    z-index: 1;
+  }
+}
+
+// 字段类型的联级选择器
+.field-dataType-cascader {
+  .ant-cascader-menu {
+    height: max-content;
+  }
 }

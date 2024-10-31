@@ -1,26 +1,41 @@
 ﻿<template>
   <div class="tools" :class="{ disabled: !hasDatasetAnalysis }">
     <p-a-space style="font-size: 14px">
-      <div class="btn run" :class="{ disabled: !hasDatasetAnalysis }" @click="run">
+      <div
+        class="btn run"
+        :class="{ disabled: !hasDatasetAnalysis }"
+        @click="run"
+      >
         <LoadingOutlined v-if="runLoading" />
         <PlayCircleTwoTone
           v-else
-          :two-tone-color="hasDatasetAnalysis ? '#1990ff' : '#ccc'" />
+          :two-tone-color="hasDatasetAnalysis ? '#1990ff' : '#ccc'"
+        />
       </div>
 
       <div
         style="margin-left: 12px"
         class="btn"
         :class="{ disabled: topNDisabled, active: topNActived }"
-        @click="topN">
+        @click="topN"
+      >
         topN
       </div>
 
       <div
         class="btn"
         :class="{ disabled: basisRatioDisabled, active: basisRatioActived }"
-        @click="basisRatio">
+        @click="basisRatio"
+      >
         同环比
+      </div>
+
+      <div
+        class="btn"
+        :class="{ disabled: sortsDisabled, active: sortsActived }"
+        @click="showSortsModal"
+      >
+        排序
       </div>
     </p-a-space>
 
@@ -30,13 +45,20 @@
         <b>{{ responseInfo.total }}</b> 行; 展示前
         <div class="custom-select small">
           <select
-            style="width: 80px; margin: 0 2px; padding-left: 4px; text-align: center"
+            style="
+              width: 80px;
+              margin: 0 2px;
+              padding-left: 4px;
+              text-align: center;
+            "
             v-model="queryTotal"
-            @change="onQueryTotalChange">
+            @change="onQueryTotalChange"
+          >
             <option
               v-for="opt in queryTotalOptions"
               :key="opt.value"
-              :value="opt.value">
+              :value="opt.value"
+            >
               {{ opt.label }}
             </option>
           </select>
@@ -46,13 +68,15 @@
 
       <DownloadOutlined
         class="btn icon"
-        :class="{ disabled: doanloadDisabled }"
-        @click="handleDownload" />
+        :class="{ disabled: downloadDisabled }"
+        @click="handleDownload"
+      />
 
       <HistoryOutlined
         class="btn icon"
         :class="{ disabled: !hasDatasetAnalysis, active: isHistoryMode }"
-        @click="toggleHistory()" />
+        @click="toggleHistory()"
+      />
     </p-a-space>
   </div>
 </template>
@@ -64,12 +88,20 @@ import {
   PlayCircleTwoTone,
   DownloadOutlined,
   HistoryOutlined,
-  LoadingOutlined,
+  LoadingOutlined
 } from '@ant-design/icons-vue'
 import { CATEGORY } from '@/CONST.dict'
-import { IS_NOT_NULL, IS_NULL, isTime_HHMMSS } from '@/views/dataset/config.field'
+import {
+  IS_NOT_NULL,
+  IS_NULL,
+  isTime_HHMMSS
+} from '@/views/dataset/config.field'
 import { postAnalysisQuery } from '@/apis/analysis'
-import { repeatIndex, sortDimension } from '@/views/analysis/utils'
+import {
+  repeatIndex,
+  sortDimension,
+  validateSummaryOptions
+} from '@/views/analysis/utils'
 import { getByIncludesKeys } from 'common/utils/help'
 import dayjs from 'dayjs'
 import { versionJs } from '@/versions'
@@ -77,9 +109,10 @@ import { toContrastFiled, queryTotalOptions } from '@/views/analysis/config'
 import {
   getStartDateStr,
   getEndDateStr,
+  isIncludeToday
 } from '@/common/components/DatePickers/utils'
 import { isRenderTable } from '../utils'
-import { isDateField } from '@/views/dataset/utils'
+import { isDateField, isDtField } from '@/views/dataset/utils'
 
 const emits = defineEmits([
   'run-loading',
@@ -88,6 +121,7 @@ const emits = defineEmits([
   'toggle-history',
   'basisRatio',
   'querySuccess',
+  'sorters'
 ])
 
 const {
@@ -100,7 +134,7 @@ const {
   topN: indexTopN,
   requestResponse: indexRequestResponse,
   permissions,
-  dashboardFilters: indexDashboardFilters,
+  dashboardFilters: indexDashboardFilters
 } = inject('index', {})
 
 // 数据集分析权限
@@ -113,9 +147,9 @@ const topNDisabled = computed(() => {
   return indexChoosed.get(CATEGORY.INDEX).length === 0
 })
 const topNActived = computed(() => {
-  const topN = indexTopN.get()
+  const { computeType = 'all', sortGroup, sortField } = indexTopN.get()
 
-  return !!topN.sortField
+  return (computeType === 'all' || !!sortGroup) && !!sortField
 })
 const topN = () => {
   if (topNDisabled.value) return
@@ -123,12 +157,29 @@ const topN = () => {
   emits('topN')
 }
 
+const getTopNPayload = () => {
+  const { computeType = 'all', sortGroup, sortField, ...res } = indexTopN.get()
+
+  if (computeType === 'all' && !!sortField)
+    return [{ computeType, sortField, ...res }]
+
+  if (computeType === 'group' && !!sortGroup && !!sortField)
+    return [{ computeType, sortGroup, sortField, ...res }]
+}
+
 // 同环比
 const basisRatioDisabled = computed(() => {
   const p = indexChoosed.get(CATEGORY.PROPERTY)
   const i = indexChoosed.get(CATEGORY.INDEX)
+  const f = indexChoosed.get(CATEGORY.FILTER)
 
-  return !p.some(toContrastFiled) || i.length === 0
+  if (renderType.value === 'statistic') {
+    return !f.some(isDtField)
+  } else {
+    return (
+      !p.some(toContrastFiled) || i.filter(t => !t.fastCompute).length === 0
+    )
+  }
 })
 const basisRatioActived = computed(() => {
   const compare = indexCompare.get() || {}
@@ -141,10 +192,10 @@ const basisRatio = () => {
   emits('basisRatio')
 }
 
-const doanloadDisabled = computed(() => {
+const downloadDisabled = computed(() => {
   const res = indexRequestResponse.get('response')
 
-  return res.status !== 'SUCCESS'
+  return res?.status !== 'SUCCESS'
 })
 
 // 查询条数配置
@@ -154,7 +205,7 @@ const queryTotal = computed({
   },
   set(val) {
     indexPaging.set('limit', val)
-  },
+  }
 })
 const onQueryTotalChange = () => {
   run()
@@ -163,7 +214,7 @@ const onQueryTotalChange = () => {
 // 历史记录
 const isHistoryMode = ref(false)
 const handleDownload = () => {
-  if (doanloadDisabled.value) return
+  if (downloadDisabled.value) return
 
   emits('download')
 }
@@ -180,7 +231,7 @@ const runLoading = ref(false)
 // 查询响应信息
 const responseInfo = reactive({
   elapsed: 0,
-  total: 0,
+  total: 0
 })
 
 /**
@@ -189,9 +240,24 @@ const responseInfo = reactive({
  */
 const transferChoosedFilters = filterItem => {
   const {
+    nested,
+    children = [],
+    tableFilter,
     dataType,
-    conditions: [cond1],
+    conditions: [cond1] = []
   } = filterItem
+
+  // 组合过滤
+  if (nested)
+    return {
+      ...filterItem,
+      tableFilter: {
+        ...tableFilter,
+        children: (tableFilter.children || []).map(transferChoosedFilters)
+      }
+    }
+  if (children.length)
+    return { ...filterItem, children: children.map(transferChoosedFilters) }
 
   if (!isDateField(filterItem)) return filterItem
 
@@ -202,18 +268,19 @@ const transferChoosedFilters = filterItem => {
     args[1] = getEndDateStr({ type: 'day', offset: _until.split('_')[1] })
   } else if (timeType === 'RELATIVE' && _this) {
     // 相对时间的本周、本月、上周、上月 再查询时需重新计算
-    const [tp, of = 0] = _this.split('_')
+    const [tp, of = 0, mode] = _this.split('_')
+    const isToday = isIncludeToday(mode)
     const sDate = getStartDateStr(
-      { type: tp.toLowerCase(), offset: +of },
+      { type: tp.toLowerCase(), offset: isToday ? +of + 1 : +of },
       timeOffset.value
     )
     const endDate = getEndDateStr(
-      { type: tp.toLowerCase(), offset: +of },
+      { type: tp.toLowerCase(), offset: isToday ? 0 : +of },
       timeOffset.value
     )
 
     args[0] = dayjs().startOf('day').diff(sDate, 'day')
-    args[1] = dayjs().endOf('day').diff(endDate, 'day')
+    args[1] = dayjs().startOf('day').diff(endDate, 'day')
   }
   return {
     ...filterItem,
@@ -222,9 +289,9 @@ const transferChoosedFilters = filterItem => {
         ...cond1,
         timeType: !!_until ? 'EXACT' : timeType,
         timeParts: isTime_HHMMSS(dataType) ? timeParts : undefined,
-        args,
-      },
-    ],
+        args
+      }
+    ]
   }
 }
 
@@ -242,11 +309,11 @@ const mergeDashbaordFilters = (filters = []) => {
   // 日期字段过滤未修改
   if (choosedDt && !choosedDt._dtChanged && dashboardDt) {
     const {
-      conditions: [cond1],
+      conditions: [cond1]
     } = dashboardDt
 
     const {
-      conditions: [cond2],
+      conditions: [cond2]
     } = choosedDt
 
     const { useLatestPartitionValue, timeType, args, _until } = cond1
@@ -260,7 +327,10 @@ const mergeDashbaordFilters = (filters = []) => {
       cond2.args = [...args]
       // 自某日至*，需要将动态时间转换为静态时间
       if (_until) {
-        cond2.args[1] = getEndDateStr({ type: 'day', offset: _until.split('_')[1] })
+        cond2.args[1] = getEndDateStr({
+          type: 'day',
+          offset: _until.split('_')[1]
+        })
       }
     }
   }
@@ -269,12 +339,57 @@ const mergeDashbaordFilters = (filters = []) => {
     ...choosedFilters,
     ...dashboardFilters
       .filter(t => t.name !== versionJs.ViewsDatasetModify.dtFieldName)
-      .map(t => ({ ...t, _from: 'dashboard' })),
+      .map(t => ({ ...t, _from: 'dashboard' }))
   ]
 }
 
 // 渲染类型
 const renderType = computed(() => indexOptions.get('renderType'))
+
+// 获取汇总参数
+const getSummaryPayload = () => {
+  // 非表格，不进行任何汇总
+  // if (!isRenderTable(renderType.value)) return
+
+  // 有快速计算时计算明细汇总和汇总行
+  const iList = indexChoosed.get(CATEGORY.INDEX)
+  if (iList.some(t => !!t.fastCompute)) {
+    return {
+      summary: true,
+      summaryDetail: true
+    }
+  }
+
+  // 是否显示汇总行
+  const { showSummary, summary = showSummary } = indexOptions.get('table')
+  const showRowSummary =
+    typeof summary === 'boolean'
+      ? summary
+      : Array.isArray(summary)
+        ? summary.length > 0
+        : summary.row.enable
+
+  // 明细表格只根据配置显示汇总行
+  if (renderType.value === 'table') {
+    return {
+      summary: showRowSummary || undefined
+    }
+  }
+
+  // 分组表格和交叉表格
+  const pList = indexChoosed.get(CATEGORY.PROPERTY)
+  // 行分组
+  const rowPList = pList.filter(t => t._group !== 'column')
+  return {
+    summary: showRowSummary || undefined,
+    summaryDetail:
+      renderType.value === 'intersectionTable' || rowPList.length > 1
+        ? true
+        : undefined
+  }
+}
+
+const isIndexCardMode = computed(() => renderType.value === 'statistic')
 
 const run = async from => {
   if (!hasDatasetAnalysis.value) return
@@ -283,6 +398,11 @@ const run = async from => {
 
   try {
     toggleHistory(false)
+
+    // 校验配置参数
+    if (!validateSummaryOptions(indexOptions.get())) {
+      return
+    }
 
     runLoading.value = true
     emits('run-loading', true)
@@ -293,6 +413,11 @@ const run = async from => {
     }
 
     const choosedAllMap = indexChoosed.get()
+    // 指标可移除分组，指标只能有一个
+    if (isIndexCardMode.value) {
+      delete choosedAllMap[CATEGORY.PROPERTY]
+      choosedAllMap[CATEGORY.INDEX] = choosedAllMap[CATEGORY.INDEX].slice(0, 1)
+    }
 
     const _nameTs = map => {
       return Object.keys(map).reduce(
@@ -303,6 +428,11 @@ const run = async from => {
 
     // 同环比
     const compare = indexCompare.get()
+    // 指标卡同环比移除对比维度
+    if (isIndexCardMode.value) {
+      delete compare?.dimensions
+    }
+
     // 校验选中
     if (!validateChoosed(choosedAllMap)) {
       return
@@ -321,23 +451,22 @@ const run = async from => {
     const choosedPayload = _nameTs(requiredKeysTransformed)
 
     // topN indexTopN.get()
-    let sorts = indexTopN.get()
-    sorts = !!sorts.sortField ? [{ ...sorts }] : undefined
+    const sorts = getTopNPayload()
 
     // 查询分页
     const paging = indexPaging.get()
 
-    // 表格参数
-    const tableOptions = indexOptions.get('table')
+    // 汇总参数
+    const summary = isIndexCardMode.value ? undefined : getSummaryPayload()
 
-    const paylaod = {
+    const payload = {
       datasetId: dataset.value.id,
       fromSource: 'temporary', // dashboard 从看板查询, report 保存图表查询, temporary 临时查询
-      summary: true, // 快速计算占比需要使用到汇总值，查询默认使用汇总
+      ...summary, // 快速计算占比需要使用到汇总值，查询默认使用汇总
       compare,
       sorts,
       paging,
-      ...choosedPayload,
+      ...choosedPayload
     }
     // type: // QUERY 查询, TOTAL 查询条数, SINGLE_FIELD 枚举值, RATIO 同环比 , PREVIEW 预览
 
@@ -345,8 +474,8 @@ const run = async from => {
     Promise.resolve().then(async () => {
       // 查询条数
       const { rows = 0 } = await postAnalysisQuery({
-        ...paylaod,
-        type: 'TOTAL',
+        ...payload,
+        type: 'TOTAL'
       })
       const total = rows[0]?.[0] ?? 0
 
@@ -355,7 +484,7 @@ const run = async from => {
     // 同环比
     const IS_RATIO = Object.keys(compare || {}).length > 0
 
-    const queryPayload = { ...paylaod, type: IS_RATIO ? 'RATIO' : 'QUERY' }
+    const queryPayload = { ...payload, type: IS_RATIO ? 'RATIO' : 'QUERY' }
     // 查询数据
     const res = await postAnalysisQuery(queryPayload)
 
@@ -367,7 +496,7 @@ const run = async from => {
 
     emits('querySuccess', {
       request: queryPayload,
-      response: res,
+      response: res
     })
   } catch (error) {
     console.error('图表分析错误', error)
@@ -386,7 +515,7 @@ const validateChoosed = (choosed = {}) => {
   const choosedIndex = choosed[CATEGORY.INDEX]
 
   // 无指标，无维度
-  if (!choosedProperty.length && !choosedIndex.length) {
+  if (!choosedProperty?.length && !choosedIndex.length) {
     message.warn('请拖入分析字段')
 
     return false
@@ -424,6 +553,9 @@ const validateChoosed = (choosed = {}) => {
 // 校验过滤条件
 const validateFilter = (filters = []) => {
   const unValidatedWithEmpty = filters.some(item => {
+    // 组个过滤校验
+    if (item.nested) return !item.tableFilter
+
     return (
       !item.conditions.length ||
       item.conditions?.some(t => {
@@ -456,13 +588,16 @@ const transformChoosed = (choosedMap = {}) => {
     indexChoosed.remove(item)
   })
   // 维度分组排序
-  const dimensionSorted = sortDimension(choosedMap[CATEGORY.PROPERTY], true)
+  const dimensionSorted = sortDimension(
+    choosedMap[CATEGORY.PROPERTY],
+    renderType.value === 'intersectionTable'
+  )
 
   return {
     // ...choosedMap,
     [CATEGORY.PROPERTY]: dimensionSorted,
     [CATEGORY.INDEX]: indexRepeated,
-    [CATEGORY.FILTER]: mergeDashbaordFilters(choosedMap[CATEGORY.FILTER]),
+    [CATEGORY.FILTER]: mergeDashbaordFilters(choosedMap[CATEGORY.FILTER])
   }
 }
 // 提取字段需要的参数
@@ -477,8 +612,9 @@ const transformRequiredKeys = (choosedMap = {}) => {
         'dateTrunc',
         'firstDayOfWeek',
         'viewModel',
-        '_group', // 行维度、列维度
+        isRenderTable(renderType.value) ? '_group' : undefined, // 行维度、列维度
         '_weekStart', // 周显示的起始日
+        '_monthStart' // 月显示的起始日
       ])
     ),
     [CATEGORY.INDEX]: choosedMap[CATEGORY.INDEX].map(t =>
@@ -489,8 +625,9 @@ const transformRequiredKeys = (choosedMap = {}) => {
         'dataType',
         'aggregator',
         '_modifyDisplayName', // 重命名
-        '_quick', // 指标快速计算
         '_quantile', // 自定义分位数
+        '_formatter', // 格式化
+        'fastCompute' // 快速计算
       ])
     ),
     [CATEGORY.FILTER]: choosedMap[CATEGORY.FILTER].map(t =>
@@ -502,9 +639,44 @@ const transformRequiredKeys = (choosedMap = {}) => {
         'having',
         'conditions',
         '_from', // 用作过滤从看板过来的筛选项
+        'displayName',
+        'nested',
+        'tableFilter'
       ])
-    ),
+    )
   }
+}
+
+// 排序
+const sortsDisabled = computed(
+  () => renderType.value === 'pie' || renderType.value === 'statistic'
+)
+
+// 排序设置高亮
+const sortsActived = computed(() => {
+  const { sorters, table, renderType } = indexOptions.get()
+
+  if (sorters) {
+    const sorts = sorters[renderType] || []
+    if (
+      renderType === 'intersectionTable' ||
+      renderType === 'bar' ||
+      renderType === 'line'
+    ) {
+      const { row = [], column = [] } = sorts
+      return !![...row, ...column].length
+    } else {
+      return !!sorts.length
+    }
+  } else {
+    const { field, order } = table.sorter
+    return field && order
+  }
+})
+const showSortsModal = () => {
+  if (sortsDisabled.value) return
+
+  emits('sorters')
 }
 </script>
 

@@ -9,14 +9,16 @@
       ref="formRef"
       :model="formState"
       :rules="formRules"
-      :label-col="{ style: { width: '100px' } }">
+      :label-col="{ style: { width: '100px' } }"
+    >
       <a-form-item class="item" label="筛选类型">
         <a-select
           size="small"
           style="width: 120px"
           :options="filterTypeOptions"
           :value="formState.filterType"
-          @change="onFilterTypeChange"></a-select>
+          @change="onFilterTypeChange"
+        ></a-select>
         <a-checkbox
           style="margin-left: 10px"
           v-model:checked="formState.required"
@@ -31,20 +33,25 @@
       </a-form-item>
 
       <a-form-item
-        v-if="formState.filterType === 'TEXT' || formState.filterType === 'NUMBER'"
+        v-if="
+          formState.filterType === 'TEXT' || formState.filterType === 'NUMBER'
+        "
         class="item"
-        label="筛选方式">
+        label="筛选方式"
+      >
         <a-radio-group
           :options="filterMethodsOptions"
           v-model:value="formState.filterMethod"
-          @change="onFilterMethodChange">
+          @change="onFilterMethodChange"
+        >
         </a-radio-group>
       </a-form-item>
 
       <a-form-item
         v-if="formState.filterType === 'ENUM'"
         class="item"
-        label="枚举值来源">
+        label="枚举值来源"
+      >
         <a-radio-group v-model:value="formState.enumResourceType">
           <a-radio value="AUTO">自动解析</a-radio>
           <a-radio value="MANUAL">手工录入</a-radio>
@@ -53,7 +60,8 @@
         <EnumResource
           v-if="formState.enumResourceType === 'MANUAL'"
           :dataSource="formState.enumList_input"
-          @ok="onEnumInputOk">
+          @ok="onEnumInputOk"
+        >
           <a>输入枚举值</a>
         </EnumResource>
       </a-form-item>
@@ -63,7 +71,8 @@
           <a-form-item-rest>
             <a-checkbox
               v-model:checked="formState.setDefault"
-              @change="onDefaultChange">
+              @change="onDefaultChange"
+            >
               设置默认值
             </a-checkbox>
           </a-form-item-rest>
@@ -74,7 +83,8 @@
             size="small"
             from="setting"
             :item="formState"
-            v-model:value="formState.value" />
+            v-model:value="formState.value"
+          />
         </div>
       </a-form-item>
     </a-form>
@@ -93,8 +103,8 @@ const defaultValueItem = { operator: RELATION.EQUAL, value: '' }
 const props = defineProps({
   item: {
     type: Object,
-    default: () => ({}),
-  },
+    default: () => ({})
+  }
 })
 
 // 表单数据
@@ -109,7 +119,9 @@ const valueValidator = rule => {
 
   // 日期筛选
   if (filterType === 'TIME') {
-    return value?.date?.length ? Promise.resolve() : Promise.reject(errorMessage)
+    return value?.date?.length
+      ? Promise.resolve()
+      : Promise.reject(errorMessage)
   }
 
   // 文本\数值
@@ -131,9 +143,9 @@ const formRules = {
     {
       required: formState.value.required,
       message: '请输入默认值',
-      validator: valueValidator,
-    },
-  ],
+      validator: valueValidator
+    }
+  ]
 }
 
 // 筛选类型改变
@@ -151,7 +163,8 @@ const onFilterTypeChange = type => {
 
   // 枚举需要设置枚举值来源
   if (type === 'ENUM') {
-    formState.value.enumResourceType = formState.value.enumResourceType ?? 'AUTO'
+    formState.value.enumResourceType =
+      formState.value.enumResourceType ?? 'AUTO'
     formState.value.value = []
   }
 
@@ -192,7 +205,7 @@ const onEnumInputOk = (listStr = '[]') => {
 
   formState.value.enumList = formState.value.enumList_input = list.map(v => ({
     label: v.desc,
-    value: v.name,
+    value: v.name
   }))
 }
 
@@ -234,8 +247,8 @@ const setTextNumberValue = reset => {
   const first = reset
     ? { ...defaultValueItem }
     : value[0]
-    ? { ...value[0] }
-    : { ...defaultValueItem }
+      ? { ...value[0] }
+      : { ...defaultValueItem }
 
   if (filterMethod === RELATION.OR || filterMethod === RELATION.AND) {
     formState.value.value = [first, { ...defaultValueItem }]
@@ -246,6 +259,8 @@ const setTextNumberValue = reset => {
 
 const formRef = ref(null)
 const validate = async e => {
+  if (!formRef.value) return true
+
   return formRef.value
     .validate()
     .then(() => {

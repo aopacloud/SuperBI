@@ -4,7 +4,8 @@
     :class="['tag', hasColor && 'has-color']"
     :data-id="tag._id"
     :data-color="color"
-    :style="style">
+    :style="style"
+  >
     <div v-if="!showPopover" class="tag-name">
       <slot>{{ tag }}</slot>
     </div>
@@ -14,8 +15,10 @@
         trigger="click"
         :overlayStyle="dropdownOverlayStyle"
         :overlayClassName="category + '-dropdown'"
-        v-model:open="open">
-        <div class="tag-dropdown--trigger" :class="{ open: open }">
+        v-model:open="dropdownOpen"
+        @openChange="onBlur"
+      >
+        <div class="tag-dropdown--trigger" :class="{ open: dropdownOpen }">
           <div class="tag-name">
             <slot>{{ tag }}</slot>
           </div>
@@ -26,12 +29,14 @@
             </span>
             <span
               v-else-if="category === CATEGORY.INDEX"
-              :title="displayIndexAggregator(tag)">
+              :title="displayIndexAggregator(tag)"
+            >
               {{ displayIndexAggregator(tag) }}
             </span>
             <span
               v-else-if="category === CATEGORY.FILTER"
-              :title="displayFilter(tag, { timeOffset })">
+              :title="displayFilter(tag, { timeOffset })"
+            >
               {{ displayFilter(tag, { timeOffset }) }}
             </span>
           </div>
@@ -40,8 +45,12 @@
             v-if="category === CATEGORY.FILTER"
             class="tag-trigger--filter-icon"
             :class="{
-              active: isDate || (tag.conditions && tag.conditions.length),
-            }" />
+              active:
+                (isNested && !!tag.tableFilter) ||
+                isDate ||
+                (tag.conditions && tag.conditions.length)
+            }"
+          />
           <DownOutlined v-else class="tag-trigger--icon" />
         </div>
 
@@ -52,12 +61,17 @@
             :dataset="dataset"
             :field="tag"
             :timeOffset="timeOffset"
-            v-model:open="open" />
+            v-model:open="dropdownOpen"
+          />
         </template>
       </a-dropdown>
     </template>
 
-    <CloseOutlined v-if="isTagRemovable" @click="handlRemove" class="tag-remove" />
+    <CloseOutlined
+      v-if="isTagRemovable"
+      @click="handlRemove"
+      class="tag-remove"
+    />
   </div>
 </template>
 
@@ -65,14 +79,13 @@
 import { computed, onMounted, inject, ref } from 'vue'
 import {
   CloseOutlined,
-  ArrowDownOutlined,
   DownOutlined,
-  FilterOutlined,
+  FilterOutlined
 } from '@ant-design/icons-vue'
 import PropertyDropdown from './PropertyDropdown.vue'
 import IndexDropdown from './IndexDropdown.vue'
-import FilterDropdown from './Filter/index.vue'
-import { displayFilter } from './Filter/utils'
+import FilterDropdown from '@/components/Filter/index.vue'
+import { displayFilter as _displayFilter } from '@/components/Filter/utils'
 import { CATEGORY } from '@/CONST.dict.js'
 import {
   summaryOptions,
@@ -83,33 +96,37 @@ import {
   SUMMARY_INDEX_DEFAULT,
   operatorMap,
   QUANTILE_PREFIX,
-  summaryQuantile,
+  summaryQuantile
 } from '@/views/dataset/config.field'
 import { isDateField } from '@/views/dataset/utils'
 import {
   dateGroupOptions,
   dateGroupOptions_HHMMSS,
-  GROUP_MINUTE,
+  GROUP_MINUTE
 } from '@/views/analysis/config'
-import { getStartDateStr, getEndDateStr } from 'common/components/DatePickers/utils'
+import {
+  getStartDateStr,
+  getEndDateStr
+} from 'common/components/DatePickers/utils'
 import dayjs from 'dayjs'
 
 const props = defineProps({
   dataset: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
   category: {
     type: String,
-    default: CATEGORY.PROPERTY,
+    default: CATEGORY.PROPERTY
   },
   tag: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
   color: {
-    type: String,
+    type: String
   },
+  open: Boolean
 })
 
 const { timeOffset } = inject('index')
@@ -117,7 +134,7 @@ const { timeOffset } = inject('index')
 const hasColor = computed(() => !!props.color)
 const style = computed(() => {
   return {
-    backgroundColor: props.color,
+    backgroundColor: props.color
   }
 })
 
@@ -128,63 +145,43 @@ const dropdownOverlayStyle = computed(() => {
   const isF = c === CATEGORY.FILTER
 
   return {
-    width: isP ? '140px' : isI ? '170px' : '',
-    minWidth: 'initial',
+    width: isP ? '140px' : isI ? '200px' : '',
+    minWidth: 'initial'
   }
 })
 
 const showPopover = computed(() => {
-  return (
-    (props.category === CATEGORY.PROPERTY && props.tag.dataType?.includes('TIME')) ||
-    props.category === CATEGORY.INDEX ||
-    props.category === CATEGORY.FILTER
-  )
+  return true
+
+  // return (
+  //   (props.category === CATEGORY.PROPERTY && props.tag.dataType?.includes('TIME')) ||
+  //   props.category === CATEGORY.INDEX ||
+  //   props.category === CATEGORY.FILTER
+  // )
 })
 const renderView = computed(() => {
   return props.category === CATEGORY.PROPERTY
     ? PropertyDropdown
     : props.category === CATEGORY.INDEX
-    ? IndexDropdown
-    : FilterDropdown
+      ? IndexDropdown
+      : FilterDropdown
 })
 
 const isTagRemovable = computed(() => {
   return props.tag._forced !== true
 })
 
+const isNested = computed(() => props.tag.nested)
+
 // 日期筛选
-const isDate = computed(() => props.tag.dataType.includes('TIME'))
+const isDate = computed(
+  () => !isNested.value && props.tag.dataType.includes('TIME')
+)
 
 const getOffsetByDate = date => {
   const offset = dayjs().diff(date, 'day')
 
   return [offset, offset]
-}
-
-// 处理日期过滤的参数
-const handleDateFilterConditions = (conditions = []) => {
-  return conditions.map(t => {
-    if (t._this && t.timeType === 'RELATIVE') {
-      const [tp, of = 0] = t._this.split('_')
-      const s = getStartDateStr(
-        { type: tp.toLowerCase(), offset: +of },
-        timeOffset.value
-      )
-      const e = getEndDateStr(
-        { type: tp.toLowerCase(), offset: +of },
-        timeOffset.value
-      )
-      const sDiff = dayjs().startOf('day').diff(s, 'day')
-      const eDiff = dayjs().endOf('day').diff(e, 'day')
-
-      return {
-        ...t,
-        args: [sDiff, eDiff],
-      }
-    } else {
-      return t
-    }
-  })
 }
 
 // 初始化过滤条件
@@ -197,11 +194,16 @@ const initFieldFilter = () => {
     logical = 'AND',
     having = false,
     conditions = [],
+    nested
   } = props.tag
+
+  if (nested) return
 
   const { force, filters: forcedFilter = [] } = props.dataset.extraConfig
 
-  const forcedItem = force ? forcedFilter.find(t => t.name === props.tag.name) : null
+  const forcedItem = force
+    ? forcedFilter.find(t => t.name === props.tag.name)
+    : null
   if (forcedItem) {
     props.tag.filterMode = forcedItem.filterMode
     props.tag._forced = true
@@ -217,8 +219,8 @@ const initFieldFilter = () => {
             timeType: 'RELATIVE', // 时间字段的筛选类型， EXACT 精确时间， RELATIVE 相对时间
             args: _latestPartitionValue
               ? getOffsetByDate(_latestPartitionValue)
-              : [],
-          },
+              : []
+          }
         ]
   } else {
     props.tag.filterType = filterType
@@ -242,7 +244,7 @@ onMounted(() => {
     initFieldFilter()
 
     if (props.tag.autoPopover) {
-      open.value = true
+      dropdownOpen.value = true
     }
   } else {
     if (props.category === CATEGORY.INDEX && !props.tag.aggregator) {
@@ -263,8 +265,8 @@ const getSummaryOptions = (category, dataType) => {
     const summary = isTextOrTime
       ? propertyTextSummaryOptions
       : isNumber
-      ? propertyNumberSummaryOptions
-      : []
+        ? propertyNumberSummaryOptions
+        : []
 
     result = propertySummaryOptions.concat(summary)
   }
@@ -295,7 +297,8 @@ const displayIndexAggregator = field => {
   const item = options.find(t => {
     if (t.value === aggregator) return true
 
-    if (aggregator.startsWith(QUANTILE_PREFIX)) return t.value === QUANTILE_PREFIX
+    if (aggregator.startsWith(QUANTILE_PREFIX))
+      return t.value === QUANTILE_PREFIX
 
     return false
   })
@@ -303,6 +306,14 @@ const displayIndexAggregator = field => {
 
   const [_, number] = aggregator.split(item.value)
   return number + item.label
+}
+
+const displayFilter = (tag, ...e) => {
+  if (tag.category === CATEGORY.FILTER && tag.nested) {
+    return
+  }
+
+  return _displayFilter(tag, ...e)
 }
 
 // 所有的操作符
@@ -313,7 +324,24 @@ const handlRemove = () => {
   emits('remove', props.tag)
 }
 
-const open = ref(false)
+const dropdownOpen = ref(false)
+
+const { getCustomFormatter } = inject('contentHeader')
+const customFormatter = computed(() => getCustomFormatter())
+
+const onBlur = () => {
+  if (customFormatter.value.open) {
+    dropdownOpen.value = true
+  }
+}
+
+// 自定义格式完成，关闭下拉框的显示
+watch(
+  () => customFormatter.value.open,
+  e => {
+    if (!e) dropdownOpen.value = false
+  }
+)
 </script>
 
 <style lang="scss" scoped>

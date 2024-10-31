@@ -7,7 +7,8 @@
     :title="null"
     :keyboard="false"
     :closable="false"
-    :maskClosable="false">
+    :maskClosable="false"
+  >
     <template #title>
       <a-button
         type="text"
@@ -26,7 +27,8 @@
           allow-clear
           v-model:value="keyword"
           @input="e => onKeywordInput(e.target.value)"
-          @search="onSearch" />
+          @search="onSearch"
+        />
       </div>
     </template>
 
@@ -41,14 +43,21 @@
       :scroll="{ x: 1200, y: 'auto' }"
       :row-class-name="setRowClassName"
       @change="onTableChange"
-      @showSizeChange="onShowSizeChange">
+      @showSizeChange="onShowSizeChange"
+    >
       <template #bodyCell="{ text, column, record }">
         <template v-if="column.dataIndex === 'name'">
-          <a-dropdown v-if="column.dataIndex === 'name'" :trigger="['contextmenu']">
+          <a-dropdown
+            v-if="column.dataIndex === 'name'"
+            :trigger="['contextmenu']"
+          >
             <a
               class="row--name"
-              :href="hasReadPermission(record) ? getPreviewlHref(record) : undefined"
-              target="_blank">
+              :href="
+                hasReadPermission(record) ? getPreviewlHref(record) : undefined
+              "
+              target="_blank"
+            >
               {{ text }}
             </a>
             <template
@@ -57,7 +66,8 @@
                 hasReadPermission(record) ||
                 hasWritePermission(record) ||
                 hasManagePermission(record)
-              ">
+              "
+            >
               <a-menu @click="e => onMeunClick(e, record)">
                 <template v-if="hasReadPermission(record)">
                   <a-menu-item key="_self">当前页面打开</a-menu-item>
@@ -69,7 +79,10 @@
                 </a-menu-item>
 
                 <template v-if="hasManagePermission(record)">
-                  <a-menu-item key="publish" v-if="record.status === 'UN_PUBLISH'">
+                  <a-menu-item
+                    key="publish"
+                    v-if="record.status === 'UN_PUBLISH'"
+                  >
                     发布
                   </a-menu-item>
                   <a-menu-item key="offline" v-if="record.status === 'ONLINE'">
@@ -84,7 +97,11 @@
 
         <template v-if="column.dataIndex === 'folder'">
           <span v-if="!text">-</span>
-          <a v-else style="color: inherit" @click="openWindowWithParams(record)">
+          <a
+            v-else
+            style="color: inherit"
+            @click="openWindowWithParams(record)"
+          >
             {{ text.absolutePath }}
           </a>
         </template>
@@ -97,7 +114,8 @@
                 type="text"
                 :style="{ color: record.favorite ? '#e6a23c' : '' }"
                 :icon="h(record.favorite ? StarFilled : StarOutlined)"
-                @click="favor(record)" />
+                @click="favor(record)"
+              />
             </a-tooltip>
 
             <a-tooltip v-if="hasWritePermission(record)" title="编辑">
@@ -105,7 +123,8 @@
                 size="small"
                 type="text"
                 :icon="h(EditOutlined)"
-                @click="edit(record)" />
+                @click="edit(record)"
+              />
             </a-tooltip>
 
             <a-dropdown v-if="hasManagePermission(record)" trigger="click">
@@ -119,17 +138,29 @@
 
                   <template v-if="hasManagePermission(record)">
                     <a-menu-item key="share">共享</a-menu-item>
-                    <a-menu-item key="publish" v-if="record.status === 'UN_PUBLISH'">
+                    <a-menu-item
+                      key="publish"
+                      v-if="record.status === 'UN_PUBLISH'"
+                    >
                       发布
                     </a-menu-item>
-                    <a-menu-item key="offline" v-if="record.status === 'ONLINE'">
+                    <a-menu-item
+                      key="offline"
+                      v-if="record.status === 'ONLINE'"
+                    >
                       下线
                     </a-menu-item>
-                    <a-menu-item key="online" v-if="record.status === 'OFFLINE'">
+                    <a-menu-item
+                      key="online"
+                      v-if="record.status === 'OFFLINE'"
+                    >
                       上线
                     </a-menu-item>
                     <ViewsDashboardActionDropdownMenuItemPushSetting />
-                    <a-menu-item key="delete" style="color: red">删除</a-menu-item>
+                    <a-menu-item key="transfer">移交</a-menu-item>
+                    <a-menu-item key="delete" style="color: red">
+                      删除
+                    </a-menu-item>
                   </template>
                 </a-menu>
               </template>
@@ -147,12 +178,23 @@
   <MoveDrawer
     v-model:open="moveDrawerOpen"
     :init-data="rowInfo"
-    :init-params="{ position: 'DASHBOARD', type: 'ALL', workspaceId }" />
+    :init-params="{ position: 'DASHBOARD', type: 'ALL', workspaceId }"
+  />
 
   <!-- 推送设置 -->
   <ViewsDashboardPushSettingDrawer
     v-model:open="pushSettingDrawerOpen"
-    :initData="rowInfo" />
+    :initData="rowInfo"
+  />
+
+  <!-- 移交 -->
+  <TransferModal
+    resourceType="DASHBOARD"
+    :initData="rowInfo"
+    v-model:open="transferDrawerOpen"
+    @close="rowInfo = {}"
+    @ok="onTransferOk"
+  />
 </template>
 
 <script setup>
@@ -162,7 +204,7 @@ import {
   StarFilled,
   StarOutlined,
   EditOutlined,
-  MoreOutlined,
+  MoreOutlined
 } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import { tableColumns } from './config'
@@ -171,13 +213,14 @@ import ShareDrawer from './components/ShareDrawer.vue'
 import { MoveDrawer } from '@/components/DirTree'
 import useAppStore from '@/store/modules/app'
 import useUserStore from '@/store/modules/user'
-import useMenus from './useMenus.js'
+import useMenus from './useMenus'
 import { UIStyle } from '@/settings'
 import { versionVue } from '@/versions'
+import TransferModal from '@/components/TransferModal/index.vue'
 
 const {
   ViewsDashboardActionDropdownMenuItemPushSetting,
-  ViewsDashboardPushSettingDrawer,
+  ViewsDashboardPushSettingDrawer
 } = versionVue
 
 const {
@@ -189,7 +232,7 @@ const {
   publish,
   offline,
   online,
-  del,
+  del
 } = useMenus()
 
 const appStore = useAppStore()
@@ -200,12 +243,12 @@ const workspaceId = computed(() => appStore.workspaceId)
 const emits = defineEmits(['update:open', 'close'])
 const props = defineProps({
   open: {
-    type: Boolean,
+    type: Boolean
   },
   initParams: {
     type: Object,
-    default: () => ({}),
-  },
+    default: () => ({})
+  }
 })
 
 // 查看权限
@@ -306,9 +349,9 @@ const columns = computed(() => {
     {
       title: '文件夹路径',
       dataIndex: 'folder',
-      width: 150,
+      width: 150
     },
-    ...res,
+    ...res
   ]
 })
 const list = ref([])
@@ -317,7 +360,7 @@ const pager = reactive({
   pageSize: 20,
   total: 0,
   showSizeChanger: true,
-  showQuickJumper: true,
+  showQuickJumper: true
 })
 
 const queryParams = computed(() => {
@@ -329,7 +372,7 @@ const queryParams = computed(() => {
     pageNum,
     pageSize,
     keyword: kw,
-    folderType: 'ALL',
+    folderType: 'ALL'
   }
 })
 const fetchData = async () => {
@@ -393,8 +436,11 @@ const onMeunClick = ({ key }, row) => {
     case 'move':
       move(row)
       break
-    case 'setting':
+    case 'pushSetting':
       setting(row)
+      break
+    case 'transfer':
+      transfer(row)
       break
     default:
   }
@@ -422,6 +468,16 @@ const pushSettingDrawerOpen = ref(false)
 const setting = row => {
   rowInfo.value = { ...row }
   pushSettingDrawerOpen.value = true
+}
+
+// 移交
+const transferDrawerOpen = ref(false)
+const transfer = row => {
+  rowInfo.value = { ...row }
+  transferDrawerOpen.value = true
+}
+const onTransferOk = () => {
+  fetchList()
 }
 </script>
 

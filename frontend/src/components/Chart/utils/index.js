@@ -1,19 +1,29 @@
-import { formatterOptions } from '@/views/dataset/config.field'
+import {
+  formatterOptions,
+  FORMAT_DEFAULT_CODE
+} from '@/views/dataset/config.field'
 import {
   ratioOptions,
   dateGroupTypeMap,
   DEFAULT_RATIO_TYPE,
   DEFAULT_WEEK_DISPLAY,
   DEFAULT_DAY_DISPLAY,
+  DEFAULT_MONTH_DISPLAY,
   DEFAULT_DATE_GROUP,
   GROUP_WEEK,
   GROUP_DAY,
   GROUP_HOUR,
   GROUP_MINUTE,
+  GROUP_MONTH
 } from '@/views/analysis/config'
+import {
+  listDataToTreeByKeys,
+  displayQuickCalculateValue
+} from '../Table/utils'
 import dayjs from 'dayjs'
 import quarterOfYear from 'dayjs/plugin/quarterOfYear'
 import weekday from 'dayjs/plugin/weekday'
+import { CATEGORY } from '@/CONST.dict'
 dayjs.extend(quarterOfYear)
 dayjs.extend(weekday)
 
@@ -28,9 +38,17 @@ export const is_vs = (key = '') => key.includes(VS_FIELD_SUFFIX)
  * @param {Number | String} value 值
  * @param {Object} field 指标字段
  * @param {Array} originFields 所有字段
+ * @param {Array} formatters 格式化数据
+ * @param {Function} cb 自定义格式化
  * @returns
  */
-export function formatFieldDisplay(value = 0, field, datasetFields) {
+export function formatFieldDisplay(
+  value = 0,
+  field,
+  datasetFields,
+  formatters = [],
+  cb
+) {
   if (!field) {
     console.warn('field 为空')
 
@@ -39,47 +57,30 @@ export function formatFieldDisplay(value = 0, field, datasetFields) {
 
   // 获取原始字段
   const originField = datasetFields.find(t => t.name === field.name)
-
   if (!originField) {
     console.warn(`找不到${field}的原始字段`)
-
     return value
   }
-  const { dataFormat, customFormatConfig = '{}' } = originField
 
-  let func = formatterOptions.find(v => v.value == dataFormat)?.format
-  if (!func) func = s => s
-
-  return func(value, JSON.parse(customFormatConfig))
-}
-
-/**
- * 根据排序字段创建排序方法
- * @param {boolean} isUp 是否升序
- * @param {string|number} prop 排序字段
- * @returns
- */
-export function createSortByOrder(isUp = false, prop) {
-  const isDate = e => isNaN(e) && !isNaN(Date.parse(e))
-
-  return function (a, b) {
-    const aV = typeof prop !== 'undefined' ? a[prop] : a
-    const bV = typeof prop !== 'undefined' ? b[prop] : b
-
-    if (typeof aV === 'string') {
-      if (isDate(aV)) {
-        return isUp
-          ? new Date(aV).getTime() - new Date(bV).getTime()
-          : new Date(bV).getTime() - new Date(aV).getTime()
-      } else {
-        let aa = aV || '',
-          bb = bV || ''
-        return isUp ? aa.localeCompare(bb) : bb.localeCompare(aa)
-      }
-    } else {
-      return isUp ? aV - bV : bV - aV
+  const fieldName = field.name + '.' + field.aggregator
+  let formatItem = formatters.find(t => t.field === fieldName)
+  if (!formatItem || formatItem.code === FORMAT_DEFAULT_CODE) {
+    formatItem = {
+      code: originField.dataFormat,
+      config: originField.customFormatConfig || '{}'
     }
   }
+
+  if (typeof cb === 'function') {
+    const r = cb(value, formatItem)
+
+    if (r) return r
+  }
+
+  let item = formatterOptions.find(v => v.value == formatItem.code)
+  if (!item) return value
+
+  return item.format(value, formatItem.config)
 }
 
 /**
@@ -91,7 +92,9 @@ export function createSortByOrder(isUp = false, prop) {
 export const transformFieldsByVs = ({ fields = [], compare = {} }) => {
   const _getOptions2 = (ratioType = DEFAULT_RATIO_TYPE, timeField) => {
     const { dateTrunc = DEFAULT_DATE_GROUP } = timeField
-    const _dateTrunc = dateTrunc.startsWith(GROUP_MINUTE) ? GROUP_MINUTE : dateTrunc
+    const _dateTrunc = dateTrunc.startsWith(GROUP_MINUTE)
+      ? GROUP_MINUTE
+      : dateTrunc
 
     return dateGroupTypeMap[_dateTrunc][ratioType] || []
   }
@@ -104,7 +107,7 @@ export const transformFieldsByVs = ({ fields = [], compare = {} }) => {
     const {
       aggregator,
       ratioType = type || DEFAULT_RATIO_TYPE, // 兼容历史及兜底
-      period = _getOptions2(ratioType, tField)[0]?.['value'],
+      period = _getOptions2(ratioType, tField)[0]?.['value']
     } = t
 
     return {
@@ -112,7 +115,7 @@ export const transformFieldsByVs = ({ fields = [], compare = {} }) => {
       ratioType,
       period,
       renderValue:
-        t.name + '.' + aggregator + VS_FIELD_SUFFIX + ratioType + '.' + period,
+        t.name + '.' + aggregator + VS_FIELD_SUFFIX + ratioType + '.' + period
     }
   })
 
@@ -140,13 +143,13 @@ export const transformFieldsByVs = ({ fields = [], compare = {} }) => {
         optItem.label +
         (periodItem ? '(' + periodItem.label + ')' : '')
 
-      item._quick = undefined // 同环比列不参与快速计算，合并列时单独处理
+      item.fastCompute = undefined
     }
 
     return {
       ...item,
       displayName: newDisplayName,
-      _isVs: !!mField,
+      _isVs: !!mField
     }
   })
 }
@@ -158,7 +161,7 @@ const WEEK_MAP = {
   3: '三',
   4: '四',
   5: '五',
-  6: '六',
+  6: '六'
 }
 /**
  * 根据配置显示日期
@@ -167,36 +170,42 @@ const WEEK_MAP = {
  * @returns {string}
  */
 export const formatDtWithOption = (value, field) => {
-  const { dateTrunc = '', firstDayOfWeek, viewModel, _weekStart } = field
+  const {
+    dateTrunc = '',
+    firstDayOfWeek,
+    viewModel,
+    _weekStart,
+    _monthStart
+  } = field
+
+  const clonedValue = dayjs(value).clone()
 
   if (dateTrunc === DEFAULT_DATE_GROUP) return value
-  if (dateTrunc === 'YEAR') return dayjs(value).year() + '年'
-  if (dateTrunc === 'QUARTER') return '第' + dayjs(value).quarter() + '季度'
-  if (dateTrunc === 'MOUTH') return dayjs(value).format('YYYY-MM')
+  if (dateTrunc === 'YEAR') return clonedValue.year() + '年'
+  if (dateTrunc === 'QUARTER') return '第' + clonedValue.quarter() + '季度'
+  if (dateTrunc === GROUP_HOUR || dateTrunc.startsWith(GROUP_MINUTE))
+    return value
 
-  if (dateTrunc === GROUP_HOUR || dateTrunc.startsWith(GROUP_MINUTE)) {
-    return value //dayjs(value).format('YYYY/MM/DD HH:mm:ss')
-  }
-
+  // 天分组
   if (dateTrunc === GROUP_DAY) {
     if (viewModel === DEFAULT_DAY_DISPLAY) {
-      return dayjs(value).format('YYYY/MM/DD')
+      return clonedValue.format('YYYY/MM/DD')
     }
 
     if (viewModel === 'DAY_WEEK') {
-      const d = dayjs(value)
+      const d = clonedValue
 
       return d.format('YYYY/MM/DD') + '周' + WEEK_MAP[d.day()]
     }
 
-    return dayjs(value).format('YYYY-MM-DD')
+    return clonedValue.format('YYYY-MM-DD')
   }
 
+  // 周分组
   if (dateTrunc === GROUP_WEEK) {
-    const dayValue = dayjs(value).clone()
     // dayjs 将0设置为一天的第一天, 6为最后一天，而0表示周一，所以需要减1
-    const start = dayValue.startOf('week').weekday(firstDayOfWeek - 1)
-    const end = dayValue.endOf('week').weekday(firstDayOfWeek - 1 + 6)
+    const start = clonedValue.startOf('week').weekday(firstDayOfWeek - 1)
+    const end = clonedValue.endOf('week').weekday(firstDayOfWeek - 1 + 6)
 
     if (viewModel === DEFAULT_WEEK_DISPLAY) {
       return '第' + end.week() + '周'
@@ -215,19 +224,90 @@ export const formatDtWithOption = (value, field) => {
     }
 
     if (viewModel === 'WEEK_DAY_SEQUENCE') {
-      if (typeof _weekStart === 'undefined') return value
+      if (!_weekStart) return value
 
-      if (_weekStart === '1') return dayValue.startOf('week').format('YYYY/MM/DD')
+      if (_weekStart === 'MONDAY')
+        return clonedValue.startOf('week').format('YYYY/MM/DD')
 
-      if (_weekStart === '7') return dayValue.endOf('week').format('YYYY/MM/DD')
+      if (_weekStart === 'SUNDAY')
+        return clonedValue.endOf('week').format('YYYY/MM/DD')
 
-      if (_weekStart === 0) return start.format('YYYY/MM/DD')
+      if (_weekStart === 'START') return start.format('YYYY/MM/DD')
 
-      if (_weekStart === 1) return end.format('YYYY/MM/DD')
+      if (_weekStart === 'END') return end.format('YYYY/MM/DD')
     }
+  }
+
+  // 月分组
+  if (dateTrunc === GROUP_MONTH) {
+    if (viewModel === DEFAULT_MONTH_DISPLAY) {
+      if (!_monthStart) return value
+
+      if (_monthStart === 'START')
+        return clonedValue.startOf('month').format('YYYY/MM/DD')
+
+      if (_monthStart === 'END')
+        return clonedValue.endOf('month').format('YYYY/MM/DD')
+    }
+
+    if (viewModel === 'MONTH_YEAR') return clonedValue.format('YYYY-MM')
+
+    if (viewModel === 'MONTH_YEAR_CN')
+      return clonedValue.year() + '年 ' + (clonedValue.month() + 1) + '月'
   }
 
   return value
 }
 
 export const isEmpty = v => typeof v === 'undefined' || v === null || v === ''
+
+export const transformQuickCompute = ({ list = [], columns = [], summary }) => {
+  const dataList = list.map(row => {
+    return row.reduce((a, b, i) => {
+      a[columns[i].renderName] = b
+      return a
+    }, {})
+  })
+
+  const groupKeys = columns
+    .filter(t => t.category === CATEGORY.PROPERTY)
+    .map(t => t.renderName)
+  // 树结构
+  const treeData = listDataToTreeByKeys({
+    list: dataList,
+    groupKeys,
+    summaryMap: summary,
+    renderType: 'table'
+  })
+
+  const result = list.map((_row, rowIndex) => {
+    return _row.reduce((a, b, i) => {
+      const row = dataList[rowIndex]
+      const col = columns[i]
+
+      const fastCompute = col.fastCompute
+
+      if (!fastCompute) {
+        a.push(b)
+      } else {
+        let quickValue = displayQuickCalculateValue({
+          row,
+          field: col,
+          columns: columns.map(c => ({ ...c, params: { field: c } })),
+          listTree: treeData,
+          summary
+        })
+
+        if (fastCompute.includes('ratio')) {
+          quickValue = (quickValue.replace('%', '') * 100).toFixed(2) / 10000
+        }
+
+        a.push(quickValue)
+      }
+
+      return a
+    }, [])
+  })
+
+  return result
+}

@@ -1,6 +1,9 @@
 ﻿<template>
   <section class="field-table-section">
-    <header class="flex justify-between align-center" style="padding: 10px 12px">
+    <header
+      class="flex justify-between align-center"
+      style="padding: 10px 12px"
+    >
       <div>
         共计 {{ propertyFields.length + indexFields.length }} 个字段，其中维度
         {{ propertyFields.length }} 个，指标 {{ indexFields.length }} 个
@@ -9,17 +12,25 @@
           size="small"
           type="primary"
           ghost
-          @click="sortModalHandler">
+          @click="sortModalHandler"
+        >
           行排序
         </a-button>
       </div>
 
       <a-space>
+        <SqlDrawer
+          v-if="multipleTable"
+          :dataset="dataset"
+          :disabled="allList.length === 0"
+        />
+
         <a-input-search
           placeholder="输入过滤"
           allow-clear
           v-model:value="keyword"
-          @search="onKeywordFilter">
+          @search="onKeywordFilter"
+        >
           <template #addonBefore>
             <a-select v-model:value="filterStatus" @change="onKeywordFilter">
               <a-select-option value="">所有字段</a-select-option>
@@ -37,31 +48,46 @@
       <a-spin :spinning="loading">
         <vxe-table
           ref="tableRef"
-          class="fields-table"
           row-id="name"
+          class="fields-table"
           showFooter
           show-overflow
-          :height="tableHeight"
+          height="auto"
           :scroll-y="{ enabled: true, gt: 0, oSize: 10 }"
           :tree-config="{
             rowField: 'name',
             parentField: 'parentName',
             transform: true,
-            expandAll: true,
+            expandAll: true
           }"
           :row-class-name="onRowClassname"
           @checkbox-change="onSelectChange"
           @checkbox-all="onSelectAllChange"
-          :footerMethod="footerRenderMethod">
+          :footerMethod="footerRenderMethod"
+        >
           <vxe-column type="checkbox" treeNode width="120">
             <template #footer>
-              <span style="margin-left: 4px">已选中 {{ selectKeys.length }} 个</span>
+              <span style="margin-left: 4px"
+                >已选中 {{ selectKeys.length }} 个</span
+              >
             </template>
           </vxe-column>
 
           <!-- 字段名 -->
           <vxe-column field="name" title="字段名" width="200">
-            <template #default="{ row }">{{ row.name }}</template>
+            <template #default="{ row }">
+              <span
+                class="table-alias"
+                :class="{ empty: !row.tableAlias }"
+                v-if="
+                  multipleTable &&
+                  row.id !== CATEGORY.PROPERTY &&
+                  row.id !== CATEGORY.INDEX
+                "
+                >{{ row.tableAlias }}
+              </span>
+              {{ row.name }}
+            </template>
             <template #footer>
               <a @click="clearSelect">取消选中</a>
             </template>
@@ -78,7 +104,8 @@
                 v-model.lazy="row['displayName']"
                 @change="
                   e => updateField(row.name, 'displayName', e.target.value)
-                " />
+                "
+              />
             </template>
           </vxe-column>
 
@@ -89,21 +116,26 @@
                 :class="['iconfont', getIconByFieldType(row.dataType)['icon']]"
                 :style="{
                   marginRight: '8px',
-                  color: getIconByFieldType(row.dataType)['color'],
-                }"></i>
+                  color: getIconByFieldType(row.dataType)['color']
+                }"
+              ></i>
               <a-cascader
                 v-if="row.id !== PropertyField.id && row.id !== IndexField.id"
+                popupClassName="field-dataType-cascader"
                 :allowClear="false"
                 :options="getFieldDataTypeOptions(row)"
                 v-model:value="row['dataType']"
-                @change="e => updateField(row.name, 'dataType', e)"></a-cascader>
+                @change="e => updateField(row.name, 'dataType', e)"
+              ></a-cascader>
             </template>
             <template #footer>
               <a-cascader
                 style="margin-left: 24px"
                 placeholder="请选择"
+                popupClassName="field-dataType-cascader"
                 :options="dataTypeOptions"
-                @change="e => onMultipleChange(e, 'dataType')"></a-cascader>
+                @change="e => onMultipleChange(e, 'dataType')"
+              ></a-cascader>
             </template>
           </vxe-column>
 
@@ -116,7 +148,8 @@
                 :options="categoryOptions"
                 :disabled="versionJs.ViewsDatasetModify.isDt(row)"
                 v-model:value="row.category"
-                @change="e => onCategoryChange(e, row)">
+                @change="e => onCategoryChange(e, row)"
+              >
               </a-select>
             </template>
             <template #footer>
@@ -124,7 +157,8 @@
                 class="w-100p"
                 placeholder="请选择"
                 :options="categoryOptions"
-                @change="e => onMultipleChange(e, 'category')">
+                @change="e => onMultipleChange(e, 'category')"
+              >
               </a-select>
             </template>
           </vxe-column>
@@ -142,12 +176,14 @@
                   "
                   class="w-100p"
                   :value="row['dataFormat']"
-                  @change="e => onDataFormatCodeChange(e, row)">
+                  @change="e => onDataFormatCodeChange(e, row)"
+                >
                   <a-select-option
                     v-for="item in formatterOptions"
                     :key="item.value"
                     :value="item.value"
-                    @click="onFormatterOptionClick(row, item)">
+                    @click="onFormatterOptionClick(row, item)"
+                  >
                     {{
                       item.value === FORMAT_CUSTOM_CODE &&
                       row['dataFormat'] === FORMAT_CUSTOM_CODE
@@ -164,12 +200,14 @@
                 class="w-100p"
                 placeholder="请选择"
                 :value="customInfo.dataFormat"
-                @change="e => onMultipleChange(e, 'dataFormat')">
+                @change="e => onMultipleChange(e, 'dataFormat')"
+              >
                 <a-select-option
                   v-for="item in formatterOptions"
                   :key="item.value"
                   :value="item.value"
-                  @click="onFormatterOptionClick({}, item, true)">
+                  @click="onFormatterOptionClick({}, item, true)"
+                >
                   {{
                     item.value === FORMAT_CUSTOM_CODE
                       ? customInfo.customFormatterLabel || item.label
@@ -188,13 +226,15 @@
                   row.id !== PropertyField.id &&
                   row.id !== IndexField.id &&
                   row.category === IndexField.id
-                ">
+                "
+              >
                 <a-select
                   v-if="row.aggregator !== SUMMARY_DEFAULT"
                   class="w-100p"
                   :options="summaries"
                   v-model:value="row['aggregator']"
-                  @change="e => updateField(row.name, 'aggregator', e)">
+                  @change="e => updateField(row.name, 'aggregator', e)"
+                >
                 </a-select>
 
                 <div v-else style="text-align: center">-</div>
@@ -205,7 +245,8 @@
                 class="w-100p"
                 placeholder="请选择"
                 :options="summaries"
-                @change="e => onMultipleChange(e, 'aggregator')">
+                @change="e => onMultipleChange(e, 'aggregator')"
+              >
               </a-select>
             </template>
           </vxe-column>
@@ -221,13 +262,15 @@
                 "
                 class="w-100p"
                 v-model:value="row['computeExpression']"
-                @change="e => updateField(row.name, 'computeExpression', e)" />
+                @change="e => updateField(row.name, 'computeExpression', e)"
+              />
             </template>
             <template #footer>
               <FieldCalculation
                 class="w-100p"
                 placeholder="请选择"
-                @update:value="e => onMultipleChange(e, 'computeExpression')" />
+                @update:value="e => onMultipleChange(e, 'computeExpression')"
+              />
             </template>
           </vxe-column>
 
@@ -240,7 +283,8 @@
                 v-model="row['description']"
                 @change="
                   e => updateField(row.name, 'description', e.target.value)
-                " />
+                "
+              />
             </template>
           </vxe-column>
 
@@ -253,10 +297,12 @@
                   row.id !== IndexField.id &&
                   versionJs.ViewsDatasetModify.isRowEnableAction(row)
                 "
-                :size="12">
+                :size="12"
+              >
                 <a
                   v-if="row.status === 'HIDE'"
-                  @click="onHideStatusChange(row, 'VIEW')">
+                  @click="onHideStatusChange(row, 'VIEW')"
+                >
                   显示
                 </a>
                 <a v-else @click="onHideStatusChange(row, 'HIDE')">隐藏</a>
@@ -282,25 +328,31 @@
     <!-- 字段新增 -->
     <FieldInsertModal
       v-model:open="modifyOpen"
+      :multipleTable="multipleTable"
       :dataset="dataset"
+      :selectedContent="selectedContent"
       :fields="[PropertyField, ...propertyFields, IndexField, ...indexFields]"
       :init-data="modifyInfo"
-      @ok="onFieldInserted" />
+      @ok="onFieldInserted"
+    />
 
     <!-- 排序 -->
     <RowSortModal
       v-model:open="sortOpen"
       :propertyField="PropertyField"
+      :multipleTable="multipleTable"
       :indexField="IndexField"
       :data-source="allList"
-      @ok="onRowSorted" />
+      @ok="onRowSorted"
+    />
 
     <!-- 自定义格式 -->
     <CustomFormatter
       :style="customStyle"
       :value="customInfo.config"
       v-model:open="customOpen"
-      @ok="onCustomFormatterOk" />
+      @ok="onCustomFormatterOk"
+    />
   </section>
 </template>
 
@@ -320,28 +372,37 @@ import {
   summaryOptions,
   formatterOptions,
   FORMAT_DEFAULT_CODE,
-  FORMAT_CUSTOM_CODE,
+  FORMAT_CUSTOM_CODE
 } from '@/views/dataset/config.field'
 import {
   displayCustomFormatterLabel,
-  getIconByFieldType,
+  getIconByFieldType
 } from '@/views/dataset/utils'
 import { copyText, deepClone } from 'common/utils/help'
 import { findLastIndex } from 'common/utils/compatible'
 import { CATEGORY } from '@/CONST.dict.js'
 import { versionJs } from '@/versions'
+import SqlDrawer from './SQLDrawer.vue'
+import { nextTick } from 'vue'
 
 const props = defineProps({
+  loading: Boolean,
   dataset: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
-  loading: Boolean,
+  selectedContent: {
+    type: Object,
+    default: () => ({ tables: [], joinDescriptors: [] })
+  },
   originFields: {
     type: Array,
-    default: () => [],
-  },
+    default: () => []
+  }
 })
+
+const selectedTables = computed(() => props.selectedContent.tables || [])
+const multipleTable = computed(() => selectedTables.value.length > 1)
 
 const summaries = computed(() => summaryOptions.filter(t => !t.hidden))
 
@@ -349,7 +410,7 @@ const getFieldDataTypeOptions = field => {
   return dataTypeOptions.map(t => {
     return {
       ...t,
-      disabled: versionJs.ViewsDatasetModify.isDt(field) && t.value !== 'TIME',
+      disabled: versionJs.ViewsDatasetModify.isDt(field) && t.value !== 'TIME'
     }
   })
 }
@@ -360,12 +421,12 @@ const tableRef = ref(null)
 // 维度字段 - 父级
 const PropertyField = shallowReactive({
   name: '维度',
-  id: CATEGORY.PROPERTY,
+  id: CATEGORY.PROPERTY
 })
 // 指标字段 - 父级
 const IndexField = shallowReactive({
   name: '指标',
-  id: CATEGORY.INDEX,
+  id: CATEGORY.INDEX
 })
 
 // 所有数据
@@ -383,25 +444,6 @@ const indexFields = computed(() =>
 // 渲染数据
 const list = ref([])
 
-// 转换数据表字段
-const _initOriginFieldd = l => {
-  return props.originFields.map(item => {
-    const isIndex = item.dataType === 'NUMBER'
-
-    return {
-      ...item,
-      originDataType: item.dataType,
-      type: 'ORIGIN', // 字段来源： ORIGIN 原始字段, ADD 新增字段
-      category: isIndex ? IndexField.id : PropertyField.id,
-      displayName: item.description || item.name,
-      parentName: isIndex ? IndexField.name : PropertyField.name,
-      aggregator: isIndex ? SUMMARY_INDEX_DEFAULT : SUMMARY_PROPERTY_DEFAULT, // 聚合
-      dataFormat: FORMAT_DEFAULT_CODE, // 格式
-      status: 'VIEW', // 显状态: 'VIEW' 显示， 'HIDE' 隐藏
-    }
-  })
-}
-
 // 根据自定义格式配置生成显示文字
 const _showCustomFormatLabel = t => {
   t.customFormatterLabel = displayCustomFormatterLabel(t.customFormatConfig)
@@ -410,48 +452,84 @@ const _showCustomFormatLabel = t => {
 }
 
 /**
- * 合并字段 - 编辑时将源数据表中新增的字段合并进数据集字段中
- * @param {[]} origin
- * @param {[]} target
+ * 转换字段数据类型
+ * @param fields 字段数组，默认为空数组
+ * @returns 转换后的字段数组
  */
-const _mergeFields = (origin = [], target = []) => {
-  const result = target.slice()
+const transformDataType = (fields = []) => {
+  return fields.map(field => {
+    const dtp = field.dataType
+    let dataType = dtp
 
-  for (let i = 0; i < origin.length; i++) {
-    const originItem = origin[i]
+    if (typeof dtp === 'string' && dtp.includes('TIME')) {
+      const [time, ...res] = dtp.split('_')
 
-    if (result.every(item => item.name !== originItem.name)) {
-      result.push(originItem)
-
-      continue
+      dataType = [time, res.join('_')]
     }
-  }
 
-  return result.map(t => {
-    const dataType = t.dataType
-
-    if (!dataType.includes('TIME')) {
-      return t
-    } else {
-      const [time, ...res] = dataType.split('_')
-
-      return {
-        ...t,
-        dataType: [time, res.join('_')],
-      }
+    return {
+      ...field,
+      dataType
     }
   })
+}
+
+/**
+ * 从原始字段转换字段信息
+ * @param item 原始字段信息
+ * @returns 转换后的字段信息
+ */
+const transformFromOrigin = (list = []) => {
+  return list
+    .sort((a, b) => {
+      if (typeof a.sort === 'undefined') return 1
+      if (typeof b.sort === 'undefined') return -1
+
+      return a.sort - b.sort
+    })
+    .map(item => {
+      const dtp = item.dataType
+      let dataType = dtp
+      if (typeof dtp === 'string' && dtp.includes('TIME')) {
+        const [time, ...res] = dtp.split('_')
+
+        dataType = [time, res.join('_')]
+      }
+      // 非从底表更新的直接返回
+      if (!item._fromOrigin) return { ...item, dataType }
+
+      const isIndex = dataType === 'NUMBER'
+
+      const {
+        name,
+        type = 'ORIGIN', // 字段来源： ORIGIN 原始字段, ADD 新增字段
+        category = isIndex ? IndexField.id : PropertyField.id,
+        description,
+        displayName = description || name,
+        aggregator = isIndex ? SUMMARY_INDEX_DEFAULT : SUMMARY_PROPERTY_DEFAULT, //聚合方式
+        dataFormat = FORMAT_DEFAULT_CODE, // 格式
+        status = 'VIEW' // 显示状态: 'VIEW' 显示， 'HIDE' 隐藏
+      } = item
+
+      return {
+        ...item,
+        dataType,
+        type,
+        category,
+        parentName: isIndex ? IndexField.name : PropertyField.name,
+        displayName,
+        aggregator,
+        dataFormat,
+        status
+      }
+    })
 }
 
 // 初始化
 const init = async () => {
   clearFilter()
-  // 初始化原表中字段，添加默认值
-  const originFields = _initOriginFieldd()
-
-  // 合并后的字段
-  const fields = _mergeFields(originFields, props.dataset.fields)
-
+  // 转化dataType
+  const fields = transformFromOrigin(props.dataset.fields)
   // 处理字段数据
   const pFields = fields
     .filter(t => t.category === PropertyField.id)
@@ -537,7 +615,7 @@ const footerRenderMethod = ({ columns, data }) => {
     ? [
         columns.map(() => {
           return null
-        }),
+        })
       ]
     : []
 }
@@ -564,7 +642,8 @@ const onFormatterOptionClick = (row, item, isMultiple) => {
   if (!customTriggerRef.$el) return
 
   // 获取触发下拉框dom的几何信息
-  const { left, top, bottom, height } = customTriggerRef.$el.getBoundingClientRect()
+  const { left, top, bottom, height } =
+    customTriggerRef.$el.getBoundingClientRect()
 
   const F_HEIGHT = 124 // CustomFormatter高度
   const bodyHeight = document.body.offsetHeight // 视窗高度
@@ -577,7 +656,7 @@ const onFormatterOptionClick = (row, item, isMultiple) => {
   customStyle.value = {
     position: 'fixed',
     left: left + 'px',
-    ...p,
+    ...p
   }
 
   customOpen.value = true
@@ -586,10 +665,13 @@ const onFormatterOptionClick = (row, item, isMultiple) => {
     customInfo.value = {
       isMultiple: true,
       dataFormat: customInfo.value.dataFormat,
-      config: {},
+      config: {}
     }
   } else {
-    customInfo.value = { ...row, config: JSON.parse(row.customFormatConfig || '{}') }
+    customInfo.value = {
+      ...row,
+      config: JSON.parse(row.customFormatConfig || '{}')
+    }
   }
 }
 // 确认自定义格式设置
@@ -611,7 +693,8 @@ const onCustomFormatterOk = (payload = {}) => {
       _setSingleField(key)
 
       customInfo.value.dataFormat = FORMAT_CUSTOM_CODE
-      customInfo.value.customFormatterLabel = displayCustomFormatterLabel(payload)
+      customInfo.value.customFormatterLabel =
+        displayCustomFormatterLabel(payload)
     })
   } else {
     // 单个设置
@@ -631,7 +714,8 @@ const onDataFormatCodeChange = (val, row) => {
 
 // 数据类型发生改变
 const onCategoryChange = (val, row) => {
-  row.parentName = val === PropertyField.id ? PropertyField.name : IndexField.name
+  row.parentName =
+    val === PropertyField.id ? PropertyField.name : IndexField.name
 
   const index = allList.value.findIndex(t => t.name === row.name)
 
@@ -661,7 +745,9 @@ const onMultipleChange = (val, key) => {
 
     if (
       item.category !== IndexField.id &&
-      (key === 'dataFormat' || key === 'aggregator' || key === 'computeExpression')
+      (key === 'dataFormat' ||
+        key === 'aggregator' ||
+        key === 'computeExpression')
     ) {
       return
     }
@@ -790,7 +876,7 @@ const copy = row => {
   modifyInfo.value = {
     ...row,
     _mode: 'copy',
-    name: copyText(row.name, { joinStr: '', exited: names }),
+    name: copyText(row.name, { joinStr: '', exited: names })
   }
 }
 // 字段插入、编辑、复制 确认
@@ -855,7 +941,8 @@ const del = row => {
     title: '提示？',
     content: (
       <p>
-        确定删除字段 <span style='color: #1677ff;font-weight: 600'>{row.name}</span>{' '}
+        确定删除字段{' '}
+        <span style='color: #1677ff;font-weight: 600'>{row.name}</span>{' '}
         吗？删除后无法恢复，请谨慎操作
       </p>
     ),
@@ -866,7 +953,7 @@ const del = row => {
 
       allList.value.splice(allIndex, 1)
       renderTable()
-    },
+    }
   })
 }
 
@@ -877,6 +964,7 @@ const getTableData = () => {
       delete t.children
       delete t.customFormatterLabel
       delete t.parentName
+      delete t._fromOrigin
 
       if (Array.isArray(t.dataType)) {
         t.dataType = t.dataType.join('_').replace(/_$/, '')
@@ -884,14 +972,19 @@ const getTableData = () => {
 
       return {
         ...t,
-        sort: i,
+        sort: i
       }
     })
+}
+
+const resize = e => {
+  nextTick(initTableHeight)
 }
 
 defineExpose({
   init,
   getTableData,
+  resize
 })
 </script>
 
@@ -904,27 +997,17 @@ defineExpose({
 .main-table {
   flex: 1;
   overflow: auto;
+  .ant-spin-nested-loading {
+    height: 100%;
+    :deep(.ant-spin-container) {
+      height: 100%;
+    }
+  }
 }
 .fields-table {
   :deep(.vxe-table--main-wrapper) {
     .vxe-body--row.row-visible--hidden {
       opacity: 0.35;
-    }
-  }
-
-  .autoheight-input {
-    position: absolute;
-    top: 12px;
-    left: 10px;
-    right: 10px;
-    width: initial !important;
-    min-height: 32px;
-    height: 32px;
-    transition: height 0.2s !important;
-    resize: none;
-    &:focus {
-      height: 100px;
-      z-index: 1;
     }
   }
 }

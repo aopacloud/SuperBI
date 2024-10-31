@@ -77,3 +77,58 @@ export const downloadByUrl = (url, filename) => {
   a.click()
   document.body.removeChild(a)
 }
+
+/**
+ * 将文件转换为 ArrayBuffer
+ * @param file
+ * @returns {Promise<unknown>}
+ */
+export function file2Buffer(file) {
+  return new Promise((resolve, reject) => {
+    // 创建一个文件读取器
+    const reader = new FileReader()
+    // 使用FileReader的readAsArrayBuffer方法异步读取文件内容
+    reader.readAsArrayBuffer(file)
+    reader.onload = function (e) {
+      const buffer = e.target.result
+
+      resolve(buffer)
+    }
+
+    reader.onerror = function (err) {
+      reject(err)
+    }
+  })
+}
+
+/**
+ * 将文件分割为指定大小的文件块
+ * @param file
+ * @param chunkSize
+ * @returns {Promise<unknown[]>}
+ */
+export const fileToChunks = (file, chunkSize = 1024) => {
+  if (!file) {
+    throw new Error('file is required')
+  }
+
+  if (!(file instanceof File)) {
+    throw new Error('file must be a File instance')
+  }
+
+  const { size: fileSize } = file
+
+  const chunks = []
+  // 分片数量
+  const chunkLength = Math.ceil(fileSize / chunkSize)
+  for (let i = 0; i < chunkLength; i++) {
+    const start = i * chunkSize
+    const end = (i + 1) * chunkSize
+    // 文件分片处理
+    const chunkFile = file.slice(start, end)
+
+    chunks.push(chunkFile)
+  }
+
+  return chunks
+}

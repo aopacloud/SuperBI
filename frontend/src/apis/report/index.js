@@ -81,3 +81,34 @@ export const getDashboardsByReportId = id =>
   request({
     url: `/report/${id}/dashboards`,
   })
+
+/**
+ * 获取图表的预警配置
+ * @param {number} reportId 图表ID
+ */
+export const getReportWarningByReportId = reportId =>
+  request({
+    url: '/alertConfig',
+    params: { reportId },
+  })
+
+/**
+ * 保存图表预警配置
+ * @param {RequestPayload} data 图表数据
+ */
+export const postReportWarning = data =>
+  request({
+    url: '/alertConfig',
+    method: 'post',
+    data,
+  })
+
+/**
+ * 删除图表预警
+ * @param {number} id 主键id
+ */
+export const deleteReportWarning = id =>
+  request({
+    url: `/alertConfig/${id}`,
+    method: 'delete',
+  })

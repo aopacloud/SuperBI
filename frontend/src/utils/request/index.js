@@ -1,9 +1,10 @@
 import axios from 'axios'
 import { message } from 'ant-design-vue'
-import { getToken, HEADER_TOKEN, removeToken } from '@/utils/token'
+import { getToken, HEADER_TOKEN, PROXY_TOKEN } from '@/utils/token'
 import { handleResponse, handleResponseError } from './utils'
 import requestWorkspaceIdInterceptor from './workspaceIdInterceptor'
 import useUserStore from '@/store/modules/user'
+import useAppStore from '@/store/modules/app'
 
 axios.defaults.headers['Content-Type'] = 'application/json;charset=utf-8'
 
@@ -12,7 +13,7 @@ const service = axios.create({
   // Request baseUrl
   baseURL: import.meta.env.VITE_APP_BASE_API,
   // Timeout
-  timeout: 1000 * 60,
+  timeout: 1000 * 60
 })
 
 // Add custom interceptor to deal requestParams or requestBody by add workspaceId
@@ -35,6 +36,11 @@ service.interceptors.request.use(
       } else {
         // Add custom header [HEADER_TOKEN] with every request
         config.headers[HEADER_TOKEN] = token
+
+        const entryToken = useAppStore().entryToken
+        if (entryToken) {
+          config.headers[PROXY_TOKEN] = entryToken
+        }
       }
     }
 
@@ -62,7 +68,10 @@ service.interceptors.response.use(
     if (config.thirdParty) return data
 
     // ResponseType is 'blob' or 'arraybuffer'
-    if (request.responseType === 'blob' || request.responseType === 'arraybuffer') {
+    if (
+      request.responseType === 'blob' ||
+      request.responseType === 'arraybuffer'
+    ) {
       // returns unexpected type with application/json
       if (data.type === 'application/json') {
         return data.text().then(r => handleResponse(JSON.parse(r)))
@@ -129,6 +138,6 @@ export const useLoopRequest = (requestConfig, interval = 10000) => {
   return {
     run: () => request(),
     start,
-    stop,
+    stop
   }
 }

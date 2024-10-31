@@ -26,10 +26,17 @@
 //   })
 // }
 
-import { createStyleImportPlugin, VxeTableResolve } from 'vite-plugin-style-import'
+import { lazyImport, VxeResolver } from 'vite-plugin-lazy-import'
 
 export default function vxeTableResolver() {
-  return createStyleImportPlugin({
-    resolves: [VxeTableResolve()],
+  return lazyImport({
+    resolvers: [
+      VxeResolver({
+        libraryName: 'vxe-table'
+      }),
+      VxeResolver({
+        libraryName: 'vxe-pc-ui'
+      })
+    ]
   })
 }

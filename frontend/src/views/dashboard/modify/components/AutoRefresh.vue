@@ -2,14 +2,16 @@
   <a-tooltip
     v-if="!writeable"
     :title="tooltipTitle"
-    :overlayStyle="{ maxWidth: 'initial' }">
+    :overlayStyle="{ maxWidth: 'initial' }"
+  >
     <a-button
       size="small"
       style="width: 28px; height: 26px"
       :type="frequency ? 'primary' : ''"
       :icon="h(SyncOutlined)"
       :loading="refreshLoading"
-      @click="autoHandler" />
+      @click="autoHandler"
+    />
   </a-tooltip>
 
   <a-dropdown-button
@@ -18,11 +20,13 @@
     size="small"
     trigger="click"
     :type="frequency ? 'primary' : 'default'"
-    @click="autoHandler">
+    @click="autoHandler"
+  >
     <a-tooltip
       placement="bottom"
       :title="tooltipTitle"
-      :overlayStyle="{ maxWidth: 'initial' }">
+      :overlayStyle="{ maxWidth: 'initial' }"
+    >
       <SyncOutlined :spin="refreshLoading" />
     </a-tooltip>
 
@@ -30,7 +34,8 @@
       <a-menu
         selectable
         :selectedKeys="[refreshInterval]"
-        @click="onAutoOptionChange">
+        @click="onAutoOptionChange"
+      >
         <a-menu-item :key="0">关闭</a-menu-item>
         <a-menu-item v-for="item in autoRefreshOptions" :key="item.value">
           {{ item.label }}
@@ -46,13 +51,17 @@
 <script setup>
 import { h, ref, computed, inject, onMounted, onBeforeUnmount } from 'vue'
 import { message } from 'ant-design-vue'
-import { SyncOutlined, DownOutlined, LoadingOutlined } from '@ant-design/icons-vue'
+import {
+  SyncOutlined,
+  DownOutlined,
+  LoadingOutlined
+} from '@ant-design/icons-vue'
 import { autoRefreshOptions } from '../config'
 import { postRefreshIntervalById } from '@/apis/dashboard'
 
 const props = defineProps({
   detail: { type: Object, default: () => ({}) },
-  writeable: { type: Boolean },
+  writeable: { type: Boolean }
 })
 
 const { allDone, refresh, detail } = inject('index')
@@ -85,7 +94,9 @@ const updateAutoRefresh = async value => {
   try {
     submitLoading.value = true
 
-    await postRefreshIntervalById(props.detail.id, { refreshIntervalSeconds: value })
+    await postRefreshIntervalById(props.detail.id, {
+      refreshIntervalSeconds: value
+    })
 
     detail.set('refreshIntervalSeconds', value)
     message.success('自动刷新配置成功')

@@ -4,14 +4,16 @@
     :open="open"
     :confirm-loading="confirmLoading"
     @cancel="cancel"
-    @ok="ok">
+    @ok="ok"
+  >
     <div class="tree-list">
       <li class="tree-item" v-for="(node, i) in list" :key="node.id">
         <div class="tree-item--title">
           <CaretRightOutlined
             class="action-icon"
             :class="{ open: node.open }"
-            @click="toggle(node)" />
+            @click="toggle(node)"
+          />
           {{ node.name }}
         </div>
 
@@ -20,15 +22,24 @@
           itemKey="id"
           :componentData="{
             name: 'fade',
-            type: 'transition-group',
+            type: 'transition-group'
           }"
-          :list="node.children">
+          :list="node.children"
+        >
           <template #item="{ element, index }">
             <div
               class="tree-item--child text-overflow"
               :key="element.id"
-              :title="`${element.displayName}(${element.name})`">
+              :title="`${element.displayName}(${element.name})`"
+            >
               <span class="order-icon"></span>
+              <span
+                v-if="multipleTable"
+                class="table-alias"
+                :class="{ empty: !element.tableAlias }"
+              >
+                {{ element.tableAlias }}
+              </span>
               {{ `${element.displayName}(${element.name})` }}
             </div>
           </template>
@@ -43,25 +54,33 @@ import { ref, watch } from 'vue'
 import draggable from 'vuedraggable'
 import { CaretRightOutlined } from '@ant-design/icons-vue'
 import { flat } from 'common/utils/help'
+import { CATEGORY } from '@/CONST.dict'
 
 const emits = defineEmits(['update:open', 'ok'])
 const props = defineProps({
   open: {
     type: Boolean,
-    default: false,
+    default: false
   },
   propertyField: {
     type: Object,
-    default: () => {},
+    default: () => ({
+      name: '维度',
+      id: CATEGORY.PROPERTY
+    })
   },
   indexField: {
     type: Object,
-    default: () => {},
+    default: () => ({
+      name: '指标',
+      id: CATEGORY.INDEX
+    })
   },
   dataSource: {
     type: Array,
-    default: () => [],
+    default: () => []
   },
+  multipleTable: Boolean // 是否多表
 })
 
 const list = ref([])
@@ -79,12 +98,16 @@ watch(
 )
 
 const init = () => {
-  const pFiedls = props.dataSource.filter(t => t.category === props.propertyField.id)
-  const iFields = props.dataSource.filter(t => t.category === props.indexField.id)
+  const pFiedls = props.dataSource.filter(
+    t => t.category === props.propertyField.id
+  )
+  const iFields = props.dataSource.filter(
+    t => t.category === props.indexField.id
+  )
 
   list.value = [
     { ...props.propertyField, children: pFiedls, open: true },
-    { ...props.indexField, children: iFields, open: true },
+    { ...props.indexField, children: iFields, open: true }
   ]
 }
 
@@ -96,11 +119,13 @@ const ok = () => {
 
   setTimeout(() => {
     const res = flat(list.value)
-      .filter(t => t.id !== props.propertyField.id && t.id !== props.indexField.id)
+      .filter(
+        t => t.id !== props.propertyField.id && t.id !== props.indexField.id
+      )
       .map((t, i) => {
         return {
           ...t,
-          sort: i,
+          sort: i
         }
       })
 
