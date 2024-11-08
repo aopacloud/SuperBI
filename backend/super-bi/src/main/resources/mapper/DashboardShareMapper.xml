@@ -55,7 +55,7 @@
             bi_dashboard_share t
         join bi_auth_role r
         on t.role_id = r.id
-        join bi_auth_role_user usr
+        left join bi_auth_role_user usr
         on r.id = usr.role_id
         <where>
             `type` = 'ROLE'
@@ -83,6 +83,10 @@
 
     <select id="selectIdsByUsername" resultType="java.lang.Long">
         select dashboard_id from (<include refid="userAllShare" />) t where username = #{username} group by dashboard_id
+    </select>
+
+    <select id="selectIdsByUsernameWithWrite" resultType="java.lang.Long">
+        select dashboard_id from (<include refid="userAllShare" />) t where username = #{username} and permission = 'WRITE' group by dashboard_id
     </select>
     <select id="selectByDashboardAndUsername" resultType="net.aopacloud.superbi.model.dto.DashboardShareDTO">
         select * from (<include refid="userAllShare" />) t where dashboard_id = #{dashboardId} and username = #{username}
@@ -131,6 +135,7 @@
         join bi_workspace w on d.workspace_id = w.id
         left join bi_auth_role auth on s.role_id = auth.id
         <where>
+            (s.role_id is null or auth.id is not null)
             <if test="creators != null and creators.length > 0">
                 and d.creator in
                 <foreach collection="creators" item="creator" open="(" close=")" separator=",">

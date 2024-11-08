@@ -79,4 +79,12 @@ public class LoginContextHolder {
     public static void remove() {
         THREAD_LOCAL.remove();
     }
+
+    public static LoginUser backup() {
+        return new LoginUser(getToken(), getUsername());
+    }
+    public static void recover(LoginUser loginUser) {
+        setToken(loginUser.getToken());
+        setUsername(loginUser.getUsername());
+    }
 }

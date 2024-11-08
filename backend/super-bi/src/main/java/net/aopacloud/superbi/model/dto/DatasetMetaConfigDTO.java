@@ -2,6 +2,7 @@ package net.aopacloud.superbi.model.dto;
 
 import lombok.Data;
 import net.aopacloud.superbi.enums.EngineEnum;
+import net.aopacloud.superbi.model.domain.MetaConfigContent;
 
 import java.util.Date;
 
@@ -29,7 +30,7 @@ public class DatasetMetaConfigDTO {
 
     private String tableName;
 
-    private String content;
+    private MetaConfigContent content;
 
     private String sql;
 
@@ -37,4 +38,7 @@ public class DatasetMetaConfigDTO {
 
     private Date updateTime;
 
+    private String refTables;
+
+    private String layout;
 }

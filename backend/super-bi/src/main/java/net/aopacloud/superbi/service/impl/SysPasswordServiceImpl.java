@@ -62,7 +62,7 @@ public class SysPasswordServiceImpl implements SysPasswordService {
             retryCount = 0;
         }
 
-        if (retryCount >= Integer.valueOf(maxRetryCount).intValue()) {
+        if (retryCount >= maxRetryCount) {
             LoginEvent loginEvent = LoginEvent.of(username,
                     Constants.LOGIN_FAIL,
                     LocaleMessages.getMessage("user.password.retry.limit.exceed", maxRetryCount, lockTime),

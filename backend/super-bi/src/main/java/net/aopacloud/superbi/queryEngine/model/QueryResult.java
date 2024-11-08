@@ -32,6 +32,8 @@ public class QueryResult {
 
     private String queryId;
 
+    private int dimensionColumnCount;
+
     public void add(Object[] row) {
         rows.add(row);
     }

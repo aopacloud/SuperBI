@@ -11,7 +11,7 @@ export const defaultQueryTotal = 10000
  */
 export const defaultCompareOptions = {
   mode: 0,
-  merge: false,
+  merge: false
 }
 
 /**
@@ -23,19 +23,24 @@ export const defaultCompareOptions = {
 export const defaultTableOptions = {
   layout: 'auto',
   bordered: true,
-  showSummary: true,
+  showSummary: false,
   pager: {
     show: true,
-    pageSize: 20,
+    pageSize: 20
   },
   fixed: {
     firstRow: true,
     columnMode: 0,
-    columnSpan: [0, 0],
+    columnSpan: [0, 0]
   },
+  summary: false, // 汇总默认不显示
   align: 'center',
-  sorter: {},
+  sorter: [],
   formatter: [{ field: 'project_id', code: 5 }],
+  special: {
+    dimension: undefined, // 默认原始值
+    measure: 0 // 默认0
+  }
 }
 
 /**
@@ -47,9 +52,42 @@ export const defaultTableOptions = {
  */
 export const defaultChartOptions = {
   legend: {
-    position: 'top',
+    position: 'top'
   },
-  labelShow: true,
+  labelShow: false,
   splited: false,
   axis: [],
+  xAxis: {
+    show: true, // 轴显示
+    nameShow: true, // 轴名称显示
+    labelCount: 'auto' // 轴标签数量 auto 自动, thin 稀疏, max 最多展示
+  },
+  yAxis: {
+    show: true,
+    nameShow: true, // 轴名称显示
+    // 轴值范围
+    range: {
+      max: undefined, // auto|undefined 自动
+      min: undefined
+    },
+    // 轴值间隔
+    interval: 'auto', // 轴值间隔 auto 自动, count 数量, step 步长
+    intervalCount: undefined, // 轴值间隔数量, 默认5,
+    intervalStep: undefined, // 轴值间隔步长,
+    // 多Y轴配置
+    multipleY: undefined, // 多Y轴 true | false
+    axis: undefined
+  },
+  // 基础样式
+  style: {
+    bar: {
+      type: 'clustered', // 柱图类型  cluster 簇形， stacked 堆叠,  percentStacked 百分比堆叠
+      flat: false //指标并列展示
+    }
+  },
+  lineEmptyWith: 'break' // connect 空值连接, 0 置为0， break 断开
+}
+
+export const defaultIndexCardOptions = {
+  labelShow: true
 }

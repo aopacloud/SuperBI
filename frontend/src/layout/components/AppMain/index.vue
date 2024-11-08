@@ -1,12 +1,14 @@
 <template>
   <Watermark
     class="watermark-wrapper"
+    :zIndex="99999"
     :content="watermarkContent"
-    :font="watermarkFontStyle">
-    <section class="page-content">
-      <Access>
-        <router-view />
-      </Access>
+    :font="watermarkFontStyle"
+  >
+    <section id="page-wrapper" class="page-content">
+      <!-- <Access> -->
+      <router-view />
+      <!-- </Access> -->
     </section>
   </Watermark>
 </template>
@@ -25,7 +27,7 @@ const watermarkContent = computed(() => {
 })
 const watermarkFontStyle = reactive({
   fontSize: 12,
-  color: 'rgba(0, 0, 0, 0.05)',
+  color: 'rgba(0, 0, 0, 0.05)'
 })
 </script>
 

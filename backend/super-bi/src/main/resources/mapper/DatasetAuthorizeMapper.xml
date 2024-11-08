@@ -3,22 +3,24 @@
 
 <mapper namespace="net.aopacloud.superbi.mapper.DatasetAuthorizeMapper" >
 
-    <sql id="baseFields">id,`scope`,permission,username,role_id,dataset_id,privilege_type,operator,start_time,expire_duration,column_privilege,row_privilege,row_param,remark,deleted,create_time,update_time</sql>
+    <sql id="baseFields">id,auto_auth,version,`scope`,permission,username,role_id,dataset_id,privilege_type,operator,start_time,expire_duration,column_privilege,row_privilege,row_param,remark,deleted,create_time,update_time</sql>
 
     <sql id="userAllAuthorize">
-        select id,username,permission,dataset_id,privilege_type,start_time,expire_duration,column_privilege,row_privilege,create_time,if(expire_duration = 0 or  ( UNIX_TIMESTAMP(start_time) + expire_duration ) > UNIX_TIMESTAMP(now()),1,0) as is_actived, expired
+        select id,auto_auth,username,permission,dataset_id,privilege_type,start_time,expire_duration,column_privilege,row_privilege,create_time,if(expire_duration = 0 or  ( UNIX_TIMESTAMP(start_time) + expire_duration ) > UNIX_TIMESTAMP(now()),1,0) as is_actived, expired
         from bi_dataset_authorize
         where `scope` = 'USER' and deleted = 0
         union all
-        select a.id,r.username,a.permission,a.dataset_id,a.privilege_type,a.start_time,a.expire_duration,a.column_privilege,a.row_privilege,a.create_time,if(expire_duration = 0 or  ( UNIX_TIMESTAMP(start_time) + expire_duration ) > UNIX_TIMESTAMP(now()),1,0) as is_actived,expired
+        select a.id,a.auto_auth,r.username,a.permission,a.dataset_id,a.privilege_type,a.start_time,a.expire_duration,a.column_privilege,a.row_privilege,a.create_time,if(expire_duration = 0 or  ( UNIX_TIMESTAMP(start_time) + expire_duration ) > UNIX_TIMESTAMP(now()),1,0) as is_actived,expired
         from bi_dataset_authorize a join bi_auth_role_user r
             on  a.role_id = r.role_id
         where a.`scope` = 'ROLE' and a.deleted = 0
     </sql>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id" parameterType="net.aopacloud.superbi.model.entity.DatasetAuthorize">
-        insert into bi_dataset_authorize(`scope`,permission,username,role_id,dataset_id,privilege_type,operator,start_time,expire_duration,column_privilege,row_privilege,row_param,remark)
+        insert into bi_dataset_authorize(`auto_auth`,`version`,`scope`,permission,username,role_id,dataset_id,privilege_type,operator,start_time,expire_duration,column_privilege,row_privilege,row_param,remark)
         values (
+                #{autoAuth},
+                #{version},
                 #{scope},
                 #{permission},
                 #{username},
@@ -38,14 +40,17 @@
         update bi_dataset_authorize set deleted = 1 where id = #{id}
     </update>
     <update id="update" parameterType="net.aopacloud.superbi.model.entity.DatasetAuthorize">
-        update bi_dataset_authorize set permission = #{permission},
+        update bi_dataset_authorize set auto_auth = #{autoAuth},
+                                        version = #{version},
+                                        permission = #{permission},
                                         privilege_type = #{privilegeType},
                                         start_time = #{startTime},
                                         expire_duration = #{expireDuration},
                                         column_privilege = #{columnPrivilege},
                                         row_privilege = #{rowPrivilege},
                                         row_param = #{rowParam},
-                                        remark = #{remark}
+                                        remark = #{remark},
+                                        expired = #{expired}
         where id = #{id}
     </update>
     <update id="updateAuthorizeExpire">
@@ -75,6 +80,7 @@
     </select>
     <select id="searchRoleAuthorize" resultType="net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO" parameterType="net.aopacloud.superbi.model.query.DatasetAuthorizeQuery">
         select auth.id,
+               auth.auto_auth,
                auth.`scope`,
                auth.permission,
                auth.username,
@@ -120,7 +126,7 @@
 
         select t1.*
         from
-        (select id,username,permission,dataset_id,privilege_type,start_time,expire_duration,column_privilege,row_privilege,create_time,if(expire_duration = 0 or  ( UNIX_TIMESTAMP(start_time) + expire_duration ) > UNIX_TIMESTAMP(now()),1,0) as is_actived, expired
+        (select id,auto_auth,username,permission,dataset_id,privilege_type,start_time,expire_duration,column_privilege,row_privilege,create_time,if(expire_duration = 0 or  ( UNIX_TIMESTAMP(start_time) + expire_duration ) > UNIX_TIMESTAMP(now()),1,0) as is_actived, expired
         from bi_dataset_authorize
         where `scope` = 'USER' and deleted = 0 ) t1
         join bi_dataset d
@@ -130,7 +136,7 @@
         union all
         select t2.*
         from
-        (select a.id,r.username,a.permission,a.dataset_id,a.privilege_type,a.start_time,a.expire_duration,a.column_privilege,a.row_privilege,a.create_time,if(expire_duration = 0 or  ( UNIX_TIMESTAMP(start_time) + expire_duration ) > UNIX_TIMESTAMP(now()),1,0) as is_actived,expired
+        (select a.id,a.auto_auth,r.username,a.permission,a.dataset_id,a.privilege_type,a.start_time,a.expire_duration,a.column_privilege,a.row_privilege,a.create_time,if(expire_duration = 0 or  ( UNIX_TIMESTAMP(start_time) + expire_duration ) > UNIX_TIMESTAMP(now()),1,0) as is_actived,expired
         from bi_dataset_authorize a join bi_auth_role_user r
         on  a.role_id = r.role_id
         where a.`scope` = 'ROLE' and a.deleted = 0)t2
@@ -151,6 +157,12 @@
         from (select * from (<include refid="userAllAuthorize" /> ) t where is_actived = 1 and username = #{username} ) t
         join bi_dataset d on t.dataset_id = d.id
         where d.deleted = 0 and d.workspace_id = #{workspaceId}
+    </select>
+    <select id="findActivedAuthorizeAll" resultType="net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO">
+        select t.*
+        from (select * from (<include refid="userAllAuthorize" /> ) t where is_actived = 1 and username = #{username} ) t
+        join bi_dataset d on t.dataset_id = d.id
+        where d.deleted = 0
     </select>
     <select id="selectUserAuthorizeByDatasetAndUsername"
             resultType="net.aopacloud.superbi.model.entity.DatasetAuthorize">
@@ -188,7 +200,8 @@
         join bi_workspace w on d.workspace_id = w.id
         left join bi_auth_role r on auth.role_id = r.id
         <where>
-            auth.deleted = 0
+            auth.deleted = 0 
+            and (auth.role_id is null or r.id is not null) 
             <if test="creators != null and creators.length > 0">
                 and d.creator in
                 <foreach collection="creators" item="creator" open="(" close=")" separator=",">
@@ -302,6 +315,32 @@
         from (<include refid="userAllAuthorize" />) t
         join bi_dataset d on t.dataset_id = d.id and d.deleted = 0
         where t.is_actived = 1 and t.username = #{username} and t.permission = #{permission} and d.workspace_id = #{workspaceId}
+    </select>
+
+    <select id="selectAuthorizeShouldDelete" resultType="net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO">
+        SELECT
+            a.*
+        FROM
+            bi_dataset_authorize a
+                LEFT JOIN
+            bi_dataset d ON a.dataset_id = d.id
+                LEFT JOIN
+            bi_workspace_member m ON a.username = m.username AND d.workspace_id = m.workspace_id
+        WHERE
+            m.username IS NULL AND m.workspace_id IS NULL and a.scope = 'USER' and a.deleted = 0
+
+        union all
+
+        SELECT
+            a.*
+        FROM
+            bi_dataset_authorize a
+                LEFT JOIN
+            bi_dataset d ON a.dataset_id = d.id
+                LEFT JOIN
+            bi_auth_role r ON a.role_id = r.id AND d.workspace_id = r.workspace_id
+        WHERE
+            r.id IS NULL AND r.workspace_id IS NULL and a.scope = 'ROLE' and a.deleted = 0;
     </select>
 
 </mapper>

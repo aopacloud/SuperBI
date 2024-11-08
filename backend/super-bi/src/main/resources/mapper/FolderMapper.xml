@@ -7,6 +7,7 @@
         <result column="workspace_id" jdbcType="INTEGER" property="workspaceId"/>
         <result column="name" jdbcType="VARCHAR" property="name"/>
         <result column="parent_id" jdbcType="INTEGER" property="parentId"/>
+        <result column="sort_id" jdbcType="INTEGER" property="sortId"/>
         <result column="creator" jdbcType="VARCHAR" property="creator"/>
         <result column="type" jdbcType="VARCHAR" property="type"/>
         <result column="position" jdbcType="VARCHAR" property="position"/>
@@ -16,14 +17,15 @@
     </resultMap>
     <sql id="Base_Column_List">
         id
-        , workspace_id, `name`, parent_id, creator, `type`, `position`, deleted, create_time,
+        , workspace_id, `name`, parent_id, sort_id , creator, `type`, `position`, deleted, create_time,
     update_time
     </sql>
     <insert id="save" useGeneratedKeys="true" keyProperty="id"
             parameterType="net.aopacloud.superbi.model.entity.Folder">
-        insert into bi_folder(name, parent_id, creator, `type`, `position`, workspace_id)
+        insert into bi_folder(name, parent_id, sort_id, creator, `type`, `position`, workspace_id)
         values (#{name},
                 #{parentId},
+                #{sortId},
                 #{creator},
                 #{type},
                 #{position},
@@ -32,8 +34,14 @@
 
     <update id="update" parameterType="net.aopacloud.superbi.model.entity.Folder">
         update bi_folder
-        set name=#{name},
+        set
+            <if test="name != null">
+                name=#{name},
+            </if>
             parent_id = #{parentId}
+            <if test="sortId != null">
+                ,sort_id = #{sortId}
+            </if>
         where id = #{id}
     </update>
 
@@ -48,6 +56,9 @@
         <include refid="Base_Column_List"/>
         from bi_folder
         <where>
+            <if test="id != null">
+                and id = #{id,jdbcType=INTEGER}
+            </if>
             <if test="workspaceId != null">
                 and workspace_id = #{workspaceId,jdbcType=INTEGER}
             </if>
@@ -64,6 +75,7 @@
                 and position = #{position,jdbcType=VARCHAR}
             </if>
         </where>
+        order by sort_id asc
     </select>
 
     <select id="selectById" resultMap="BaseResultMap">
@@ -85,6 +97,7 @@
         <if test="folderQuery.type == 'PERSONAL'">
             and creator = #{folderQuery.creator}
         </if>
+        order by sort_id asc
     </select>
 
     <select id="selectChildren" resultMap="BaseResultMap">
@@ -98,6 +111,7 @@
         </if>
         and `position` = #{folderQuery.position}
         and workspace_id = #{folderQuery.workspaceId}
+        order by sort_id asc
     </select>
 
     <select id="selectByTarget" resultMap="BaseResultMap">
@@ -105,6 +119,7 @@
                g.workspace_id,
                g.`name`,
                g.parent_id,
+               g.sort_id,
                g.creator,
                g.`type`,
                g.`position`,
@@ -115,6 +130,7 @@
                  join bi_folder_resource_rel r
                       on g.id = r.folder_id and g.`type` = 'ALL' and g.position = #{position} and g.deleted = 0
         where r.target_id = #{targetId}
+        order by g.sort_id asc
     </select>
 
     <select id="selectPersonalByTarget" resultType="net.aopacloud.superbi.model.entity.Folder">
@@ -122,6 +138,7 @@
                g.workspace_id,
                g.`name`,
                g.parent_id,
+               g.sort_id,
                g.creator,
                g.`type`,
                g.`position`,
@@ -132,6 +149,7 @@
         join bi_folder_resource_rel r
         on g.id = r.folder_id
         where r.target_id = #{targetId} and g.`type` = 'PERSONAL' and g.position = #{position} and g.deleted = 0 and g.creator = #{username}
+        order by g.sort_id asc
     </select>
 
     <select id="selectByRelationship" resultType="net.aopacloud.superbi.model.entity.Folder">

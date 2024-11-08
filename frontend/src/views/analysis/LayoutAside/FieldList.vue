@@ -8,7 +8,8 @@
         size="small"
         allow-clear
         :placeholder="`搜索${title}`"
-        v-model:value="keyword" />
+        v-model:value="keyword"
+      />
     </header>
 
     <main class="field-list-main">
@@ -17,19 +18,21 @@
         <li
           class="item"
           v-for="(item, index) in list"
-          :class="{ disabled: !hasDatasetAnalysis }"
+          :class="{ disabled: !hasDatasetAnalysis || unAccessItem(item) }"
           :key="index"
           :title="item.displayName + '(' + item.name + ')'"
-          :draggable="hasDatasetAnalysis"
+          :draggable="hasDatasetAnalysis && !unAccessItem(item)"
           @dragstart="onDragstart($event, item)"
           @dragend="onDragend($event, item)"
-          @dblclick="onDblclick(item)">
+          @dblclick="onDblclick(item)"
+        >
           <i
             :class="['iconfont', getIconByFieldType(item.dataType)['icon']]"
             :style="{
               marginRight: '4px',
               color: getIconByFieldType(item.dataType)['color'],
-            }">
+            }"
+          >
           </i>
           <div class="item-name">
             {{ item.displayName }}
@@ -79,10 +82,13 @@ watch(keyword, kw => {
     list.value = props.dataSource
   } else {
     list.value = props.dataSource.filter(
-      t => t.displayName.includes(s) || t.name.includes(s)
+      t => t.displayName.includes(s) || t.name.includes(s),
     )
   }
 })
+
+// 无权限的字段
+const unAccessItem = e => e.permission !== 'WRITE' && e.permission !== 'READ'
 
 const emits = defineEmits(['dbclick'])
 const onDblclick = row => {

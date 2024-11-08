@@ -8,6 +8,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import javax.servlet.http.HttpServletRequest;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Objects;
 
 /**
  * @Description:
@@ -63,16 +64,6 @@ public class IpUtils {
         return "0:0:0:0:0:0:0:1".equals(ip) ? "127.0.0.1" : getMultistageReverseProxyIp(ip);
     }
 
-    /**
-     * 检查是否为内部IP地址
-     *
-     * @param ip IP地址
-     * @return 结果
-     */
-    public static boolean internalIp(String ip) {
-        byte[] addr = textToNumericFormatV4(ip);
-        return internalIp(addr) || "127.0.0.1".equals(ip);
-    }
 
     /**
      * 检查是否为内部IP地址
@@ -81,7 +72,7 @@ public class IpUtils {
      * @return 结果
      */
     private static boolean internalIp(byte[] addr) {
-        if (StringUtils.isNull(addr) || addr.length < 2) {
+        if (Objects.isNull(addr) || addr.length < 2) {
             return true;
         }
         final byte b0 = addr[0];

@@ -1,10 +1,17 @@
 ﻿<template>
-  <a-drawer title="移动至" :open="open" @close="close">
+  <a-drawer title="移动至" :maskClosable="false" :open="open" @close="close">
     <section class="flex-column">
       <header class="flex">
         <slot name="title">
-          <span style="width: 45px">名称：</span>
-          <h3 style="flex: 1; margin: 0">{{ initData.name }}</h3>
+          <template v-if="isMultiple">
+            您正在移动
+            <h3 style="display: inline; margin: 0 6px">{{ ids.length }}个</h3>
+            资源
+          </template>
+          <template v-else>
+            <span style="width: 45px">名称：</span>
+            <h3 style="flex: 1; margin: 0">{{ initData.name }}</h3>
+          </template>
         </slot>
       </header>
 
@@ -16,9 +23,10 @@
             v-model:selectedKeys.sync="modelValue"
             :field-names="{
               key: 'id',
-              title: 'name',
+              title: 'name'
             }"
-            :tree-data="treeData"></a-tree>
+            :tree-data="treeData"
+          ></a-tree>
         </a-spin>
       </main>
     </section>
@@ -48,21 +56,30 @@ const emits = defineEmits(['update:open', 'ok'])
 const props = defineProps({
   open: {
     type: Boolean,
-    default: false,
+    default: false
   },
   initData: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
   initParams: {
     type: Object,
     default: () => ({
       position: 'DASHBOARD',
       type: 'ALL',
-      workspaceId: 7,
-    }),
+      workspaceId: 7
+    })
   },
+  ids: {
+    type: Array,
+    default: () => []
+  },
+  customRequest: {
+    type: Function
+  }
 })
+
+const isMultiple = computed(() => props.ids.length)
 
 const isPersonal = computed(() => props.initParams.type === 'PERSONAL')
 
@@ -71,7 +88,9 @@ const reset = () => {
   modelValue.value = []
 }
 const init = () => {
-  modelValue.value = [props.initData.folderId]
+  modelValue.value = [props.initData.folderId].filter(
+    t => typeof t !== 'undefined' && t !== null
+  )
 
   fetchData()
 }
@@ -89,7 +108,9 @@ watch(
 
 const modelValue = ref([])
 const disabled = computed(() => {
-  return !modelValue.value.length || modelValue.value[0] === props.initData.folderId
+  return (
+    !modelValue.value.length || modelValue.value[0] === props.initData.folderId
+  )
 })
 
 const loading = ref(false)
@@ -101,7 +122,7 @@ const transformDisabled = (list = [], enabledKey = []) => {
     return {
       ...item,
       disabled: !enabledKey.includes(item.id),
-      children: transformDisabled(item.children, enabledKey),
+      children: transformDisabled(item.children, enabledKey)
     }
   })
 }
@@ -149,16 +170,21 @@ const ok = async () => {
     const payload = {
       ...props.initParams,
       targetId: props.initData.id,
-      folderId: modelValue.value[0],
+      folderId: modelValue.value[0]
     }
 
-    const res = await moveDirectory(payload)
+    const fn =
+      typeof props.customRequest === 'function'
+        ? props.customRequest
+        : moveDirectory
+
+    const res = await fn(payload)
 
     message.success('移动成功')
     emits('ok', res)
     close()
   } catch (error) {
-    console.error('移动错误', error)
+    console.error('移动失败', error)
   } finally {
     confirmLoading.value = false
   }

@@ -7,6 +7,8 @@ import net.aopacloud.superbi.model.dto.FullFolderDTO;
 import net.aopacloud.superbi.model.query.FolderQuery;
 import net.aopacloud.superbi.model.vo.FolderNode;
 
+import java.util.List;
+
 /**
  * @Author shinnie
  * @Description
@@ -17,6 +19,8 @@ public interface FolderService {
     FolderDTO save(FolderDTO folderDTO);
 
     FolderDTO update(FolderDTO folderDTO);
+
+    List<FolderDTO> updateList(List<FolderDTO> folderDTOList);
 
     FolderDTO delete(Long id);
 

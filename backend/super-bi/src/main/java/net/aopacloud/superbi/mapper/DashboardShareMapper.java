@@ -25,6 +25,8 @@ public interface DashboardShareMapper {
 
     List<Long> selectIdsByUsername(String username);
 
+    List<Long> selectIdsByUsernameWithWrite(String username);
+
     void deleteByDashboard(Long dashboardId);
 
     List<DashboardShareDTO> selectByDashboardAndUsername(@Param("dashboardId") Long dashboardId, @Param("username") String username);

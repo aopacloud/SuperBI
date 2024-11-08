@@ -33,14 +33,27 @@
         join bi_dataset d on r.dataset_id = d.id and d.deleted = 0 and d.status='ONLINE'
         where c.dashboard_id = #{dashboardId} and c.version = #{version}
     </select>
+
     <select id="countDashboardByReport" resultType="java.lang.Integer">
 
-        select count(dinstinct d.id)
+        select count(distinct d.id)
         from bi_dashboard_component c
         left join bi_dashboard d
         on c.dashboard_id = d.id and c.version = d.version
         where c.report_id = #{reportId} and d.deleted = 0 and d.status = 'ONLINE'
 
+    </select>
+    <select id="selectDatasetIdsByDashboard" resultType="java.lang.Long">
+        select r.dataset_id
+        from
+            bi_dashboard d
+        join bi_dashboard_component c
+        on d.id = c.dashboard_id and d.version = c.version and c.type = 'REPORT'
+        join bi_report r
+        on c.report_id = r.id and r.deleted = 0
+        join bi_dataset dset
+        on r.dataset_id = dset.id and dset.deleted = 0
+        where d.id = #{dashboardId} and d.deleted = 0
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id"
@@ -66,4 +79,11 @@
         from bi_dashboard_component
         where id = #{id,jdbcType=INTEGER}
     </delete>
+
+
+    <select id="selectReportIdsByDashboard" resultType="java.lang.Long">
+        select report_id
+        from bi_dashboard_component
+        where dashboard_id = #{dashboardId} and version = #{version} and type = 'REPORT'
+    </select>
 </mapper>

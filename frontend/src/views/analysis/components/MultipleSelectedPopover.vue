@@ -3,7 +3,8 @@
     trigger="click"
     arrowPointAtCenter
     placement="bottomLeft"
-    v-model:open="open">
+    v-model:open="open"
+  >
     <slot>
       <a-button @dragover.stop size="small" :icon="h(PlusOutlined)" />
     </slot>
@@ -16,31 +17,40 @@
           key-field="name"
           label-field="displayName"
           :data-source="dataSource"
-          v-model:value="modelValue">
+          v-model:value="modelValue"
+        >
         </SelectList>
-        <a-space style="margin-top: 10px; align-self: flex-end">
-          <a-button size="small" @click="handleCancel">取消</a-button>
-          <a-button size="small" type="primary" @click="handleOk">确认</a-button>
-        </a-space>
+        <div style="display: flex; margin-top: 10px">
+          <span style="color: #1677ff" @click="addAssemblyFilter">
+            <PlusOutlined />
+            <a> 组合过滤 </a>
+          </span>
+          <a-space style="margin-left: auto">
+            <a-button size="small" @click="handleCancel">取消</a-button>
+            <a-button size="small" type="primary" @click="handleOk">
+              确认
+            </a-button>
+          </a-space>
+        </div>
       </div>
     </template>
   </a-popover>
 </template>
 
 <script setup>
-import SelectList from 'common/components/ExtendSelect'
-import { h, ref, watch } from 'vue'
+import { h, nextTick, ref, watch } from 'vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
+import SelectList from 'common/components/ExtendSelect'
 
 const props = defineProps({
   dataSource: {
     type: Array,
-    default: () => [],
+    default: () => []
   },
   value: {
     type: Array,
-    default: () => [],
-  },
+    default: () => []
+  }
 })
 
 const open = ref(false)
@@ -57,10 +67,18 @@ watch(open, op => {
 const handleCancel = () => {
   open.value = false
 }
-const emits = defineEmits(['ok'])
+const emits = defineEmits(['ok', 'addAssembly'])
 const handleOk = () => {
   handleCancel()
 
   emits('ok', modelValue.value)
+}
+
+const addAssemblyFilter = () => {
+  handleCancel()
+
+  setTimeout(() => {
+    emits('addAssembly')
+  }, 10)
 }
 </script>

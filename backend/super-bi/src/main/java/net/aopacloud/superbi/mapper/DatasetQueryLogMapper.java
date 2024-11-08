@@ -13,4 +13,6 @@ public interface DatasetQueryLogMapper {
     void save(DatasetQueryLog datasetQueryLog);
 
     DatasetQueryLogDTO selectById(Long id);
+
+    List<DatasetQueryLogDTO> selectByDatasetId(Long id);
 }

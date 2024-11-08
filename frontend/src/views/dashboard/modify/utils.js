@@ -28,14 +28,14 @@ export const getLayoutItemSize = (type, size = 'default') => {
       large: colNum,
       middle: colNum / 2,
       small: colNum / 4,
-      default: colNum / 2,
+      default: colNum / 2
     },
     height: {
       large: rowHeight * 36,
       middle: rowHeight * 36,
       small: rowHeight * 18,
-      default: rowHeight * 36,
-    },
+      default: rowHeight * 36
+    }
   }
 
   const sizes = SIZE_MAP[type]
@@ -62,7 +62,7 @@ export const getLayoutItemHeight = (type, size) => {
  * @param {DashboardComponentItem} item 看板项
  */
 export const transformGridLayoutItem = item => {
-  const { layout, content, ...res } = item
+  const { layout, content, reportId, ...res } = item
 
   const layoutObj = typeof layout === 'string' ? JSON.parse(layout) : layout
   const contentObj = typeof content === 'string' ? JSON.parse(content) : content
@@ -77,8 +77,10 @@ export const transformGridLayoutItem = item => {
     ...layoutObj, // 展开 layoutStr
     _id: i,
     i,
+    y: layoutObj.y ?? 0, // 修复y为null的异常数据0829
     _loaded: false,
     content: contentObj,
+    reportId
   }
 }
 
@@ -126,39 +128,78 @@ export const compatibleGridLayout = list => {
  * @param {LayoutItem} item GridLayout 布局数据
  */
 export const compatibleGridLayoutItem = item => {
-  const { type, w, h, _size, ...res } = item
+  const { type, w, h, size, ...res } = item
 
   let _w = w,
-    _h = h,
-    __size = _size
+    _h = h
 
   if (type === 'REMARK' || type === 'FILTER') {
     _w = getLayoutItemSize('width', 'large')
-    _h = getLayoutItemSize('height', 'small')
   } else {
-    // 没有 _size 则为历史数据
-    if (!_size) {
-      __size = widthCompatibleMap[w]
-      _w = getLayoutItemSize('width', __size)
-      const _hSize = heighCompatibletMap[h]
-      if (_hSize) {
-        _h = getLayoutItemSize('height', _hSize)
-      } else {
-        const RATIO = 10
-        // 自定义w的高度，
-        const heightDis = (h * 25) / RATIO,
-          marginDis = (heightDis * 5) / RATIO
-
-        _h = Math.max(heightDis + marginDis, getLayoutItemSize('height', __size))
-      }
+    if (size) {
+      const s = widthCompatibleMap[w]
+      _w = getLayoutItemSize('width', s)
+      _h = Math.max(h, getLayoutItemSize('height', s))
     }
   }
 
   return {
     ...res,
+    size: undefined,
     type,
     w: _w,
-    h: _h,
-    _size: __size,
+    h: _h
   }
+}
+
+export const getLayoutItemHByRealWidth = (width, maxWidth) => {
+  if (width > maxWidth) {
+    return colNum
+  } else {
+    return Math.ceil((width / maxWidth) * colNum)
+  }
+}
+
+export const updateLayout = (list = []) => {
+  const sorted = list.sort((a, b) => {
+    const { x: aX, y: aY, w: aW, h: aH } = a
+    const { x: bX, y: bY, w: bW, h: bH } = b
+
+    if (aY > bY) return -1
+    if (aY < bY) return 1
+
+    if (aX > bX) return -1
+    if (aX < bX) return 1
+    return 0
+  })
+
+  return sorted.reduce((acc, cur) => {
+    if (!acc.length) {
+      acc.push(cur)
+    } else {
+      const last = acc[acc.length - 1]
+      if (cur.y === last.y) {
+        // 同一行
+        if (last.x + last.w > cur.x) {
+          // 合并
+          last.w += cur.w
+        } else {
+          acc.push(cur)
+        }
+      } else if (cur.y > last.y) {
+        // 下一行
+        acc.push(cur)
+        if (last.x + last.w > cur.x) {
+          // 合并
+          last.w += cur.w
+        }
+        if (last.x + last.w < cur.x) {
+          // 跨行
+          last.h += cur.h
+        }
+      }
+    }
+
+    return acc
+  }, [])
 }

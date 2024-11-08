@@ -1,26 +1,29 @@
 ﻿<template>
-  <section class="content">
+  <section class="content" style="flex: 1">
     <!-- 字段拖入容器 -->
     <ContentHeader
       :dataset="dataset"
       :dimensions="dimensions"
-      :indexes="indexes"
-      :filters="filters" />
+      :measures="measures"
+      :filters="filters"
+    />
 
     <!-- 看板过滤项 -->
-    <DashboardFtilers style="margin-bottom: 10px" />
+    <DashboardFilters style="margin-bottom: 10px" />
 
     <!-- 工具栏 -->
     <Tools
       ref="toolsRef"
-      style="margin-bottom: 10px; border-bottom: 1px solid #eee"
+      style="border-bottom: 1px solid #eee"
       @reset="onReset"
       @topN="onTopN"
       @download="onDownload"
       @basisRatio="onBasisRatio"
       @toggle-history="handleToggleHistory"
       @run-loading="onRunLoading"
-      @querySuccess="onQuerySuccess" />
+      @querySuccess="onQuerySuccess"
+      @sorters="onSortersShow"
+    />
 
     <main class="main">
       <keep-alive>
@@ -31,7 +34,8 @@
           :dataset="dataset"
           :choosed="choosed"
           :compare="compare"
-          :options="options" />
+          :options="options"
+        />
 
         <HistoryView v-else @revert="onHistoryQuery" />
       </keep-alive>
@@ -41,73 +45,92 @@
   <!-- TopN -->
   <TopNModal
     v-model:open="topNModalOpen"
-    :data-source="indexes"
+    :dimensions="dimensions"
+    :measures="measures"
     :value="topN"
     @ok="onTopNOk"
-    @close="onTopNClose" />
+    @close="onTopNClose"
+  />
 
   <!-- 同环比 -->
   <BasisRatioModal
     v-model:open="basisRatioModalOpen"
+    :renderType="renderType"
     :dimensions="dimensions"
-    :measures="indexes"
+    :measures="measures"
     :compare="compare"
+    :filters="filters"
     @ok="onBasisRatioOk"
-    @close="onBasisRatioClose" />
+    @close="onBasisRatioClose"
+  />
 
   <!-- 下载 -->
   <DownloadModal
     v-model:open="downloadModalOpen"
     :filename="chart.id ? chart.name : dataset.name"
     :initParams="requestResponse.request"
-    @download="handleDownload" />
+    :options="options"
+    @download="handleDownload"
+  />
+
+  <SortedModal
+    :options="options"
+    :value="sortList"
+    :choosed="choosed"
+    v-model:open="sorterModalOpen"
+    @clear="onSorterClear"
+    @ok="onSorterOk"
+  />
 </template>
 
 <script setup>
 import { ref, computed, inject, nextTick } from 'vue'
 import ContentHeader from './ContentHeader.vue'
-import DashboardFtilers from './DashboardFtilers.vue'
+import DashboardFilters from './DashboardFilters.vue'
 import Tools from './Tools.vue'
 import RenderView from './RenderView.vue'
 import HistoryView from './History.vue'
 import TopNModal from '@/views/analysis/components/TopNModal.vue'
 import BasisRatioModal from '@/views/analysis/components/BasisRatioModal.vue'
 import DownloadModal from '@/components/DownloadModal/index.vue'
+import SortedModal from '@/views/analysis/components/SorterConfig/SorterModal.vue'
+import { deepClone } from '@/common/utils/help'
 
 const props = defineProps({
   chart: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
   dataset: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
   dimensions: {
     type: Array,
-    default: () => [],
+    default: () => []
   },
-  indexes: {
+  measures: {
     type: Array,
-    default: () => [],
+    default: () => []
   },
   filters: {
     type: Array,
-    default: () => [],
+    default: () => []
   },
   options: {
     type: Object,
-    default: () => ({}),
-  },
+    default: () => ({})
+  }
 })
 
 const {
   compare: indexCompare,
   choosed: indexChoosed,
+  options: indexOptions,
   topN: indexTopN,
   requestResponse: indexRequestResponse,
   recovert: indexRecovert,
-  reset: indexReset,
+  reset: indexReset
 } = inject('index', {})
 // 选中的
 const choosed = computed(() => indexChoosed.get())
@@ -119,7 +142,7 @@ const runLoading = ref(false)
 const onRunLoading = running => {
   // 查询时，清空上一次的结果
   if (running) {
-    indexRequestResponse.set()
+    indexRequestResponse.set(undefined, 'response')
   }
   runLoading.value = running
 }
@@ -149,12 +172,17 @@ const basisRatioModalOpen = ref(false)
 const onBasisRatio = () => {
   basisRatioModalOpen.value = true
 }
-const onBasisRatioOk = ({ timeField, type, measures = [], dimensions } = {}) => {
+const onBasisRatioOk = ({
+  timeField,
+  type,
+  measures = [],
+  dimensions
+} = {}) => {
   const paylaod = {
     type,
     timeField,
     measures: measures,
-    dimensions,
+    dimensions
   }
 
   indexCompare.set(paylaod)
@@ -200,8 +228,36 @@ const toolsRun = () => {
 }
 
 defineExpose({
-  toolsRun,
+  toolsRun
 })
+
+// 排序
+const sorterModalOpen = ref(false)
+const sortList = ref([])
+const onSortersShow = () => {
+  sorterModalOpen.value = true
+  const { sorters, table, renderType } = props.options
+
+  if (sorters) {
+    sortList.value = sorters ? deepClone(sorters[renderType]) : []
+  } else {
+    if (renderType === 'table') {
+      sortList.value = [deepClone(table.sorter)]
+    } else {
+      sortList.value = []
+    }
+  }
+}
+
+const renderType = computed(() => indexOptions.get('renderType'))
+const onSorterClear = () => {
+  const sorts = indexOptions.get('sorters')
+  indexOptions.set('sorters', { ...sorts, [renderType.value]: [] })
+}
+const onSorterOk = (e = []) => {
+  const sorts = indexOptions.get('sorters')
+  indexOptions.set('sorters', { ...sorts, [renderType.value]: e })
+}
 </script>
 
 <style lang="scss" scoped>
@@ -210,7 +266,7 @@ defineExpose({
   flex-direction: column;
   overflow: hidden;
   width: 100%;
-  padding-right: 7px;
+  padding-right: 5px;
   height: 100%;
 
   .main {

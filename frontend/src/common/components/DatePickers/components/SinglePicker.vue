@@ -1,7 +1,7 @@
 <template>
   <div class="custom-picker" :class="{ showTime }">
     <div class="panel left" ref="startPanel">
-      <div class="panel-title" style="margin-top: -35px">
+      <div class="panel-title" style="display: none">
         <a-date-picker
           inputReadOnly
           placement="bottomRight"
@@ -119,6 +119,9 @@ const onOk = e => {
 <style lang="scss" scoped>
 .custom-picker {
   overflow: hidden;
+  :deep(.ant-picker-ranges) {
+    padding-left: 32px;
+  }
 }
 .panel-title {
   :deep(.date-picker-trigger) {

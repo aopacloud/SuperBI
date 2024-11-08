@@ -1,45 +1,56 @@
 ﻿<template>
   <a-modal title="同环比设置" :open="open" :width="700" @cancel="cancel">
     <a-form :label-col="{ span: 4 }" :wrapper-col="{ span: 20 }">
-      <a-form-item label="对比日期" style="margin-bottom: 5px">
+      <a-form-item label="对比日期">
         <a-select
           placeholder="请选择对比日期"
           show-search
           optionLabelProp="label"
+          :disabled="isIndexCardMode"
           :filterOption="filterOption"
           v-model:value="formState.timeField"
-          @change="onTargetChange">
+          @change="onTargetChange"
+        >
           <a-select-option
             v-for="t in dimensionsList"
             :key="t.name"
-            :label="t.displayName">
+            :label="t.displayName"
+          >
             {{ t.displayName }}
           </a-select-option>
         </a-select>
       </a-form-item>
 
-      <a-form-item label="对比维度">
+      <a-form-item v-if="!isIndexCardMode" label="对比维度">
         <a-select
-          style="width: calc(100% - 70px)"
+          style="width: calc(100% - 40px)"
           placeholder="请选择对比维度"
           mode="multiple"
           show-search
           optionLabelProp="label"
           :filterOption="filterOption"
-          v-model:value="dimensionsFields">
+          v-model:value="dimensionsFields"
+        >
           <a-select-option
             v-for="t in dimensionsList"
             :key="t.name"
             :label="t.displayName"
-            :disabled="t.disabled">
+            :disabled="t.disabled"
+          >
             {{ t.displayName + '(' + t.name + ')' }}
           </a-select-option>
         </a-select>
 
         <a-tooltip
-          title="对比维度默认与计算原值的维度相同，若改变对比维度，可能会出现数据歧义，请谨慎操作">
+          title="对比维度默认与计算原值的维度相同，若改变对比维度，可能会出现数据歧义，请谨慎操作"
+        >
           <InfoCircleFilled
-            style="margin-left: 12px; font-size: 16px; color: rgba(0, 0, 0, 0.45)" />
+            style="
+              margin-left: 12px;
+              font-size: 16px;
+              color: rgba(0, 0, 0, 0.45);
+            "
+          />
         </a-tooltip>
       </a-form-item>
 
@@ -50,65 +61,87 @@
           type="dashed"
           style="height: 30px; padding: 0"
           :icon="h(PlusOutlined)"
-          @click="insert()" />
+          @click="insert()"
+        />
 
         <div
           v-else
-          class="fields-setting"
-          style="max-height: 500px; margin-right: 70px">
-          <div class="field-title field-item">
-            <div class="cell name">字段名</div>
-            <div class="cell val">对比类型</div>
-          </div>
-          <div
-            class="field-item"
-            v-for="(item, i) in formState.measures"
-            :key="item._id">
-            <div class="cell name" :title="item.label">
-              <a-select
-                placeholder="请选择字段"
-                v-model:value="item.name"
-                @change="e => onFieldNameChange(e, item)">
-                <a-select-option v-for="f in measuresList" :key="f.name">
-                  {{ f.displayName }}
-                </a-select-option>
-              </a-select>
+          style="max-height: 600px; padding-right: 70px; overflow: auto"
+        >
+          <div class="fields-setting">
+            <div class="field-title field-item">
+              <div class="cell name">字段名</div>
+              <div class="cell val">对比类型</div>
+              <div
+                class="action"
+                style="
+                  width: 66px;
+                  height: 34px;
+                  margin-left: 1px;
+                  background-color: rgb(255, 255, 255);
+                "
+              />
             </div>
-            <div class="cell val">
-              <a-space-compact block>
+            <div
+              class="field-item"
+              v-for="(item, i) in formState.measures"
+              :key="item._id"
+            >
+              <div class="cell name" :title="item.label">
                 <a-select
-                  style="width: 90px"
-                  placeholder="请选择类型"
-                  v-model:value="item.ratioType"
-                  @change="onRatioTypeChange(item)">
-                  <a-select-option v-for="t in options" :key="t.value">
-                    {{ t.label }}
+                  placeholder="请选择字段"
+                  v-model:value="item._key"
+                  :disabled="isIndexCardMode"
+                  @change="e => onFieldNameChange(e, item)"
+                >
+                  <a-select-option v-for="f in measuresList" :key="f._key">
+                    {{ f.displayName }}
                   </a-select-option>
                 </a-select>
+              </div>
+              <div class="cell val">
+                <a-space-compact block>
+                  <a-select
+                    style="width: 90px"
+                    placeholder="请选择类型"
+                    v-model:value="item.ratioType"
+                    @change="onRatioTypeChange(item)"
+                  >
+                    <a-select-option v-for="t in options" :key="t.value">
+                      {{ t.label }}
+                    </a-select-option>
+                  </a-select>
 
-                <a-select
-                  style="flex: 1; overflow: hidden"
-                  placeholder="请选择周期"
-                  v-model:value="item.period">
-                  <a-select-option v-for="t in getOptions2(item)" :key="t.value">
-                    {{ t.label }}
-                  </a-select-option>
-                </a-select>
-              </a-space-compact>
+                  <a-select
+                    style="flex: 1; overflow: hidden"
+                    placeholder="请选择周期"
+                    v-model:value="item.period"
+                  >
+                    <a-select-option
+                      v-for="t in getOptions2(item)"
+                      :key="t.value"
+                    >
+                      {{ t.label }}
+                    </a-select-option>
+                  </a-select>
+                </a-space-compact>
+              </div>
+              <a-space class="action" style="margin: 4px 0 0 10px">
+                <a-button
+                  type="text"
+                  size="small"
+                  :icon="h(PlusOutlined)"
+                  @click="insert(i)"
+                />
+
+                <a-button
+                  type="text"
+                  size="small"
+                  :icon="h(MinusOutlined)"
+                  @click="del(i)"
+                />
+              </a-space>
             </div>
-            <a-space class="action" style="margin: 4px 0 0 10px">
-              <a-button
-                type="text"
-                size="small"
-                :icon="h(PlusOutlined)"
-                @click="insert(i)" />
-
-              <a-button
-                type="text"
-                size="small"
-                :icon="h(MinusOutlined)"
-                @click="del(i)" />
-            </a-space>
           </div>
         </div>
       </a-form-item>
@@ -123,36 +156,48 @@
 </template>
 
 <script setup>
-import { h, ref, reactive, watch, computed, toRaw } from 'vue'
+import { h, reactive, watch, computed, toRaw } from 'vue'
 import { Form } from 'ant-design-vue'
-import { MinusOutlined, PlusOutlined, InfoCircleFilled } from '@ant-design/icons-vue'
+import {
+  MinusOutlined,
+  PlusOutlined,
+  InfoCircleFilled
+} from '@ant-design/icons-vue'
 import {
   ratioOptions,
   dateGroupTypeMap,
   DEFAULT_DATE_GROUP,
   DEFAULT_RATIO_TYPE,
-  GROUP_MINUTE,
+  GROUP_MINUTE
 } from '@/views/analysis/config'
 import { getByIncludesKeys } from 'common/utils/help'
 import { getRandomKey } from 'common/utils/string'
 import { toContrastFiled } from '@/views/analysis/config'
+import { summaryOptions } from '@/views/dataset/config.field'
+import { isDtField } from '@/views/dataset/utils'
+import { versionJs } from '@/versions/index'
 
 const useForm = Form.useForm
 const emits = defineEmits(['update:open', 'ok', 'close'])
 const props = defineProps({
   open: {
     type: Boolean,
-    default: false,
+    default: false
   },
 
   dimensions: {
     type: Array,
-    default: () => [],
+    default: () => []
   },
   // 可对比字段
   measures: {
     type: Array,
-    default: () => [],
+    default: () => []
+  },
+  // 过滤字段
+  filters: {
+    type: Array,
+    default: () => []
   },
   // 同环比类型
   type: {
@@ -163,13 +208,41 @@ const props = defineProps({
         DEFAULT_RATIO_TYPE,
         'WEEK_ON_WEEK',
         'MONTH_ON_MONTH',
-        'YEAR_ON_YEAR',
-      ].includes(s),
+        'YEAR_ON_YEAR'
+      ].includes(s)
   },
   compare: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
+  renderType: {
+    type: String,
+    default: 'table',
+    validator: s =>
+      [
+        'table',
+        'groupTable',
+        'intersectionTable',
+        'line',
+        'bar',
+        'pie',
+        'statistic'
+      ].includes(s)
+  }
+})
+
+const isIndexCardMode = computed(() => props.renderType === 'statistic')
+
+const dtField = computed(() => props.filters.find(isDtField))
+
+const isDtFilterConditionSingle = computed(() => {
+  const {
+    conditions: [con1 = {}]
+  } = dtField.value
+
+  const [v0, v1] = con1.args || []
+  if (v0 === v1) return true
+  return false
 })
 
 // 可对比的维度
@@ -177,7 +250,7 @@ const dimensionsList = computed(() => {
   return props.dimensions.map(t => {
     return {
       ...t,
-      disabled: formState.timeField === t.name,
+      disabled: formState.timeField === t.name
     }
   })
 })
@@ -186,22 +259,55 @@ const filterOption = (input, option) =>
 
 // 可对比的指标
 const measuresList = computed(() =>
-  props.measures.filter(item => {
-    if (
-      (item.dataType === 'TEXT' || item.type === 'TIME') &&
-      ['4', '5'].includes(item.summaryMethod)
-    ) {
-      return false
-    }
-    return true
-  })
+  props.measures
+    .reduce((acc, cur) => {
+      const { dataType, type, summaryMethod, name, aggregator, fastCompute } =
+        cur
+      if (
+        ((dataType === 'TEXT' || type === 'TIME') &&
+          ['4', '5'].includes(summaryMethod)) ||
+        fastCompute
+      ) {
+        return acc
+      }
+
+      const item = acc.find(t => t.name === name && t.aggregator === aggregator)
+      if (!item) {
+        acc.push(cur)
+      }
+
+      return acc
+    }, [])
+    .map(t => {
+      const { name, aggregator, displayName } = t
+      const summaryItem = summaryOptions.find(t => t.value === aggregator)
+      return {
+        ...t,
+        displayName:
+          displayName + (summaryItem ? '(' + summaryItem.label + ')' : ''),
+        _key: name + '.' + aggregator
+      }
+    })
 )
 
 // 根据对比日期的聚合方式筛选对比类型
 const options = computed(() => {
+  // 指标卡的同环比类型
+  if (isIndexCardMode.value) {
+    if (isDtFilterConditionSingle.value) {
+      return ratioOptions.filter(t => t.value !== 'DAY_ON_DAY')
+    } else {
+      return ratioOptions.filter(t => t.value === DEFAULT_RATIO_TYPE)
+    }
+  }
+
   const { dateTrunc = '' } = formState.target
-  const _dateTrunc = dateTrunc.startsWith(GROUP_MINUTE) ? GROUP_MINUTE : dateTrunc
-  const optionKeys = Object.keys(dateGroupTypeMap[_dateTrunc || DEFAULT_DATE_GROUP])
+  const _dateTrunc = dateTrunc.startsWith(GROUP_MINUTE)
+    ? GROUP_MINUTE
+    : dateTrunc
+  const optionKeys = Object.keys(
+    dateGroupTypeMap[_dateTrunc || DEFAULT_DATE_GROUP]
+  )
 
   return ratioOptions.filter(o => optionKeys.includes(o.value))
 })
@@ -209,7 +315,9 @@ const options = computed(() => {
 const getOptions2 = field => {
   const { ratioType = DEFAULT_RATIO_TYPE } = field
   const { dateTrunc = DEFAULT_DATE_GROUP } = formState.target
-  const _dateTrunc = dateTrunc.startsWith(GROUP_MINUTE) ? GROUP_MINUTE : dateTrunc
+  const _dateTrunc = dateTrunc.startsWith(GROUP_MINUTE)
+    ? GROUP_MINUTE
+    : dateTrunc
 
   return dateGroupTypeMap[_dateTrunc][ratioType] || []
 }
@@ -219,13 +327,16 @@ const init = () => {
     timeField,
     type = DEFAULT_RATIO_TYPE,
     measures = [],
-    dimensions = [],
+    dimensions = []
   } = props.compare
 
   formState.target =
     props.dimensions.find(t => t.name === timeField) ||
-    props.dimensions.find(toContrastFiled)
-  formState.timeField = formState.target.name
+    props.dimensions.find(toContrastFiled) ||
+    {}
+  formState.timeField = isIndexCardMode.value
+    ? versionJs.ViewsDatasetModify.dtFieldName
+    : formState.target.name
   formState.type = type
   formState.measures = measures.map(t => {
     const ratioType = t.ratioType || type
@@ -233,7 +344,7 @@ const init = () => {
     return {
       ...t,
       ratioType,
-      period: t.period || opts[0]?.value,
+      period: t.period || opts[0]?.value
     }
   })
   if (typeof props.compare.dimensions === 'undefined') {
@@ -250,9 +361,9 @@ watch(
   }
 )
 
-const onFieldNameChange = (name, field) => {
-  const item = measuresList.value.find(t => t.name === name)
-
+const onFieldNameChange = (e, field) => {
+  const item = measuresList.value.find(t => t._key === e)
+  field.name = item.name
   field.aggregator = item.aggregator
 }
 
@@ -271,7 +382,7 @@ const formState = reactive({
   target: {},
   timeField: undefined,
   dimensions: [],
-  measures: [],
+  measures: []
 })
 
 const onTargetChange = e => {
@@ -293,8 +404,10 @@ const dimensionsFields = computed({
     return formState.dimensions.map(t => t.name)
   },
   set(values = []) {
-    formState.dimensions = values.map(t => props.dimensions.find(f => f.name === t))
-  },
+    formState.dimensions = values.map(t =>
+      props.dimensions.find(f => f.name === t)
+    )
+  }
 })
 
 const formRules = reactive({
@@ -306,13 +419,13 @@ const formRules = reactive({
         if (!value?.length) {
           return Promise.reject(rule.message)
         } else {
-          if (value.every(t => !t.name || !t.period)) {
+          if (value.every(t => !t._key || !t.period)) {
             return Promise.reject(rule.message)
           } else {
             return Promise.resolve()
           }
         }
-      },
+      }
     },
     {
       message: '对比配置重复',
@@ -322,9 +435,9 @@ const formRules = reactive({
         const strArr = value
           .filter(v => !!v.name)
           .map(val => {
-            const { name, ratioType, period } = val
+            const { name, aggregator, ratioType, period } = val
 
-            return name + '.' + ratioType + '.' + period
+            return name + '.' + aggregator + '.' + ratioType + '.' + period
           })
         const uniqueArr = [...new Set(strArr)]
 
@@ -333,9 +446,9 @@ const formRules = reactive({
         } else {
           return Promise.resolve()
         }
-      },
-    },
-  ],
+      }
+    }
+  ]
 })
 const { resetFields, validate, validateInfos } = useForm(formState, formRules)
 
@@ -345,10 +458,9 @@ const insert = i => {
 
     formState.measures.push({
       ...measuresList.value[0],
-      name: undefined,
       ratioType: DEFAULT_RATIO_TYPE,
       period: periodOptions[0]?.value,
-      _id: getRandomKey(6),
+      _id: getRandomKey(6)
     })
   } else {
     const item = formState.measures[i]
@@ -369,9 +481,15 @@ const ok = () => {
       )
 
       const measures = formState.measures
-        .filter(t => !!t.name)
+        .filter(t => !!t._key)
         .map(t =>
-          getByIncludesKeys(t, ['name', 'aggregator', 'ratioType', 'period'])
+          getByIncludesKeys(t, [
+            'name',
+            'aggregator',
+            'ratioType',
+            'period',
+            '_key'
+          ])
         )
 
       emits('ok', { ...toRaw(formState), dimensions, measures })
@@ -433,8 +551,10 @@ $table-color: #e8e8e8;
 }
 .field-title {
   position: sticky;
+  margin-top: -1px;
   top: 0;
   background-color: #fafafa;
-  z-index: 1;
+  z-index: 3;
+  border-top: 1px solid $table-color;
 }
 </style>

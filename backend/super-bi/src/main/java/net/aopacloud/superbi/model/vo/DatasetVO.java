@@ -72,4 +72,6 @@ public class DatasetVO {
     private String latestPartitionValue;
 
     private boolean applying;
+
+    private boolean upload = false;
 }

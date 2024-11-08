@@ -36,6 +36,8 @@ public interface DatasetAuthorizeMapper {
 
     List<DatasetAuthorizeDTO> findActivedAuthorize(@Param("username") String username, @Param("workspaceId") Long workspaceId);
 
+    List<DatasetAuthorizeDTO> findActivedAuthorizeAll(@Param("username") String username);
+
     List<DatasetAuthorize> selectUserAuthorizeByDatasetAndUsername(@Param("datasetId") Long datasetId, @Param("username") String username);
 
     List<DatasetAuthorizeDTO> selectAuthorizeByRole(@Param("roleId") Long roleId);
@@ -54,4 +56,7 @@ public interface DatasetAuthorizeMapper {
     List<DatasetAuthorizeDTO> selectByPermission(@Param("workspaceId") Long workspaceId, @Param(("username")) String username, @Param("permission") PermissionEnum write);
 
     void deleteByUsername(String username);
+
+    List<DatasetAuthorizeDTO> selectAuthorizeShouldDelete();
+
 }

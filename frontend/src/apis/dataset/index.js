@@ -147,3 +147,27 @@ export const deleteById = id =>
     url: '/dataset/' + id,
     method: 'delete',
   })
+
+/**
+ * 获取预览字段
+ * @param {RequestPayload} data
+ * @returns
+ */
+export const getPreviewFields = data =>
+  request({
+    url: '/dataset/preview/field',
+    method: 'post',
+    data,
+  })
+
+/**
+ * 获取预览字段的SQL
+ * @param {RequestPayload} data
+ * @returns
+ */
+export const getPreviewSQL = data =>
+  request({
+    url: '/dataset/preview/sql',
+    method: 'post',
+    data,
+  })

@@ -76,6 +76,67 @@
 
     </select>
 
+    <select id="searchByRecycle" resultType="net.aopacloud.superbi.model.vo.RecycleVO" parameterType="net.aopacloud.superbi.model.query.RecycleQuery">
+        select
+        id,
+        name,
+        creator,
+        FLOOR(DATEDIFF(update_time, DATE_SUB(CURDATE(), INTERVAL 30 DAY))) as days,
+        workspace_id,
+        update_time
+        from bi_dashboard
+        <where>
+            deleted > 0
+            and update_time > DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            <if test="superAdmin == false">
+                <choose>
+                    <when test="workspaceAdminIdList != null and workspaceAdminIdList.size() > 0 ">
+                        and (workspace_id in
+                        <foreach collection="workspaceAdminIdList" item="wsaId" separator="," open="(" close=")">
+                            #{wsaId}
+                        </foreach>
+                            or (creator = #{currentUser} or operator = #{currentUser})
+                        )
+                    </when>
+                    <otherwise>
+                    and (creator = #{currentUser} or operator = #{currentUser})
+                    </otherwise>
+                </choose>
+            </if>
+            <if test="keyword != null and keyword != ''">
+                and (
+                name LIKE concat('%', #{keyword}, '%')
+                <if test="searchUsers != null and searchUsers.size() > 0 ">
+                    or creator in
+                    <foreach collection="searchUsers" item="searchUser" separator="," open="(" close=")">
+                        #{searchUser}
+                    </foreach>
+                </if>
+                )
+            </if>
+            <if test="workspaceIdList != null and workspaceIdList.size() > 0 ">
+                and workspace_id in
+                <foreach collection="workspaceIdList" item="wsId" separator="," open="(" close=")">
+                    #{wsId}
+                </foreach>
+            </if>
+            <if test="creatorList != null and creatorList.size() > 0 ">
+                and creator in
+                <foreach collection="creatorList" item="creator" separator="," open="(" close=")">
+                    #{creator}
+                </foreach>
+            </if>
+        </where>
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                order by ${sortField} ${sortType}
+            </when>
+            <otherwise>
+                order by id asc
+            </otherwise>
+        </choose>
+    </select>
+
     <select id="selectById" resultType="net.aopacloud.superbi.model.dto.DashboardDTO">
         select
         <include refid="Base_Column_List"/>
@@ -83,6 +144,12 @@
         where id = #{id,jdbcType=INTEGER} and deleted = 0
     </select>
 
+    <select id="selectAll" resultType="net.aopacloud.superbi.model.dto.DashboardDTO">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_dashboard
+        where deleted = 0
+    </select>
 
     <insert id="save" keyProperty="id" useGeneratedKeys="true" parameterType="net.aopacloud.superbi.model.entity.Dashboard">
         insert into bi_dashboard (workspace_id, `name`,
@@ -95,6 +162,14 @@
 
     <delete id="delete">
         update  bi_dashboard set deleted = #{id} where id = #{id}
+    </delete>
+
+    <delete id="recycleDelete">
+        update  bi_dashboard set deleted = -#{id} where id = #{id}
+    </delete>
+
+    <delete id="restore">
+        update  bi_dashboard set deleted = 0 where id = #{id}
     </delete>
 
     <update id="update" parameterType="net.aopacloud.superbi.model.entity.Dashboard">
@@ -120,6 +195,12 @@
     </update>
     <update id="updateCreator">
         update bi_dashboard set creator = #{toUsername} where creator = #{fromUsername} and deleted = 0
+    </update>
+    <update id="updateOperatorById">
+        update bi_dashboard set operator = #{operator} where id = #{id}
+    </update>
+    <update id="updateCreatorById">
+        update bi_dashboard set creator = #{toUsername} where id = #{id} and creator = #{fromUsername} and deleted = 0
     </update>
     <update id="updateRefreshInterval">
         update bi_dashboard set refresh_interval_seconds = #{refreshIntervalSeconds} where id = #{id}
@@ -177,6 +258,25 @@
         </if>
     </sql>
 
+    <sql id="listSort">
+        order by
+        <if test="authorizeIds != null and authorizeIds.size() > 0">
+            case when d.id in
+            <foreach collection="authorizeIds" item="aid" separator="," open="(" close=")">
+                #{aid}
+            </foreach>
+            then 1 else 0 end desc ,
+        </if>
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                d.`${sortField}`  ${sortType}
+            </when>
+            <otherwise>
+                d.`update_time` desc
+            </otherwise>
+        </choose>
+    </sql>
+
     <select id="findAuthorized" resultType="net.aopacloud.superbi.model.dto.DashboardDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
         <include refid="baseSelect" />
         and (d.status = 'ONLINE' or d.creator = #{username})
@@ -186,38 +286,23 @@
                 #{id}
             </foreach>
         </if>
-        <choose>
-            <when test="sortField != null and sortField != ''">
-                order by d.`${sortField}`  ${sortType}
-            </when>
-            <otherwise>
-                order by d.`update_time` desc
-            </otherwise>
-        </choose>
+        <include refid="listSort"/>
     </select>
     <select id="findFavorite" resultType="net.aopacloud.superbi.model.dto.DashboardDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
         <include refid="baseSelect" />
             and f.target_id is not null
-        <choose>
-            <when test="sortField != null and sortField != ''">
-                order by d.`${sortField}`  ${sortType}
-            </when>
-            <otherwise>
-                order by d.`update_time` desc
-            </otherwise>
-        </choose>
+        <include refid="listSort"/>
     </select>
     <select id="findCreate" resultType="net.aopacloud.superbi.model.dto.DashboardDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
         <include refid="baseSelect" />
             and d.creator = #{username}
-        <choose>
-            <when test="sortField != null and sortField != ''">
-                order by d.`${sortField}`  ${sortType}
-            </when>
-            <otherwise>
-                order by d.`update_time` desc
-            </otherwise>
-        </choose>
+        <include refid="listSort"/>
+    </select>
+    <select id="selectCreate" resultType="net.aopacloud.superbi.model.dto.DashboardDTO">
+        select
+            *
+        from bi_dashboard
+        where  creator = #{username} and deleted = 0
     </select>
     <select id="findUnclassified" resultType="net.aopacloud.superbi.model.dto.DashboardDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
         select d.*,
@@ -234,14 +319,7 @@
           and d.workspace_id = #{workspaceId}
           and d.status = 'ONLINE'
           and folder.target_id is null
-        <choose>
-            <when test="sortField != null and sortField != ''">
-                order by d.`${sortField}`  ${sortType}
-            </when>
-            <otherwise>
-                order by d.`update_time` desc
-            </otherwise>
-        </choose>
+        <include refid="listSort"/>
     </select>
     <select id="findAll" resultType="net.aopacloud.superbi.model.dto.DashboardDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
         <include refid="baseSelect" />
@@ -258,45 +336,41 @@
         </if>
         )
 
-        <choose>
-            <when test="sortField != null and sortField != ''">
-                order by d.`${sortField}`  ${sortType}
-            </when>
-            <otherwise>
-                order by d.`update_time` desc
-            </otherwise>
-        </choose>
+        <include refid="listSort"/>
     </select>
     <select id="findRoot" resultType="net.aopacloud.superbi.model.dto.DashboardDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
         <include refid="baseSelect" />
-            and (d.status = 'ONLINE')
-        <choose>
-            <when test="sortField != null and sortField != ''">
-                order by d.`${sortField}`  ${sortType}
-            </when>
-            <otherwise>
-                order by d.`update_time` desc
-            </otherwise>
-        </choose>
+        and d.status = 'ONLINE'
+        and (
+        d.visibility = 'ALL'
+        <if test="authorizeIds != null and authorizeIds.size() > 0">
+            or d.id in
+            <foreach collection="authorizeIds" item="aid" separator="," open="(" close=")">
+                #{aid}
+            </foreach>
+        </if>
+        )
+        <include refid="listSort"/>
     </select>
     <select id="findNormal" resultType="net.aopacloud.superbi.model.dto.DashboardDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
         <include refid="baseSelect" />
 
             <if test="folderType.name() == 'ALL' ">
-                and d.status = 'ONLINE'
+                and d.status = 'ONLINE' and (
+                d.visibility = 'ALL'
+                <if test="authorizeIds != null and authorizeIds.size() > 0">
+                    or d.id in
+                    <foreach collection="authorizeIds" item="aid" separator="," open="(" close=")">
+                        #{aid}
+                    </foreach>
+                </if>
+                )
             </if>
             <if test="folderType.name() == 'PERSONAL'">
                 and (d.status = 'ONLINE' or d.creator = #{username})
             </if>
 
-        <choose>
-            <when test="sortField != null and sortField != ''">
-                order by d.`${sortField}`  ${sortType}
-            </when>
-            <otherwise>
-                order by d.`update_time` desc
-            </otherwise>
-        </choose>
+        <include refid="listSort"/>
     </select>
     <select id="countByUsername" resultType="java.lang.Integer">
         select count(*) from bi_dashboard where creator = #{username} and deleted = 0
@@ -318,6 +392,7 @@
             </foreach>
         </if>
         )
+        <include refid="listSort"/>
     </select>
     <select id="selectOnlineDashboard" resultType="net.aopacloud.superbi.model.dto.DashboardDTO">
         select <include refid="Base_Column_List" /> from bi_dashboard where `status` = 'ONLINE' and deleted = 0 and workspace_id = #{workspaceId}

@@ -37,4 +37,8 @@ public class DatasetMetaConfig {
 
     private Date updateTime;
 
+    private String refTables;
+
+    private String layout;
+
 }

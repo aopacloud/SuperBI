@@ -19,30 +19,36 @@ import { getCompareDisplay } from '../utils'
 const props = defineProps({
   field: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
   dataset: {
     type: Object,
-    default: () => () => ({}),
+    default: () => () => ({})
   },
   origin: {
     type: [Number, String],
-    default: 0,
+    default: 0
   },
   target: {
     type: [Number, String],
-    default: 0,
+    default: 0
   },
   dTarget: {
-    type: [Number, String],
+    type: [Number, String]
   },
   compare: {
     type: Object,
     default: () => ({
       mode: 1, // 显示模式, 0 默认，1 差值， 2 差值百分比
-      merge: true, // 合并显示, false 单独显示， true 合并显示
-    }),
+      merge: true // 合并显示, false 单独显示， true 合并显示
+    })
   },
+  config: {
+    type: Object,
+    default: () => ({})
+  },
+  isSummary: Boolean, // 是否汇总行的同环比， 是 则不显示数值的颜色
+  displayed: String // 直接显示的值，不参与组件内的逻辑计算
 })
 
 const displayTarget = computed(() => {
@@ -54,13 +60,23 @@ const displayTarget = computed(() => {
 
 // 显示值
 const displayValue = computed(() => {
-  const { origin, target, compare } = props
-  const { mode } = compare
+  if (props.displayed) return props.displayed
 
-  return getCompareDisplay(origin, target, mode)(props.field, props.dataset.fields)
+  const { origin, target } = props
+
+  const s = getCompareDisplay({
+    origin,
+    target,
+    mode: props.compare.mode,
+    config: props.config
+  })(props.field, props.dataset.fields)
+
+  return s
 })
 
 const valStyle = computed(() => {
+  if (props.isSummary || props.displayed) return
+
   const { origin, target } = props
   let color = ''
 

@@ -7,7 +7,7 @@ import request from '@/utils/request'
 export const getWorkspaceMembers = params =>
   request({
     url: '/workspace/member',
-    params,
+    params
   })
 
 /**
@@ -20,8 +20,8 @@ export const getWorkspaceAllMembers = params =>
     params: {
       ...params,
       pageSize: 10000,
-      pageNum: 1,
-    },
+      pageNum: 1
+    }
   })
 
 /**
@@ -33,6 +33,7 @@ export const postWorkspaceMembers = data =>
     url: '/workspace/member',
     method: 'post',
     data,
+    forceWorkspaceId: true // 强制使用工作空间id
   })
 
 /**
@@ -46,7 +47,7 @@ export const putWorkspaceMembers = (id, data, params) =>
     url: '/workspace/member/' + id,
     method: 'put',
     data,
-    params,
+    params
   })
 
 /**
@@ -58,5 +59,5 @@ export const deleteWorkspaceMembers = (id, params) =>
   request({
     url: '/workspace/member/' + id,
     method: 'delete',
-    params,
+    params
   })

@@ -1,6 +1,7 @@
 ﻿<template>
   <section class="preview-section">
     <LHeader
+      v-if="!isMonitor"
       :needBeforeInit="needBeforeInit"
       :detail="detail"
       :globalDateConfig="globalDateConfig"
@@ -11,18 +12,23 @@
       @manage="openManageDrawer"
       @update-detail="onDetailUpdate"
       @published="onPublished"
-      @timeoffset-change="e => (timeOffset = e)" />
+      @timeoffset-change="e => (timeOffset = e)"
+      @auto-grid-layout="onGridLayoutAuto"
+    />
 
     <main class="main">
-      <div class="aside-navs" :class="{ collapsed: navCollapsed }">
+      <Resize
+        v-if="!isMonitor"
+        class="resize-theme-1"
+        :directions="['right']"
+        :style="{ border: 'none', width: asideWidth + 'px' }"
+        :minWidth="2"
+        :autoChange="false"
+        @resized="onResized"
+        @dblclick="onResizeDblclick"
+      >
         <SideNavs :data-source="layout" />
-        <div
-          class="aside-collapse"
-          :class="{ collapsed: navCollapsed }"
-          @click="navCollapsed = !navCollapsed">
-          <CaretLeftOutlined />
-        </div>
-      </div>
+      </Resize>
 
       <div class="content">
         <a-spin :spinning="loading">
@@ -40,59 +46,75 @@
             v-else
             id="dashboard-grid-layout"
             class="layout"
+            :class="{ layoutEditable: mode === 'EDIT' }"
             :col-num="colNum"
-            :cols="{ lg: 3, md: 3, sm: 2, xs: 1, xxs: 1 }"
+            :cols="{
+              lg: colNum,
+              md: colNum,
+              sm: colNum,
+              xs: colNum,
+              xxs: colNum
+            }"
             :row-height="rowHeight"
             :margin="margin"
+            :verticalCompact="verticalCompact"
             :is-draggable="mode === 'EDIT'"
-            :is-resizable="isResizable"
-            v-model:layout="layout">
+            v-model:layout="layout"
+          >
             <grid-item
               class="layout-item"
               v-for="item in layout"
-              dragAllowFrom=".graggable-handler"
+              dragAllowFrom=".draggable-handler"
+              :class="[`layout-item-${item.type}`]"
               :x="item.x"
               :y="item.y"
               :w="item.w"
               :h="item.h"
               :i="item.i"
               :key="item._id"
-              :isResizable="mode === 'EDIT' && item._size === 'large'"
-              :minW="colNum / 4"
-              :minH="item._size === 'large' ? rowHeight * 36 : rowHeight * 18"
+              :minW="colNum / 5"
+              :minH="18"
               :maxW="colNum"
               :maxH="rowHeight * 100"
               :style="{
                 background:
                   item.type === 'FILTER' || item.type === 'REMARK'
                     ? 'transparent'
-                    : '#fff',
-              }">
+                    : '#fff'
+              }"
+              :is-resizable="item.type === 'REPORT' && mode === 'EDIT'"
+              :dragIgnoreFrom="item.type === 'FILTER' ? '.resize-handle' : ''"
+              :resizeFrom="['top', 'right', 'bottom', 'left']"
+              @resized="onLayoutItemResized"
+            >
               <!-- 便签 -->
               <RemarkItem
                 v-if="item.type === 'REMARK'"
-                v-resize="e => onLayoutItemFilterReize(e, item)"
+                v-resize="e => onLayoutItemFilterResize(e, item)"
                 :mode="mode"
                 :id="item._id"
                 :initial-value="item.content"
                 @edit="onRemarkEdit"
-                @update="e => onLayoutItemFilterReize(e, item)" />
+                @update="e => onLayoutItemFilterResize(e, item)"
+              />
               <!-- 筛选项 -->
               <FilterItem
                 v-else-if="item.type === 'FILTER'"
-                v-resize="e => onLayoutItemFilterReize(e, item)"
+                v-resize="e => onLayoutItemFilterResize(e, item)"
                 :mode="mode"
                 :id="item._id"
                 :dIt="detail.id"
-                :data-source="item.content"
+                v-model:data-source="item.content"
                 @edit="onFilterItemEdit"
                 @copy="onFilterItemCopy"
                 @delete="onFilterItemDelete"
-                @query="onFilterItemQuery" />
+                @query="onFilterItemQuery"
+              />
               <!-- 图表 -->
 
               <!-- -if="defer(index)" -->
               <!-- :observer="layoutObserver" -->
+
               <Box
                 v-else
                 class="item-box"
@@ -101,13 +123,16 @@
                 :reportId="item.reportId"
                 :globalDateConfig="globalDateConfig"
                 :filters="filterMap[item.reportId]"
-                :item="item.content"
+                :layoutItem="item"
+                :chartItem="item.content"
                 :timeOffset="timeOffset"
                 @loaded="onChartTaskSuccess"
                 @sql="e => onSqlPreview(e, item)"
                 @download="e => onDownload(e, item)"
                 @dataset-apply="e => onDatasetApply(e, item)"
-                @reload="e => onBoxReload(e, item)" />
+                @reload="e => onBoxReload(e, item)"
+                @warning="onWarningSetting"
+              />
             </grid-item>
           </grid-layout>
         </a-spin>
@@ -119,46 +144,68 @@
   <RemarkModal
     v-model:open="remarkModalOpen"
     :initial-value="currentLayoutItem.content"
-    @ok="onRemarkOk" />
+    @ok="onRemarkOk"
+  />
 
   <!-- 看板管理 -->
   <ManageDrawer
     v-model:open="manageDrawerOpen"
     :data-source="layout"
-    @ok="onManageOk" />
+    @ok="onManageOk"
+  />
 
   <!-- 过滤器管理 -->
   <FilterManageDrawer
     v-model:open="filterManageDrawerOpen"
+    :loading="requestLoading"
     :reports="filterReports"
     :data-source="currentLayoutItem.content"
-    @ok="onFilterManageOk" />
+    @ok="onFilterManageOk"
+  />
 
   <!-- sql预览 -->
   <SqlPreviewDrawer
     v-model:open="sqlPreviewDrawerOpen"
-    :sql="currentLayoutItem.response ? currentLayoutItem.response.sql : undefined" />
+    :sql="
+      currentLayoutItem.response ? currentLayoutItem.response.sql : undefined
+    "
+  />
 
   <!-- 下载 -->
   <DownloadModal
     v-model:open="downloadOpen"
     :filename="currentLayoutItem.content?.name"
     :initParams="currentLayoutItem.request"
-    @download="handleDownload" />
+    :options="currentLayoutItem.options"
+    @download="handleDownload"
+  />
 
   <!-- // dataset-apply -->
-  <ApplyModal v-model:open="applyModalOpen" :initData="applyInfo" @ok="onApplyOk" />
+  <ApplyModal
+    v-model:open="applyModalOpen"
+    :initData="applyInfo"
+    @ok="onApplyOk"
+  />
+
+  <!-- 预警设置 -->
+  <ViewsReportComponentsWarningDrawer
+    :info="warningReportInfo"
+    v-model:open="warningDrawerOpen"
+    @cancel="warningReportInfo = {}"
+  />
 </template>
 
 <script setup>
 import {
   ref,
+  toRaw,
   reactive,
   watch,
   provide,
   onMounted,
   onBeforeUnmount,
   computed,
+  nextTick
 } from 'vue'
 import { message } from 'ant-design-vue'
 import { CaretLeftOutlined } from '@ant-design/icons-vue'
@@ -181,16 +228,28 @@ import {
   getLayoutItemSize,
   transformGridLayoutItem,
   compatibleGridLayoutItem,
+  getLayoutItemHByRealWidth
 } from './utils'
 import { getDetailById, getLastVersionById } from '@/apis/dashboard'
 import useAppStore from '@/store/modules/app'
 import emittor from 'common/plugins/emittor'
 import useUserStore from '@/store/modules/user'
 import { uninitWorker } from '@/components/Chart/Table/exportUtil'
+import { versionVue } from '@/versions'
+import { debounce, deepClone } from '@/common/utils/help'
+import Resize from 'common/components/Layout/Resize/index.vue'
+
+// import GridLayout from '@/components/GridLayoutResizable/components/GridLayout.vue'
+// import GridItem from '@/components/GridLayoutResizable/components/GridItem.vue'
+
+const { ViewsReportComponentsWarningDrawer } = versionVue
 
 const route = useRoute()
 const appStore = useAppStore()
 const userStore = useUserStore()
+
+// 来源是监控页面
+const isMonitor = computed(() => route.name === 'DashboardMonitor')
 
 // 时区偏移
 const timeOffset = computed(() => appStore.activeTimeOffset)
@@ -289,7 +348,9 @@ const allDone = ref(false)
 // 刷新全部
 const refreshLoading = ref(false)
 const refreshAll = async () => {
-  const charts = layout.value.filter(t => t.type !== 'FILTER' && t.type !== 'REMARK')
+  const charts = layout.value.filter(
+    t => t.type !== 'FILTER' && t.type !== 'REMARK'
+  )
   if (!charts.length) return
 
   allDone.value = false
@@ -313,13 +374,16 @@ provide('index', {
       }
 
       return detail.value
-    },
+    }
   },
   allDone: allDone,
   refresh: {
     loading: refreshLoading,
-    run: refreshAll,
+    run: refreshAll
   },
+  layout: {
+    get: () => toRaw(layout.value)
+  }
 })
 
 const initWithLayout = res => {
@@ -331,7 +395,6 @@ const initWithLayout = res => {
     .sort((a, b) => (a.y === b.y ? a.x - b.x : a.y - b.y))
 
   initFilters()
-
   initRequestTask()
 }
 
@@ -341,6 +404,9 @@ const MAX_REQUEST_COUNT = 6
 const allChartQueues = ref([])
 // 当前请求队列
 const taskQueues = ref([])
+// 看板项的请求loading
+const requestLoading = computed(() => taskQueues.value.length > 0)
+
 // 初始化队列
 const initRequestTask = () => {
   allChartQueues.value = layout.value
@@ -399,7 +465,7 @@ const globalDateConfig = reactive({
   offset: [],
   date: [],
   hms: [],
-  showTime: true,
+  showTime: true
 })
 const onDetailUpdate = e => {
   detail.value = { ...detail.value, ...e }
@@ -418,10 +484,10 @@ onMounted(() => {
 
   const {
     name,
-    params: { id },
+    params: { id }
   } = route
 
-  if (name === 'DashboardPreview') {
+  if (name === 'DashboardPreview' || name === 'DashboardMonitor') {
     mode.value = 'READONLY'
   } else {
     mode.value = 'EDIT'
@@ -449,12 +515,11 @@ watch(
   { deep: true }
 )
 
-const isResizable = ref(resizable)
 const layout = ref([])
 // 看板布局更新
-const updateLayout = () => {
+const updateLayout = debounce(() => {
   layout.value = layout.value.map(t => t)
-}
+}, 40)
 
 // 看板管理抽屉
 const manageDrawerOpen = ref(false)
@@ -462,22 +527,23 @@ const openManageDrawer = () => {
   manageDrawerOpen.value = true
   mode.value = 'EDIT'
 }
-const onManageOk = payload => {
-  const list = payload.map(item => {
-    const { _size, _oH, reportId, content } = item
+const onManageOk = (payload = []) => {
+  layout.value = payload.map((item, index) => {
+    const { reportId, content, h, y, _oH = h } = item
     const layoutItem = layout.value.find(t => t.reportId === reportId)
 
     return {
       ...item,
       reportId: reportId || content.id,
-      h: _oH || getLayoutItemSize('height', _size),
-      _loaded: layoutItem?._loaded,
+      h: _oH,
+      _oH: undefined,
+      _loaded: layoutItem?._loaded
     }
   })
 
-  layout.value = list.sort((a, b) => a._sort - b._sort)
-
-  initRequestTask()
+  nextTick(() => {
+    initRequestTask()
+  })
 }
 
 const onEdit = () => {
@@ -496,12 +562,14 @@ const onFilterAdd = () => {
     y: 0,
     w: getLayoutItemSize('width', 'large'),
     h: 10,
-    content: [],
+    content: []
   })
 }
 
 // 看板项尺寸改变(内容改变)
-const onLayoutItemFilterReize = (e, payload) => {
+const onLayoutItemFilterResize = (e, payload) => {
+  if (!e?.target) return
+
   const height = e.target.offsetHeight
   // const height = e.target.getBoundingClientRect().height
   const h = getLayoutItemHByRealHeight(height)
@@ -529,22 +597,22 @@ const onRemarkOk = payload => {
 }
 
 // 过滤器中关联的图表
-const filterReports = ref([])
-// 过滤器管理
+const filterReports = computed(() => {
+  return toRaw(layout.value)
+    .filter(t => t.type === 'REPORT')
+    .map(t => {
+      return {
+        ...t.content.report
+      }
+    })
+    .filter(t => Object.keys(t).length > 0)
+})
+
 const filterManageDrawerOpen = ref(false)
 const onFilterItemEdit = ({ _id }) => {
   const item = layout.value.find(t => t._id === _id)
 
   currentLayoutItem.value = { _id, content: item.content }
-
-  filterReports.value = toRaw(layout.value)
-    .filter(t => t.type === 'REPORT')
-    .map(t => {
-      return {
-        ...t.content.report,
-      }
-    })
-    .filter(t => Object.keys(t).length > 0)
   filterManageDrawerOpen.value = true
 }
 const onFilterManageOk = payload => {
@@ -564,7 +632,7 @@ const onFilterItemCopy = item => {
     ...preItem,
     i: _i,
     _id: _i,
-    y: preItem.y + 1,
+    y: preItem.y + 1
   }
 
   layout.value.splice(index + 1, 0, newItem)
@@ -595,7 +663,7 @@ const _dealFilterChartItem = (list = []) => {
         filterType,
         filterMethod,
         value,
-        ...charts[reportId],
+        ...charts[reportId]
       })
     }
   })
@@ -620,11 +688,12 @@ const onSqlPreview = (response, item) => {
 // 下载
 const downloadOpen = ref(false)
 const onDownload = (e, item) => {
-  const { payload, download } = e
+  const { payload, download, options } = e
   currentLayoutItem.value = {
     ...item,
     request: { ...payload, fromSource: 'dashboard' },
-    download,
+    options,
+    download
   }
   downloadOpen.value = true
 }
@@ -682,6 +751,47 @@ watch(
 //   rootMargin: '10px 10px 10px 10px',
 //   threshold: 0.2,
 // })
+
+const warningReportInfo = ref()
+const warningDrawerOpen = ref(false)
+const onWarningSetting = e => {
+  warningReportInfo.value = deepClone(e)
+  warningDrawerOpen.value = true
+}
+
+const onLayoutItemResized = (id, ...res) => {
+  const item = layout.value.find(t => t._id === id)
+  item._size = undefined
+}
+
+// 布局紧凑方式
+const verticalCompact = ref(true)
+const onGridLayoutAuto = e => {
+  verticalCompact.value = true
+  updateLayout()
+  setTimeout(() => {
+    verticalCompact.value = false
+  }, 600)
+}
+
+const asideWidth = computed(() => {
+  const width = appStore.appLayout?.dashboardPreview?.aside?.width
+
+  if (typeof width === 'undefined') {
+    return 300
+  }
+  return width
+})
+const onResized = e => {
+  appStore.setLayout('dashboardPreview', { aside: { width: e.width } })
+}
+const onResizeDblclick = () => {
+  if (asideWidth.value) {
+    appStore.setLayout('dashboardPreview', { aside: { width: 0 } })
+  } else {
+    appStore.setLayout('dashboardPreview', { aside: { width: 300 } })
+  }
+}
 </script>
 
 <style scoped lang="scss">
@@ -713,36 +823,27 @@ watch(
   }
 }
 
-.aside-navs {
-  width: 260px;
-  transition: all 0.15s;
-  &.collapsed {
-    width: 0;
-    overflow: hidden;
+.layout.layoutEditable {
+  .layout-item-REPORT:hover {
+    outline: 1px dashed #6363ff;
+    :deep(.draggable-handler) {
+      cursor: grab !important;
+      &:active {
+        cursor: grabbing !important;
+      }
+    }
   }
-}
-.aside-collapse {
-  position: absolute;
-  left: 260px;
-  top: 50%;
-  padding: 12px 1px;
-  background-color: #e5e9ec;
-  border-left: none;
-  border-top-right-radius: 4px;
-  border-bottom-right-radius: 4px;
-  transition: all 0.15s;
-  cursor: pointer;
-  z-index: 9;
 
-  &.collapsed {
-    left: 0;
+  .layout-item {
+    cursor: unset !important;
+    &:not(.layout-item-REPORT):hover {
+      :deep(.draggable-handler) {
+        cursor: grab !important;
+        &:active {
+          cursor: grabbing !important;
+        }
+      }
+    }
   }
-}
-
-.layout {
-  // background: #f0f2f5;
-}
-.layout-item:not(.vue-grid-placeholder) {
-  background: #fff;
 }
 </style>

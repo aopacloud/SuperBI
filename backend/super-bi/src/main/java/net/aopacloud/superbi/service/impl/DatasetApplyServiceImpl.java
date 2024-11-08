@@ -135,7 +135,7 @@ public class DatasetApplyServiceImpl implements DatasetApplyService {
         datasetApply.setAuthorizeStatus(AuthorizeStatusEnum.NOT_AUTHORIZED);
         if (Strings.isNullOrEmpty(datasetApply.getDatasource())) {
             DatasetMetaConfig datasetMetaConfig = datasetMetaConfigMapper.selectOneByDatasetAndVersion(dataset.getId(), dataset.getVersion());
-            datasetApply.setDatasource(String.format("%s.%s", datasetMetaConfig.getDbName(), datasetMetaConfig.getTableName()));
+            datasetApply.setDatasource(datasetMetaConfig.getRefTables());
         }
         datasetApplyMapper.save(datasetApply);
         applicationContext.publishEvent(new DatasetApplyUpdateEvent(datasetApply));

@@ -6,7 +6,7 @@ export const levels = {
   TABLE: '表级',
   COLUMN: '字段级',
   ROW: '行级',
-  COLUMN_ROW: '字段与行级',
+  COLUMN_ROW: '字段与行级'
 }
 
 /**
@@ -32,7 +32,7 @@ export const expireDays = [
   { label: '30天', day: 30, value: dayToSec(30) },
   { label: '90天', day: 90, value: dayToSec(90) },
   { label: '180天', day: 180, value: dayToSec(180) },
-  { label: '永久', day: 0, value: 0 },
+  { label: '永久', day: 0, value: 0 }
 ]
 
 /**
@@ -77,12 +77,12 @@ export const tableColumns = [
   {
     title: '用户',
     width: 220,
-    dataIndex: 'usernameAlias',
+    dataIndex: 'usernameAlias'
   },
   {
     title: '类型',
     dataIndex: 'permission',
-    width: 100,
+    width: 100
   },
   {
     title: '粒度',
@@ -90,7 +90,7 @@ export const tableColumns = [
     dataIndex: 'privilegeType',
     customRender: ({ value }) => {
       return levels[value] || '-'
-    },
+    }
   },
   {
     title: '状态',
@@ -103,7 +103,7 @@ export const tableColumns = [
           text={value ? '已到期' : '正常使用'}
         />
       )
-    },
+    }
   },
   {
     title: '到期时间',
@@ -114,13 +114,13 @@ export const tableColumns = [
       if (!expireDuration) return '永久'
 
       return calcuExpire(startTime, expireDuration)
-    },
+    }
   },
   {
     title: '操作',
     dataIndex: 'action',
-    width: 120,
-  },
+    width: 120
+  }
 ]
 
 // 操作符号
@@ -133,7 +133,7 @@ export const allOperators = {
     { label: '包含', value: '5' },
     { label: '不包含', value: '6' },
     { label: '有值', value: '13' },
-    { label: '无值', value: '14' },
+    { label: '无值', value: '14' }
   ],
   TEXT: [
     { label: '等于', value: '1' },
@@ -143,7 +143,7 @@ export const allOperators = {
     { label: '包含', value: '5' },
     { label: '不包含', value: '6' },
     { label: '有值', value: '13' },
-    { label: '无值', value: '14' },
+    { label: '无值', value: '14' }
   ],
   NUMBER: [
     { label: '=', value: '1' },
@@ -153,6 +153,6 @@ export const allOperators = {
     { label: '≥', value: '9' },
     { label: '≤', value: '10' },
     { label: '有值', value: '13' },
-    { label: '无值', value: '14' },
-  ],
+    { label: '无值', value: '14' }
+  ]
 }

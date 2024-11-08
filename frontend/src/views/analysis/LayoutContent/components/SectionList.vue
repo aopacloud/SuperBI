@@ -7,20 +7,24 @@
       tag="main"
       itemKey="_id"
       ghost-class="tag-ghost"
+      ref="listRef"
       :list="dataSource"
+      @start="onStart"
       @dragover.native="onDragover"
       @dragleave.native="onDragleave"
       @drop.native="onDrop"
-      @start="onStart">
+    >
       <template #item="{ element }">
         <SectionTag
           v-if="isTagVisible(element)"
           class="list-item"
+          :open="open"
           :dataset="dataset"
           :tag="element"
           :category="category"
           :color="tagColor"
-          @remove="onRemove(element)">
+          @remove="onRemove(element)"
+        >
           {{ element.displayName }}
         </SectionTag>
       </template>
@@ -28,12 +32,13 @@
       <template #footer>
         <!-- 字段多选 -->
         <MultipleSelectedPopover
-          #footer
           v-if="hasDatasetAnalysis"
           class="multiple-trigger"
           :data-source="datasetFields"
           :value="multipleValue"
-          @ok="onMultipleOk" />
+          @ok="onMultipleOk"
+          @addAssembly="onAddAssembly"
+        />
       </template>
     </draggable>
 
@@ -43,7 +48,8 @@
       size="small"
       class="clear-button"
       :icon="h(CloseOutlined)"
-      @click="handleClear"></a-button>
+      @click="handleClear"
+    ></a-button>
   </section>
 </template>
 
@@ -53,27 +59,34 @@ import { CloseOutlined } from '@ant-design/icons-vue'
 import draggable from 'vuedraggable'
 import MultipleSelectedPopover from '@/views/analysis/components/MultipleSelectedPopover.vue'
 import SectionTag from './SectionTag.vue'
-import { categoryMap } from '@/views/dataset/config.field'
+import {
+  categoryMap,
+  SUMMARY_PROPERTY_DEFAULT,
+  SUMMARY_INDEX_DEFAULT
+} from '@/views/dataset/config.field'
 import { getSectionListLabel } from '@/views/analysis/config'
 import { CATEGORY } from '@/CONST.dict'
 import { getRandomKey } from 'common/utils/string'
+import { getNextIndex } from 'common/utils/help'
 
 const props = defineProps({
+  draggableGroup: String,
   dataset: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
   category: {
     type: String,
-    default: CATEGORY.PROPERTY,
+    default: CATEGORY.PROPERTY
   },
   group: {
-    type: String,
+    type: String
   },
   dataSource: {
     type: Array,
-    default: () => [],
+    default: () => []
   },
+  open: Boolean
 })
 
 // 使用计算属性需要处理数据的更新传递（数据传递方式较为复杂）
@@ -94,7 +107,7 @@ const {
   choosed: indexChoosed,
   options: indexOptions,
   compare: indexCompare,
-  permissions,
+  permissions
 } = inject('index', {})
 
 // 数据集分析权限
@@ -132,7 +145,7 @@ const datasetFields = computed(() => {
 
     return {
       ...item,
-      disabled: force && filters.some(t => t.name === item.name),
+      disabled: force && filters.some(t => t.name === item.name)
     }
   })
 })
@@ -180,92 +193,178 @@ const handleClear = () => {
 // 当前拖动的字段
 const draggingField = computed(() => indexDraggingField.get())
 
+const listRef = ref(null)
 // 默认不允许被拖入， 需阻止默认行为 evt.preventDefault()
 const onDragover = evt => {
   if (!draggingField.value) return
 
+  // 正在拖动的字段
   const dragging = draggingField.value
 
-  // 内部拖拽只能在相同分组中
-  if (dragging._fromInner) {
-    if (props.category === dragging.category) {
-      evt.target.classList.add('drag-ghost')
-      evt.preventDefault()
-    }
+  const parent = listRef.value.$el
 
-    return
-  }
-
-  // 不可拖入同一字段的过滤条件
   if (props.category === CATEGORY.FILTER) {
+    if (dragging._fromInner) return false
+
+    // 过滤
     const choosedFilters = choosedGet(props.category)
 
     if (choosedFilters.some(t => t.name === dragging.name)) {
       return false
     } else {
-      evt.target.classList.add('drag-ghost')
+      parent.classList.add('drag-ghost')
       evt.preventDefault()
     }
-  } else if (dragging.category === CATEGORY.PROPERTY) {
-    evt.target.classList.add('drag-ghost')
+  } else if (props.category === CATEGORY.INDEX) {
+    // 指标
+    parent.classList.add('drag-ghost')
     evt.preventDefault()
-  } else if (dragging.category === CATEGORY.INDEX) {
-    // 指标 只能拖入指标和过滤
-    if (props.category === CATEGORY.INDEX || props.category === CATEGORY.FILTER) {
-      evt.target.classList.add('drag-ghost')
-      evt.preventDefault()
-    } else {
-      return false
-    }
-  }
-}
-
-const onDragleave = e => {
-  e.target.classList.remove('drag-ghost')
-}
-
-const onDrop = evt => {
-  if (!draggingField.value) return
-
-  evt.target.classList.remove('drag-ghost')
-
-  const item = draggingField.value
-
-  // 内部拖拽只能在相同分组中
-  if (item._fromInner && item.category !== props.category) return
-
-  if (props.category === CATEGORY.FILTER) {
-    item._group = props.group
   } else {
-    if (props.category === CATEGORY.PROPERTY) {
-      item._group = props.group
+    // 维度
 
-      const exitedIndex = props.dataSource.findIndex(t => t.name === item.name)
-      if (exitedIndex > -1) {
-        if (item._fromInner) {
-          props.dataSource.splice(exitedIndex, 1)
-          props.dataSource.push(item)
-        } else {
-          props.dataSource.splice(exitedIndex, 1)
-        }
-      }
-    }
+    //  指标不可拖入维度
+    if (dragging.category === CATEGORY.INDEX) return
+
+    parent.classList.add('drag-ghost')
+    evt.preventDefault()
   }
+}
 
-  if (!item._fromInner) {
-    props.dataSource.push({ ...item, _id: getRandomKey() })
-  }
-
-  indexCompare.update.dimensions(item)
-  indexDraggingField.set()
+const onDragleave = () => {
+  listRef.value.$el.classList.remove('drag-ghost')
 }
 
 const onStart = ({ item }) => {
-  // 目前只有维度分组见可以相互拖动(行分组、列分组)
-  if (props.category !== CATEGORY.PROPERTY) return
+  // 过滤字段不允许拖动
+  if (props.category === CATEGORY.FILTER) return
 
   const old = props.dataSource.find(t => t._id === item.dataset.id)
-  indexDraggingField.set({ ...old, _fromInner: true })
+  indexDraggingField.set({ ...old, _fromInner: true, _from: props.category })
+}
+
+// 重置为指标字段
+const _resetToI = field => {
+  delete field._group
+  delete field._weekStart // 移除周起始日
+  delete field.dateTrunc // 移除日期分组
+  delete field.viewModel // 移除日期显示
+  delete field.firstDayOfWeek // 移除一周的开始
+
+  return {
+    ...field,
+    _id: getRandomKey(),
+    aggregator:
+      field.category === CATEGORY.PROPERTY
+        ? SUMMARY_PROPERTY_DEFAULT
+        : SUMMARY_INDEX_DEFAULT
+  }
+}
+
+// 重置为维度字段
+const _resetToP = field => {
+  delete field.fastCompute // 移除快速计算
+  delete field.aggregator // 移除聚合函数
+
+  return { ...field, _id: getRandomKey(), _group: props.group }
+}
+
+// 拖动结束
+const onDrop = () => {
+  if (!draggingField.value) return
+
+  listRef.value.$el.classList.remove('drag-ghost')
+
+  const dragging = draggingField.value
+
+  if (props.category === CATEGORY.FILTER) {
+    // 拖动到过滤
+
+    // 内部拖拽不可拖入到过滤
+    if (dragging._fromInner) {
+      indexDraggingField.set()
+      return
+    }
+
+    props.dataSource.push({ ...dragging, _id: getRandomKey() })
+  } else if (props.category === CATEGORY.INDEX) {
+    // 拖动到指标
+
+    // 从外部左侧拖入
+    if (!dragging._fromInner) {
+      props.dataSource.push({ ...dragging, _id: getRandomKey() })
+      indexDraggingField.set()
+      return
+    }
+
+    // 指标到指标不做处理
+    if (dragging._from === CATEGORY.INDEX) {
+      indexDraggingField.set()
+      return
+    }
+
+    const pChoosed = indexChoosed.get(CATEGORY.PROPERTY)
+    // 从原有的维度中删除
+    indexChoosed.set(
+      CATEGORY.PROPERTY,
+      pChoosed.filter(t => t._id !== dragging._id)
+    )
+    // 新增进现在的指标中
+    props.dataSource.push(_resetToI(dragging))
+  } else if (props.category === CATEGORY.PROPERTY) {
+    // 拖动到维度
+
+    // 指标不可拖入到维度
+    if (dragging.category === CATEGORY.INDEX) {
+      indexDraggingField.set()
+      return
+    }
+
+    // 拖入到维度
+    if (dragging._from === CATEGORY.PROPERTY) {
+      if (props.group === 'row') {
+        // 当前为行分组
+
+        if (
+          dragging._group === 'row' ||
+          typeof dragging._group === 'undefined'
+        ) {
+          // 行分组件的拖动不做处理
+          indexDraggingField.set()
+          return
+        } else {
+          const item = props.dataSource.find(t => t._id === dragging._id)
+          item._group = props.group
+        }
+      } else if (props.group === 'column') {
+        // 当前为列分组
+
+        if (dragging._group === 'column') {
+          // 列分组件的拖动不做处理
+          indexDraggingField.set()
+          return
+        } else {
+          const item = props.dataSource.find(t => t._id === dragging._id)
+          item._group = props.group
+        }
+      } else {
+        indexDraggingField.set()
+        return
+      }
+    }
+
+    const iChoosed = indexChoosed.get(CATEGORY.INDEX)
+    // 从原有的指标中删除
+    indexChoosed.set(
+      CATEGORY.INDEX,
+      iChoosed.filter(t => t._id !== dragging._id)
+    )
+    const index = props.dataSource.findIndex(t => t.name === dragging.name)
+    if (index > -1) {
+      props.dataSource.splice(index, 1)
+    }
+    props.dataSource.push(_resetToP(dragging))
+  }
+  indexDraggingField.set()
 }
 
 // 批量选中
@@ -300,6 +399,24 @@ const onMultipleOk = value => {
       indexCompare.update.dimensions(diff)
     }
   }, 20)
+}
+
+const onAddAssembly = () => {
+  const nests = choosedGet(props.category)
+    .filter(t => t.nested)
+    .map(t => +t.displayName.substring(4))
+
+  const nextIndex = getNextIndex(1, nests)
+
+  choosedSet(
+    props.category,
+    props.dataSource.concat({
+      _id: getRandomKey(),
+      category: CATEGORY.FILTER,
+      displayName: '组合过滤' + nextIndex,
+      nested: true
+    })
+  )
 }
 </script>
 

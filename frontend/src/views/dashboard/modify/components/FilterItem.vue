@@ -1,17 +1,23 @@
 ﻿<template>
   <div
-    class="graggable-handler filter-layout"
-    :class="{ readonly: mode !== 'EDIT' }">
+    class="draggable-handler filter-layout"
+    :class="{ readonly: mode !== 'EDIT' }"
+  >
     <div class="filter-tools" v-if="mode === 'EDIT'">
       <a-tooltip title="编辑">
         <EditOutlined
           class="tools-btn"
           style="padding-left: 4px"
           type="edit"
-          @click="edit" />
+          @click="edit"
+        />
       </a-tooltip>
       <a-dropdown :getPopupContainer="node => node.parentNode">
-        <MoreOutlined class="tools-btn" style="padding-right: 4px" type="more" />
+        <MoreOutlined
+          class="tools-btn"
+          style="padding-right: 4px"
+          type="more"
+        />
         <template #overlay>
           <a-menu style="width: 70px" @click="onMoreClick">
             <a-menu-item key="copy" style="padding: 2px 0">
@@ -26,10 +32,12 @@
     </div>
 
     <div class="filter-form-layout">
-      <div class="filter-form">
+      <div class="filter-form" :class="{ filterEditable: mode === 'EDIT' }">
         <template v-if="!list.length">
           <div class="no-data">
-            {{ mode !== 'EDIT' ? '暂无查询条件' : '点击编辑按钮进入查询条件配置' }}
+            {{
+              mode !== 'EDIT' ? '暂无查询条件' : '点击编辑按钮进入查询条件配置'
+            }}
           </div>
         </template>
 
@@ -37,16 +45,22 @@
           <a-form layout="inline">
             <a-form-item
               v-for="item in list"
+              class="filter-item"
               :key="item.id"
               :label="item.name"
-              :class="{ required: item.required }">
+              :class="{ required: item.required }"
+            >
               <!-- {{ item.value }} -->
               <!-- v-model:value="item.value" -->
               <FilterRender
                 from="filterItem"
                 :dId="dId"
                 :item="item"
-                v-model:value="item.value" />
+                :size="item.size"
+                :resizable="mode === 'EDIT'"
+                v-model:value="item.value"
+                @sizeChange="e => onSizeChange(e, item)"
+              />
             </a-form-item>
           </a-form>
         </template>
@@ -57,10 +71,15 @@
           class="query-btn reset"
           style="margin-right: 8px"
           :class="{ disabled: !unQueryable }"
-          @click="reset">
+          @click="reset"
+        >
           重置
         </div>
-        <div class="query-btn" :class="{ disabled: !unQueryable }" @click="query">
+        <div
+          class="query-btn"
+          :class="{ disabled: !unQueryable }"
+          @click="query"
+        >
           查询
         </div>
       </div>
@@ -75,31 +94,40 @@ import {
   EditOutlined,
   MoreOutlined,
   CopyOutlined,
-  DeleteOutlined,
+  DeleteOutlined
 } from '@ant-design/icons-vue'
 import FilterRender from './FilterRender.vue'
 import { deepClone } from 'common/utils/help'
+import { nextTick } from 'vue'
+import { onMounted } from 'vue'
 
-const emits = defineEmits(['copy', 'delete', 'edit', 'query', 'reset'])
+const emits = defineEmits([
+  'copy',
+  'delete',
+  'edit',
+  'query',
+  'reset',
+  'update:data-source'
+])
 const props = defineProps({
   id: {
-    type: [String, Number],
+    type: [String, Number]
   },
   dataSource: {
     // 渲染数据源
     type: Array,
-    default: () => [], //.slice(0, 2),
+    default: () => [] //.slice(0, 2),
   },
   mode: {
     type: String,
-    default: 'READONLY',
+    default: 'READONLY'
   },
   dId: [String, Number], // 看板ID
   // 可查询的，防止看板未加载完重复点击导致不可预料的渲染错误
   unQueryable: {
     type: Boolean,
-    default: true,
-  },
+    default: true
+  }
 })
 
 const list = ref([])
@@ -110,6 +138,8 @@ const init = () => {
 watchEffect(() => {
   init()
 })
+
+onMounted(() => {})
 
 const onMoreClick = ({ key }) => {
   if (key === 'copy') {
@@ -132,7 +162,9 @@ const unValidator = item => {
   if (!required) return false
 
   if (filterType === 'TEXT' || filterType === 'NUMBER') {
-    return value.some(v => typeof v.value === 'undefined' || !v.value.trim().length)
+    return value.some(
+      v => typeof v.value === 'undefined' || !v.value.trim().length
+    )
   } else if (filterType === 'ENUM') {
     return typeof value === 'undefined' || !value.length
   } else if (filterType === 'TIME') {
@@ -171,12 +203,16 @@ const query = () => {
         filterType,
         filterMethod,
         charts,
-        value: deepClone(value),
+        value: deepClone(value)
       }
     })
   }
-
   emits('query', _getData(toRaw(list.value)))
+}
+
+const onSizeChange = (size, item) => {
+  const t = props.dataSource.find(t => t.id === item.id)
+  t.size = size
 }
 </script>
 
@@ -218,28 +254,32 @@ const query = () => {
 
 .filter-form-layout {
   display: flex;
-  // padding: 5px 0;
 }
 .filter-form {
   flex: 1;
   margin-top: -12px;
-  :deep(.ant-form-item) {
-    margin-top: 12px;
-    // line-height: 40px;
-    .ant-row {
-      align-items: center;
-    }
-    .ant-form-item-label {
-      position: relative;
-      padding-left: 10px;
-    }
-    &.required .ant-form-item-label {
-      &:before {
-        content: '*';
-        position: absolute;
-        left: 2px;
-        top: 2px;
-        color: red;
+  overflow: auto;
+  :deep(.ant-form) {
+    overflow: auto;
+    .ant-form-item {
+      margin-top: 12px;
+      margin-left: 2px;
+      .ant-row {
+        line-height: 1;
+        align-items: center;
+      }
+      .ant-form-item-label {
+        position: relative;
+        padding-left: 10px;
+      }
+      &.required .ant-form-item-label {
+        &:before {
+          content: '*';
+          position: absolute;
+          left: 2px;
+          top: 2px;
+          color: red;
+        }
       }
     }
   }
@@ -270,6 +310,16 @@ const query = () => {
   &-btn {
     padding: 2px 2px;
     cursor: pointer;
+  }
+}
+
+.filter-item {
+  border-radius: 2px;
+  border: 1px dashed transparent;
+}
+.filter-form.filterEditable {
+  .filter-item:hover {
+    border-color: #6363ff;
   }
 }
 </style>

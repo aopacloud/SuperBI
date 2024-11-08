@@ -12,7 +12,7 @@ import java.util.List;
 @Mapper(unmappedTargetPolicy = ReportingPolicy.IGNORE, componentModel = "spring")
 public interface DatasetAuthorizeConverter {
 
-    @Mapping(target = "rows", expression = "java(net.aopacloud.superbi.util.JSONUtils.parseObject(dto.getRowParam(), DatasetAuthorizeVO.Rows.class))")
+    @Mapping(target = "rows", expression = "java(net.aopacloud.superbi.util.JSONUtils.parseObject(dto.getRowParam(), net.aopacloud.superbi.model.domain.Rows.class))")
     DatasetAuthorizeVO toVO(DatasetAuthorizeDTO dto);
 
     List<DatasetAuthorizeVO> toVOList(List<DatasetAuthorizeDTO> dtoList);

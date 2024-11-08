@@ -56,12 +56,7 @@ public class DashboardController {
                 dashboardQuery.setSearchUsers(usernames);
             }
         }
-
-        List<DashboardDTO> dashboardDTOS = dashboardService.search(dashboardQuery);
-
-        PageInfo pageInfo = new PageInfo(dashboardDTOS);
-        PageVO pageVO = new PageVO(dashboardConverter.toVOList(dashboardDTOS), pageInfo.getTotal());
-
+        PageVO pageVO  = dashboardService.search(dashboardQuery);
         return RestApiResponse.success(pageVO);
     }
 

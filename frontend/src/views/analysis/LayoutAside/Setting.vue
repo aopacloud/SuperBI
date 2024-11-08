@@ -1,42 +1,44 @@
 ﻿<template>
-  <aside class="aside-right">
-    <div class="setting-arrow-icon" @click="handleSettingCollapse">
-      <DoubleRightOutlined v-if="settingOpen" />
-      <DoubleLeftOutlined v-else />
-    </div>
+  <aside class="aside-right setting" :class="{ disabled: !hasDatasetAnalysis }">
+    <SettingTypeSection
+      style="min-height: 120px"
+      :type="renderType"
+      @change="onRenderTypeChange"
+    />
 
-    <div
-      v-show="settingOpen"
-      class="setting"
-      :class="{ disabled: !hasDatasetAnalysis }">
-      <SettingTypeSection :type="options.renderType" @change="onRenderTypeChange" />
+    <Divider style="margin: 10px 0" />
 
-      <Divider style="margin: 10px 0" />
+    <keep-alive>
+      <SettingTableSection
+        v-if="isRenderTable(renderType)"
+        :renderType="renderType"
+        v-model:options="options.table"
+        v-model:compare="options.compare"
+      />
 
-      <template v-if="options.renderType !== 'statistic'">
-        <keep-alive>
-          <SettingTableSection
-            v-if="isRenderTable(options.renderType)"
-            v-model:options="options.table"
-            v-model:compare="options.compare" />
-          <SettingChartSection
-            v-else
-            :type="options.renderType"
-            v-model:options="options.chart"
-            v-model:compare="options.compare" />
-        </keep-alive>
-      </template>
-    </div>
+      <SettingIndexCardSection
+        v-else-if="renderType === 'statistic'"
+        v-model:options="options.indexCard"
+        v-model:compare="options.compare"
+      />
+
+      <SettingChartSection
+        v-else
+        :renderType="renderType"
+        v-model:options="options.chart"
+        v-model:compare="options.compare"
+      />
+    </keep-alive>
   </aside>
 </template>
 
 <script setup>
-import { ref, watch, inject, watchEffect, computed } from 'vue'
+import { inject, computed } from 'vue'
 import { Divider } from 'ant-design-vue'
-import { DoubleRightOutlined, DoubleLeftOutlined } from '@ant-design/icons-vue'
-import SettingTypeSection from './components/SettingTypeSection.vue'
-import SettingTableSection from './components/SettingTableSection.vue'
-import SettingChartSection from './components/SettingChartSection.vue'
+import SettingTypeSection from './components/SettingSections/TypeSection.vue'
+import SettingTableSection from './components/SettingSections/TableSection.vue'
+import SettingChartSection from './components/SettingSections/ChartSection.vue'
+import SettingIndexCardSection from './components/SettingSections/IndexCardSection.vue'
 import { isRenderTable } from '../utils'
 import { CATEGORY } from '@/CONST.dict'
 
@@ -44,27 +46,20 @@ const emits = defineEmits(['update:options'])
 const props = defineProps({
   options: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
-  hasDatasetAnalysis: Boolean,
+  hasDatasetAnalysis: Boolean
 })
+
+const renderType = computed(() => props.options.renderType)
 
 const { choosed: indexChoosed, autoRun, requestResponse } = inject('index')
 
-// 设置侧边栏显示
-const settingOpen = ref(true)
-const handleSettingCollapse = () => {
-  settingOpen.value = !settingOpen.value
-}
-
-// 展示类型
-const renderType = ref('table')
-
 // 查询请求
-const request = computed(() => requestResponse.get('request'))
+const request = computed(() => requestResponse.get('request') || {})
 
 // 查询结果
-const response = computed(() => requestResponse.get('response'))
+const response = computed(() => requestResponse.get('response') || {})
 
 // 汇总处理
 const summaryHandler = e => {
@@ -73,19 +68,30 @@ const summaryHandler = e => {
 
   // 上一次查询请求是否汇总
   const prevRequestIsSummery = request.value.summary
+  // 上一次查询详情汇总
+  const prevRequestIsDetailSummary = request.value.detailSummary
   // 当前配置是否显示汇总行
-  const currentIsSummary = props.options.table.showSummary
+  const currentIsSummary = !!props.options.table.summary
 
-  if (e === 'table') {
-    // 普通表格的不显示汇总行，不重新查询
-    if (!currentIsSummary) return
-    // 上一次查询了汇总
-    if (prevRequestIsSummery) return
+  const oldE = props.options.renderType
 
+  // 交叉表会有数据个数的变化，切换至别的需重新查询
+  if (oldE === 'intersectionTable') {
     autoRun()
-  } else {
-    if (prevRequestIsSummery) return
+    return
+  }
 
+  // 上一次查询不查询汇总行和明细汇总
+  if (!prevRequestIsSummery && !prevRequestIsDetailSummary) {
+    if (oldE === 'table') {
+      autoRun()
+    } else {
+      // 设置中没有汇总行
+      if (!currentIsSummary) return
+      autoRun()
+    }
+  } else {
+    if (oldE !== 'table') return
     autoRun()
   }
 }
@@ -101,15 +107,15 @@ const updateDimensions = e => {
 }
 
 const onRenderTypeChange = e => {
-  if (isRenderTable(e)) {
+  updateDimensions(e)
+
+  if (isRenderTable(e) || e === 'statistic') {
     updateDimensions(e)
-    summaryHandler(e)
-    if (props.options.renderType === 'intersectionTable') {
-      autoRun()
-    }
+    // summaryHandler(e)
+    autoRun()
   } else {
     if (e === 'bar' || e === 'line') {
-      ;(props.options.chart.axis || []).forEach(item => {
+      ;(props.options.chart.yAxis.axis || []).forEach(item => {
         item.chartType = e
       })
     }
@@ -124,29 +130,11 @@ const onRenderTypeChange = e => {
   position: relative;
   border-left: 1px solid #e8e8e8;
 }
-.setting-arrow-icon {
-  position: absolute;
-  left: -16px;
-  top: 50%;
-  transform: translateY(-50%);
-  height: 50px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #fff;
-  border: 1px solid #e8e8e8;
-  border-right-color: #fff;
-  border-radius: 4px 0 0 4px;
-  cursor: pointer;
-  z-index: 99;
-  &:hover {
-    background-color: #f9f9f9;
-    border-right-color: #f9f9f9;
-  }
-}
 .setting {
-  width: 300px;
-  // height: 100%;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: auto;
   &.disabled {
     background-color: rgba(211, 211, 211, 0.3);
     cursor: not-allowed;
@@ -160,6 +148,30 @@ const onRenderTypeChange = e => {
     }
     .ant-collapse-content-box {
       padding: 12px;
+    }
+  }
+}
+</style>
+
+<style lang="scss">
+$marginBottom: 4px;
+
+.setting-panel-section {
+  margin-bottom: 0;
+  & ~ & {
+    margin-top: $marginBottom * 6;
+  }
+
+  .setting-panel-item {
+    display: flex;
+    align-items: center;
+    margin: 0 0 $marginBottom * 2;
+    &:last-child {
+      margin: 0;
+    }
+    & > .setting-panel-content,
+    & + .setting-panel-content {
+      margin-left: $marginBottom * 5;
     }
   }
 }

@@ -1,5 +1,7 @@
 package net.aopacloud.superbi.queryEngine.enums;
 
+import java.util.List;
+
 public enum LogicalEnum {
 
     AND(" and "),
@@ -13,5 +15,9 @@ public enum LogicalEnum {
 
     public String getExpression() {
         return this.expression;
+    }
+
+    public boolean match(List<Boolean> condition) {
+        return this == AND ? condition.stream().allMatch(Boolean::booleanValue) : condition.stream().anyMatch(Boolean::booleanValue);
     }
 }

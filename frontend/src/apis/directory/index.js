@@ -8,7 +8,7 @@ import request from '@/utils/request'
 export const getDirectory = params =>
   request({
     url: '/folder/tree',
-    params,
+    params
   })
 
 /**
@@ -18,7 +18,7 @@ export const getDirectory = params =>
 export const getDirectoryWithoutCount = params =>
   request({
     url: '/folder/treeWithoutCount',
-    params,
+    params
   })
 
 /**
@@ -29,7 +29,7 @@ export const postDirectory = data =>
   request({
     url: '/folder',
     method: 'post',
-    data,
+    data
   })
 
 /**
@@ -41,7 +41,7 @@ export const putDirectory = (id, data) =>
   request({
     url: `/folder/${id}`,
     method: 'put',
-    data,
+    data
   })
 
 /**
@@ -51,7 +51,7 @@ export const putDirectory = (id, data) =>
 export const delDirectory = id =>
   request({
     url: `/folder/${id}`,
-    method: 'delete',
+    method: 'delete'
   })
 
 /**
@@ -62,5 +62,18 @@ export const moveDirectory = data =>
   request({
     url: '/folder/moveResource',
     method: 'post',
-    data,
+    data
+  })
+
+/**
+ * 更新目录列表
+ *
+ * @param data 目录列表数据
+ * @returns 返回请求结果
+ */
+export const updateDirectoryList = data =>
+  request({
+    url: '/folder/list',
+    method: 'put',
+    data
   })

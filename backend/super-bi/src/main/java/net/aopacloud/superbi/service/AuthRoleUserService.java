@@ -15,6 +15,8 @@ public interface AuthRoleUserService {
 
     void delete(Long roleId, List<String> users);
 
+    void deleteByUsername(String username);
+
     List<String> getUserByRole(Long roleId);
 
     List<AuthRoleUserDTO> getUserByRoleDetail(Long roleId);

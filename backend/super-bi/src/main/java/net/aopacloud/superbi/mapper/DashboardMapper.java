@@ -3,9 +3,12 @@ package net.aopacloud.superbi.mapper;
 import net.aopacloud.superbi.enums.StatusEnum;
 import net.aopacloud.superbi.enums.Visibility;
 import net.aopacloud.superbi.model.dto.DashboardDTO;
+import net.aopacloud.superbi.model.dto.ReportDTO;
 import net.aopacloud.superbi.model.entity.Dashboard;
 import net.aopacloud.superbi.model.query.ConditionQuery;
 import net.aopacloud.superbi.model.query.DashboardQuery;
+import net.aopacloud.superbi.model.query.RecycleQuery;
+import net.aopacloud.superbi.model.vo.RecycleVO;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
@@ -15,11 +18,19 @@ public interface DashboardMapper {
 
     List<DashboardDTO> search(DashboardQuery dashboardQuery);
 
+    List<RecycleVO> searchByRecycle(RecycleQuery query);
+
     DashboardDTO selectById(@Param("id") Long id);
+
+    List<DashboardDTO> selectAll();
 
     void save(Dashboard dashboard);
 
     void delete(@Param("id") Long id);
+
+    void recycleDelete(@Param("id") Long id);
+
+    void restore(@Param("id") Long id);
 
     void update(Dashboard dashboard);
 
@@ -37,6 +48,8 @@ public interface DashboardMapper {
 
     List<DashboardDTO> findCreate(ConditionQuery condition);
 
+    List<DashboardDTO> selectCreate(@Param("username") String username);
+
     List<DashboardDTO> findUnclassified(ConditionQuery condition);
 
     List<DashboardDTO> findAll(ConditionQuery condition);
@@ -48,6 +61,10 @@ public interface DashboardMapper {
     Integer countByUsername(@Param("username") String username);
 
     void updateCreator(@Param("fromUsername") String fromUsername, @Param("toUsername") String toUsername);
+
+    void updateOperatorById(@Param("id") Long id, @Param("operator") String operator);
+
+    void updateCreatorById(@Param("id") Long id, @Param("fromUsername") String fromUsername, @Param("toUsername") String toUsername);
 
     List<DashboardDTO> selectByWorkspace(Long workspaceId);
 

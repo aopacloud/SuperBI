@@ -54,6 +54,11 @@ public class AuthRoleUserServiceImpl implements AuthRoleUserService {
     }
 
     @Override
+    public void deleteByUsername(String username) {
+        authRoleUserMapper.deleteByUsername(username);
+    }
+
+    @Override
     public List<String> getUserByRole(Long roleId) {
         return authRoleUserMapper.selectUserByRole(roleId);
     }

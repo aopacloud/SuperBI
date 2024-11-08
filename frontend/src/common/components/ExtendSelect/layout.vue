@@ -4,8 +4,9 @@
       'select-layout',
       'select-layout--wrapper',
       hasTabsSlot ? 'select-layout--reverse' : '',
-      bordered ? 'select-layout--borderd' : '',
-    ]">
+      bordered ? 'select-layout--borderd' : ''
+    ]"
+  >
     <!-- 头部区域 -->
     <div class="select-layout--title" v-if="multiple || hasTitleExtraSlot">
       <a-checkbox
@@ -15,7 +16,8 @@
         :checked="isAllSelected"
         :indeterminate="isIndeterminate"
         @change="allCheckedHandler"
-        >全选
+      >
+        全选
       </a-checkbox>
 
       <slot name="title-extra" v-bind="{ value: modelValue, enableList, list }">
@@ -33,7 +35,8 @@
         allow-clear
         placeholder="请输入搜索"
         v-model:value="keyword"
-        :disabled="disabled" />
+        :disabled="disabled"
+      />
     </div>
 
     <!-- 面板区 -->
@@ -47,8 +50,9 @@
           v-bind="{
             dataSource: list,
             value: modelValue,
-            updateValue: paneSlotUpdateValue,
-          }" />
+            updateValue: paneSlotUpdateValue
+          }"
+        />
       </div>
     </a-spin>
 
@@ -63,58 +67,58 @@
 import { ref, watch, shallowRef, computed, useSlots, watchEffect } from 'vue'
 
 defineOptions({
-  name: 'ExtendSelectLayout',
+  name: 'ExtendSelectLayout'
 })
 
 const emits = defineEmits(['update:value', 'change'])
 const props = defineProps({
   // 值
   value: {
-    type: [String, Number, Array],
+    type: [String, Number, Array]
   },
   // 是否可多选
   multiple: {
     type: Boolean,
-    default: true,
+    default: true
   },
   // 数据源
   dataSource: {
     type: Array,
-    default: () => [],
+    default: () => []
   },
   // 是否需要外边框（也可使用时style指定）
   bordered: {
     type: Boolean,
-    default: true,
+    default: true
   },
   // 渲染 label 的字段
   labelField: {
     type: String,
-    default: 'label',
+    default: 'label'
   },
   // 渲染 key 的字段
   keyField: {
     type: String,
-    default: 'key',
+    default: 'key'
   },
   // 是否禁用
   disabled: {
     type: Boolean,
-    default: false,
+    default: false
   },
   // loading
   loading: {
     type: Boolean,
-    default: false,
+    default: false
   },
   // 自定义过滤方法
   filterOption: {
-    type: Function,
+    type: Function
   },
   height: {
     stype: Number,
-    default: 500,
-  },
+    default: 500
+  }
 })
 
 const modelValue = ref()
@@ -127,8 +131,8 @@ watch(
         typeof value === 'undefined'
           ? []
           : Array.isArray(value)
-          ? [...value]
-          : [value]
+            ? [...value]
+            : [value]
     } else {
       modelValue.value = Array.isArray(value) ? value[0] : value
     }
@@ -144,7 +148,7 @@ watchEffect(() => {
   originList.value = props.dataSource.map(t => {
     return {
       ...t,
-      disabled: t.disabled || props.disabled,
+      disabled: t.disabled || props.disabled
     }
   })
 
@@ -206,18 +210,22 @@ const allCheckedHandler = e => {
   emits('change', [...modelValue.value])
 }
 
+const _toString = s => String(s).toLowerCase()
+
 // 搜索关键字
 const keyword = ref()
 watch(keyword, word => {
-  const str = word.trim()
+  let str = word.trim()
 
   if (!str.length) {
     list.value = originList.value
   } else {
+    str = _toString(str)
     list.value = originList.value.filter(item => {
       return props.filterOption && typeof props.filterOption === 'function'
-        ? props.filterOption(item)
-        : item[props.labelField]?.includes(str)
+        ? props.filterOption(str, item)
+        : _toString(item[props.labelField]).includes(str) ||
+            _toString(item[props.keyField]).includes(str)
     })
   }
 })
@@ -227,7 +235,7 @@ const clearSearch = () => {
 }
 // 向外暴露的方法
 defineExpose({
-  clearSearch,
+  clearSearch
 })
 // 面板值的传递
 const paneSlotUpdateValue = e => {

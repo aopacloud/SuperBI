@@ -1,26 +1,36 @@
 ﻿<template>
   <a-menu>
     <!-- triggerSubMenuAction="click" -->
-    <a-sub-menu key="group">
-      <template #title>
-        日期分组
-        <span class="float-right font-help font-12">{{ groupValueLabel }}</span>
-      </template>
-      <CMenuList
-        style="width: 100px"
-        :list="curDateGroupList"
-        :value="groupValues"
-        @change="onGroupKeyChange" />
-    </a-sub-menu>
-    <a-sub-menu v-if="curDateDisplayOptions.length" key="display" title="日期显示">
-      <CMenuList
-        style="width: 250px"
-        :list="curDateDisplayOptions"
-        :value="
-          [displayValue, field._weekStart].filter(t => typeof t !== 'undefined')
-        "
-        @change="onDisplayKeyChange" />
-    </a-sub-menu>
+    <template v-if="isDate">
+      <a-sub-menu key="group">
+        <template #title>
+          日期分组
+          <span class="float-right font-help font-12">{{ groupValueLabel }}</span>
+        </template>
+        <CMenuList
+          style="width: 100px"
+          :list="curDateGroupList"
+          :value="groupValues"
+          @change="onGroupKeyChange" />
+      </a-sub-menu>
+      <a-sub-menu v-if="curDateDisplayOptions.length" key="display" title="日期显示">
+        <CMenuList
+          :list="curDateDisplayOptions"
+          :value="
+            [displayValue, field._weekStart, field._monthStart].filter(
+              t => typeof t !== 'undefined'
+            )
+          "
+          @change="onDisplayKeyChange" />
+      </a-sub-menu>
+    </template>
+
+    <a-menu-item
+      key="dynamic"
+      :class="{ 'selected-with-icon-right': isFieldDynamicFilter }"
+      @click="onDynamicToggle">
+      动态维度
+    </a-menu-item>
   </a-menu>
 </template>
 
@@ -30,6 +40,7 @@ import {
   dateGroupOptions,
   dateGroupOptions_HHMMSS,
   dateDisplayOptions,
+  GROUP_MONTH,
   GROUP_WEEK,
   DEFAULT_WEEK_DISPLAY,
   DEFAULT_DAY_DISPLAY,
@@ -38,6 +49,8 @@ import {
   GROUP_MINUTE,
   DEFAULT_WEEK_DAY_DISPLAY,
   DEFAULT_WEEK_START,
+  DEFAULT_MONTH_DISPLAY,
+  DEFAULT_MONTH_START,
 } from '@/views/analysis/config'
 import { CATEGORY } from '@/CONST.dict.js'
 import CMenuList from '@/components/CMenuList/index.vue'
@@ -55,7 +68,9 @@ const props = defineProps({
   },
 })
 
-const { compare: indexCompare } = inject('index')
+const isDate = computed(() => props.field.dataType?.includes('TIME'))
+
+const { compare: indexCompare, options: indexOptions } = inject('index')
 
 // 当前日期分组
 const curDateGroupList = computed(() => {
@@ -103,8 +118,17 @@ const onGroupKeyChange = key => {
     if (displayValue.value === DEFAULT_WEEK_DAY_DISPLAY) {
       props.field._weekStart = props.field._weekStart || DEFAULT_WEEK_START
     }
+  } else if (a == GROUP_MONTH) {
+    props.field._weekStart = undefined
+    if (!oldDisplayKey || !oldDisplayKey.startsWith(GROUP_MONTH)) {
+      displayValue.value = DEFAULT_MONTH_DISPLAY
+    }
+    if (displayValue.value === DEFAULT_MONTH_DISPLAY) {
+      props.field._monthStart = props.field._monthStart || DEFAULT_MONTH_START
+    }
   } else {
     props.field._weekStart = undefined
+    props.field._monthStart = undefined
     displayValue.value = undefined
   }
 }
@@ -112,29 +136,26 @@ const onGroupKeyChange = key => {
 // 当前的日期显示类型
 const curDateDisplayOptions = computed(() => {
   const [a] = groupValues.value
-  const isWeek = a === GROUP_WEEK
-  const isDay = a === GROUP_DAY
 
-  if (!isWeek && !isDay) return []
+  const hasDisplayKey = [GROUP_WEEK, GROUP_DAY, GROUP_MONTH].includes(a)
+  if (!hasDisplayKey) return []
 
-  return dateDisplayOptions.filter(
-    t => t.group === (isWeek ? GROUP_WEEK : GROUP_DAY)
-  )
+  return dateDisplayOptions.filter(t => t.group === a)
 })
+
 // 显示值
 const displayValue = ref()
 const onDisplayKeyChange = key => {
-  const [viewModel, startWeek] = key
+  const [viewModel, startValue] = key
   displayValue.value = viewModel
 
+  props.field._weekStart = undefined
+  props.field._monthStart = undefined
+
   if (viewModel === DEFAULT_WEEK_DAY_DISPLAY) {
-    if (typeof startWeek === 'undefined') {
-      props.field._weekStart = props.field._weekStart || DEFAULT_WEEK_START
-    } else {
-      props.field._weekStart = startWeek
-    }
-  } else {
-    props.field._weekStart = undefined
+    props.field._weekStart = startValue ?? (startValue || DEFAULT_WEEK_START)
+  } else if (viewModel === DEFAULT_MONTH_DISPLAY) {
+    props.field._monthStart = startValue ?? (startValue || DEFAULT_MONTH_START)
   }
 }
 
@@ -170,6 +191,16 @@ watchEffect(() => {
   }
   displayValue.value = viewModel
 })
+
+const dynamicFilters = computed(() => indexOptions.get('dynamicFilters') || {})
+const isFieldDynamicFilter = computed(() => props.field.name in dynamicFilters.value)
+const onDynamicToggle = () => {
+  if (dynamicFilters.value[props.field.name]) {
+    delete dynamicFilters.value[props.field.name]
+  } else {
+    dynamicFilters.value[props.field.name] = []
+  }
+}
 </script>
 
 <style scoped>

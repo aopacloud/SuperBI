@@ -60,4 +60,19 @@ public class DataTypeConverter {
         }
     }
 
+    public static String dataType2DbConvert(DataTypeEnum dataTypeEnum) {
+        switch (dataTypeEnum) {
+            case NUMBER:
+                return "Float64";
+            case TIME:
+            case TIME_YYYYMMDD:
+                return "Date";
+            case TIME_YYYYMMDD_HHMMSS:
+                return "DateTime";
+            case TEXT:
+            default:
+                return "String";
+        }
+    }
+
 }

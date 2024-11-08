@@ -1,11 +1,11 @@
 ﻿import { message } from 'ant-design-vue'
 import { CATEGORY, COMPARE } from '@/CONST.dict'
-import { toPercent } from 'common/utils/number'
-import { upcaseFirst, getRandomKey, getWordWidth } from 'common/utils/string'
+import { toPercent, sum, avg, quantile } from 'common/utils/number'
+import { upcaseFirst, getRandomKey } from 'common/utils/string'
 import {
   is_vs,
   formatFieldDisplay,
-  isEmpty,
+  isEmpty
 } from '@/components/Chart/utils/index.js'
 import {
   TREE_GROUP_NAME,
@@ -14,12 +14,20 @@ import {
   SUMMARY_GROUP_NAME_JOIN,
   GROUP_PATH,
   MAX_GROUP_COUNT,
-  MAX_COUNT_MESSAGE,
+  MAX_GROUP_COUNT_MESSAGE
 } from '@/components/Chart/utils/createGroupTable.js'
-import { CELL_HEADER_PADDING, CELL_BODY_PADDING, CELL_MIN_WIDTH } from './config'
 import { COLUMN_FIELDS_NAME_JOIN } from '@/components/Chart/utils/createIntersectionTable'
-import { quickCalculateOptions } from '@/views/dataset/config.field'
+import {
+  quickCalculateOptions,
+  formatterByCustom,
+  QUANTILE_PREFIX,
+  formatterOptions,
+  FORMAT_DEFAULT_CODE
+} from '@/views/dataset/config.field'
 import { deepFind } from 'common/utils/help'
+import { flat } from 'common/utils/array'
+import { isSpecialNumber } from '@/views/analysis/LayoutAside/components/SettingSections/config'
+import { isRenderTable } from '@/views/analysis/utils'
 
 /**
  * 根据分页截取数据
@@ -62,12 +70,31 @@ export const getFixedPlace = (colIndex, allCols, fixedColumnSpan = []) => {
  * @param {number} mode 显示模式 0 原值 1 差值 2 差值百分比
  * @returns { (field: T, fields: Array<T>) => string}  (field, fields) => string
  */
-export const getCompareDisplay = (origin, target, mode = 0) => {
+export const getCompareDisplay = ({
+  origin,
+  target,
+  mode = 0,
+  config = {}
+}) => {
   return function (field = {}, fields = []) {
     if (mode === COMPARE.MODE.DIFF_PERSENT) {
-      const v = toPercent((target - origin) / Math.abs(origin), 2)
+      const v = String(toPercent((target - origin) / Math.abs(origin), 2))
+      if (isSpecialNumber(v.split('%')[0])) {
+        if (
+          !config.special?.measure ||
+          config.special?.measure === 'original'
+        ) {
+          return v
+        }
 
-      return parseInt(v) > 0 ? '+' + v : v
+        return replaceSpecialBy({
+          value: v.split('%')[0],
+          category: CATEGORY.INDEX,
+          config: config.special
+        })
+      } else {
+        return parseInt(v) > 0 ? '+' + v : v
+      }
     } else if (mode === COMPARE.MODE.DIFF) {
       const v = formatFieldDisplay(target - origin, field, fields)
 
@@ -120,37 +147,20 @@ export const summaryTree = (tree = [], columns = []) => {
       const summaries = getSummary({
         keys,
         list: children,
-        columns: indexColumns,
+        columns: indexColumns
       })
 
       return {
         ...node,
         ...summaries,
-        children,
+        children
       }
     } else {
       return {
-        ...node,
+        ...node
       }
     }
   })
-}
-
-/**
- * 转化快速计算指标字段
- * @param {T} item
- * @returns {T}
- */
-export const transformWithQuickIndex = item => {
-  const { category, _quick } = item
-
-  if (category === CATEGORY.INDEX && _quick) {
-    const opt = quickCalculateOptions.find(t => t.value === _quick)
-
-    item.displayName = item.displayName + '(' + opt.label + ')'
-  }
-
-  return item
 }
 
 /**
@@ -159,7 +169,10 @@ export const transformWithQuickIndex = item => {
  * @param {number} i 索引
  * @returns
  */
-export function transformFieldToColumn({ field, index = 0, level = 0 }) {
+export function transformFieldToColumn(
+  { field, index = 0, level = 0 },
+  columnsWidth = []
+) {
   const {
     align,
     treeNode,
@@ -170,44 +183,56 @@ export function transformFieldToColumn({ field, index = 0, level = 0 }) {
     _action = true,
     _isMergeFields,
     _isVs, // 是否同环比字段
-    _fields,
+    _fields = [],
     _columnFields,
-    _quick,
     children = [],
     renderNameByValue, // 值映射的渲染名
+    fastCompute // 快速计算
   } = field
 
   // 默认插槽
   const slotDefault = _isMergeFields
     ? 'groupName'
     : dataType.includes('TIME')
-    ? 'date'
-    : _isVs
-    ? 'vs'
-    : _quick
-    ? 'quickCalculate'
-    : category
+      ? 'date'
+      : _isVs
+        ? 'vs'
+        : fastCompute
+          ? 'quickCalculate'
+          : category
+
+  // vxe表格渲染字段名
+  const columnField = renderNameByValue || renderName
+  // 保存的列宽
+  const resizeWidth = columnsWidth.find(t => t.field === columnField)?.width
 
   return {
     treeNode,
+    _width: resizeWidth,
     title: String(displayName), // 转为字符串
-    field: renderNameByValue || renderName,
+    field: columnField,
     sortable: _action && !children.length, // 可排序
     headerClassName: _isMergeFields ? 'merge-header' : '',
+    footerClassName: 'summary-cell',
     params: {
       field,
-      fields: _fields, // 关联字段
+      fields: _fields.map((field, i) =>
+        transformFieldToColumn({ field, index: i })
+      ), // 关联字段
       _isVs, // 是否同环比字段
       _isMergeFields, // 是否合并的字段
-      _columnFields, // 列分组字段
-      _quick, // 快速计算
-      formable: _action && !children.length, // 可自定义格式化
+      _columnFields: _columnFields?.map((field, i) =>
+        transformFieldToColumn({ field, index: i })
+      ), // 列分组字段
+      fastCompute, // 快速计算
+      _level: level,
+      formable: _action && !children.length // 可自定义格式化
     },
     children: children.map((child, i) =>
       transformFieldToColumn({
         field: child,
         index: i,
-        level: level + 1,
+        level: level + 1
       })
     ),
     align,
@@ -217,8 +242,8 @@ export function transformFieldToColumn({ field, index = 0, level = 0 }) {
       footer:
         level === 0 && index === 0
           ? 'footerSummary'
-          : 'footer' + upcaseFirst(category),
-    },
+          : 'footer' + upcaseFirst(category)
+    }
   }
 }
 
@@ -231,7 +256,7 @@ export function updateColumnsWithCompare({
   columns = [],
   originData = [],
   datasetFields = [],
-  compare = {},
+  compare = {}
 }) {
   let hasDelOriginField = false
 
@@ -241,7 +266,7 @@ export function updateColumnsWithCompare({
         columns: cur.children,
         originData,
         datasetFields,
-        compare,
+        compare
       })
     }
 
@@ -257,46 +282,19 @@ export function updateColumnsWithCompare({
           cur.params.fields = []
         }
         cur.params.fields.push(preCol.params.field)
-        cur.params._quick = preCol.params._quick
+        cur.params.fastCompute = preCol.params.fastCompute
 
-        if (cur.params._quick) {
-          const opt = quickCalculateOptions.find(t => t.value === cur.params._quick)
+        if (cur.params.fastCompute) {
+          const opt = quickCalculateOptions.find(
+            t => t.value === cur.params.fastCompute
+          )
           cur.title = cur.title + '(' + opt.label + ')'
         }
 
         hasDelOriginField = true
       }
 
-      const { field } = cur.params
-      const titleWidth = getWordWidth(cur.title) + CELL_HEADER_PADDING
-      const maxContentWidth = Math.max(
-        ...originData
-          .map(t => {
-            const targetValue = t[i - 1] // 前一个值为当前值
-            const originValue = t[i] // '当前值' 为对比值
-
-            const prevStr = formatFieldDisplay(targetValue, field, datasetFields)
-            const nextStr =
-              ' ( ' +
-              getCompareDisplay(
-                originValue,
-                targetValue,
-                compare.mode
-              )(field, datasetFields) +
-              ' ) '
-
-            return getWordWidth(prevStr) + getWordWidth(nextStr)
-          })
-          .flat()
-      )
-
-      acc.push({
-        ...cur,
-        _width: Math.max(
-          Math.max(titleWidth, maxContentWidth + CELL_BODY_PADDING),
-          CELL_MIN_WIDTH
-        ),
-      })
+      acc.push(cur)
     }
 
     return acc
@@ -314,7 +312,7 @@ export function listDataToTreeByKeys({
   groupKeys = [],
   columnGroupKeys = [],
   summaryMap = {},
-  renderType = 'table',
+  renderType = 'table'
 }) {
   if (!list.length) return []
 
@@ -338,7 +336,7 @@ export function listDataToTreeByKeys({
       _level_,
       // 子节点列表
       children,
-      ...res,
+      ...res
     }
   }
 
@@ -366,6 +364,7 @@ export function listDataToTreeByKeys({
       const isLastGroup = i === keys.length - 1
       // 获取当前键的值
       const keyValue = data[key]
+      // if(isTable && keyValue ===)
 
       // 在当前节点的子节点中查找是否存在对应键值的节点
       let child = node.children.get(keyValue)
@@ -377,24 +376,34 @@ export function listDataToTreeByKeys({
 
       // 如果不存在，则创建该节点
       if (!child) {
-        count++
+        // 汇总数据空数据key为 __- , 所以需要填充 -
+        let summaryKey = groupPath
+        if (isEmpty(keyValue)) {
+          summaryKey =
+            typeof node[GROUP_PATH] !== 'undefined'
+              ? (node[GROUP_PATH] || '-') + SUMMARY_GROUP_NAME_JOIN + '-'
+              : '-'
+        }
 
         // 获取父节点的汇总数据
-        const summary = summaryMap[groupPath]
+        const summary = summaryMap[summaryKey]
 
         // 创建子节点
         child = createTreeNode({
           _level_: node._level_ + 1,
           key: keyValue,
+          [key]: keyValue,
           parentId: i === 0 ? undefined : node[TREE_ROW_KEY],
           [GROUP_PATH]: groupPath,
-          ...summary,
+          ...summary
         })
         // 如果是最后一级，则将当前数据合并到子节点中，否则只保留子节点
         if (isLastGroup) {
           child = { ...child, ...data }
 
           delete child.children
+        } else {
+          count++
         }
         // 将新创建的子节点添加到当前节点的子节点列表中
         node.children.set(keyValue, child)
@@ -411,9 +420,9 @@ export function listDataToTreeByKeys({
 
   // 检测最大分组数量
   if (renderType !== 'table' && count > MAX_GROUP_COUNT) {
-    message.warn(MAX_COUNT_MESSAGE)
+    message.warn(MAX_GROUP_COUNT_MESSAGE)
 
-    throw Error(MAX_COUNT_MESSAGE)
+    throw Error(MAX_GROUP_COUNT_MESSAGE)
   }
 
   const getValueFromMap = item => {
@@ -421,7 +430,7 @@ export function listDataToTreeByKeys({
     if (value.children) {
       return {
         ...value,
-        children: [...value.children].map(getValueFromMap),
+        children: [...value.children].map(getValueFromMap)
       }
     } else {
       return value
@@ -438,7 +447,7 @@ export function listDataToTreeByKeys({
  * @param {String<>} columns 列数据
  * @returns
  */
-export const createSummaryMap = (rows = [], columns = []) => {
+export const createSummaryMap = (rows = [], columns = [], config) => {
   if (!rows.length) return {}
 
   const result = {}
@@ -450,15 +459,21 @@ export const createSummaryMap = (rows = [], columns = []) => {
     ),
     columnFields = pFields.filter(t => t._group === 'column')
 
-  const newRows = rows.map(t =>
+  const getSpe = (value, category) =>
+    replaceSpecialBy(
+      {
+        value,
+        category,
+        config: config?.special
+      },
+      '-'
+    )
+
+  const newRows = [...rows].map(t =>
     t.map((c, i) => {
       if (i >= pFields.length) return c
 
-      if (c === '') {
-        c = '-'
-      } else if (c === '-') {
-        c = ''
-      }
+      c = getSpe(c, CATEGORY.PROPERTY)
 
       return c
     })
@@ -467,7 +482,7 @@ export const createSummaryMap = (rows = [], columns = []) => {
   newRows.forEach(row => {
     const groupPath = row
       .slice(columnFields.length, pFields.length)
-      .filter(t => t !== '')
+      .filter(t => t !== '-£-')
       .join(SUMMARY_GROUP_NAME_JOIN)
 
     const rest = row.slice(pFields.length)
@@ -475,7 +490,9 @@ export const createSummaryMap = (rows = [], columns = []) => {
     result[groupPath] = rest.reduce((a, v, i) => {
       const columnPath = row
         .slice(0, columnFields.length)
+        .filter(t => t !== '-£-')
         .join(COLUMN_FIELDS_NAME_JOIN)
+
       const colIndexPath = columnPath
         ? columnPath + COLUMN_FIELDS_NAME_JOIN
         : columnPath
@@ -492,7 +509,11 @@ export const createSummaryMap = (rows = [], columns = []) => {
     if (key === '') {
       acc = { ...acc, ...result[key] }
     } else {
-      acc[key] = result[key]
+      if (key.includes('-£-')) {
+        acc[key.replace(/-£-/g, '-')] = result[key]
+      } else {
+        acc[key] = result[key]
+      }
     }
 
     return acc
@@ -526,7 +547,12 @@ const quickCalculateMap = ({
   quickType,
   summary = {},
   isGroupTable,
+  special = { dimension: 'original', measure: '0' }
 }) => {
+  columns = columns.filter(
+    t => t.type !== 'seq' && t.field !== 'column_summary'
+  )
+
   const _getListByFlat = list => {
     return list.reduce((acc, cur) => {
       if (cur.children?.length) {
@@ -560,14 +586,36 @@ const quickCalculateMap = ({
   }
 
   // 从渲染数据树结构中获取所在父级
-  const _getParentByDfs = s => deepFind(listTree, item => item[GROUP_PATH] === s)
+  const _getByDfs = (s, k) => deepFind(listTree, item => item[k] === s)
 
   // 获取真实的指标渲染名
-  const _getRenderNameByVs = field =>
-    field._isVs ? field.renderName.split(VS_FIELD_SUFFIX)[0] : field.renderName
+  const _getRenderNameByVs = field => {
+    const renderKey =
+      renderType === 'intersectionTable' ? 'renderNameByValue' : 'renderName'
+
+    return field._isVs
+      ? field[renderKey].split(VS_FIELD_SUFFIX)[0]
+      : field[renderKey]
+  }
 
   // 没有值
   const _isNull = val => typeof val === 'undefined' || val === null
+
+  const _toReplaced = v => {
+    const [s] = String(v).split('%')
+
+    if (isSpecialNumber(s)) {
+      if (!special?.measure || special?.measure === 'original') return v
+
+      return replaceSpecialBy({
+        value: s,
+        category: CATEGORY.INDEX,
+        config: special
+      })
+    } else {
+      return v
+    }
+  }
 
   const map = {
     // 占比 - 当前指标(包含交叉表格中的指标)在汇总指标中的占比
@@ -576,7 +624,7 @@ const quickCalculateMap = ({
       const value = row[fieldName]
       if (_isNull(value)) return ''
 
-      return toPercent(value / summary[fieldName])
+      return _toReplaced(toPercent(value / summary[fieldName]))
     },
     // 组内占比 - 当前指标在其所在组内的占比
     ratio_group: (row, field) => {
@@ -586,7 +634,7 @@ const quickCalculateMap = ({
 
       if (isGroupTable) {
         if (row._level_ === 0) {
-          return toPercent(value / summary[fieldName])
+          return _toReplaced(toPercent(value / summary[fieldName]))
         }
 
         const parent = deepFind(
@@ -595,7 +643,7 @@ const quickCalculateMap = ({
         )
         if (!parent) return value
 
-        return toPercent(value / parent[fieldName])
+        return _toReplaced(toPercent(value / parent[fieldName]))
       } else {
         let groupName = ''
         if (renderType === 'intersectionTable') {
@@ -609,15 +657,22 @@ const quickCalculateMap = ({
         }
 
         if (typeof groupName === 'undefined') {
-          return toPercent(value / summary[fieldName])
+          return _toReplaced(toPercent(value / summary[fieldName]))
         }
 
         // 获取树结构中的parent
-        const parent = _getParentByDfs(groupName)
-        if (parent) return toPercent(value / parent[fieldName])
+        const parent = deepFind(
+          listTree,
+          item => item[GROUP_PATH] === groupName
+        )
 
-        return toPercent(
-          value / summary[groupName + COLUMN_FIELDS_NAME_JOIN + field.renderName]
+        if (parent) return _toReplaced(toPercent(value / parent[fieldName]))
+
+        return _toReplaced(
+          toPercent(
+            value /
+              summary[groupName + COLUMN_FIELDS_NAME_JOIN + field.renderName]
+          )
         )
       }
     },
@@ -665,10 +720,10 @@ const quickCalculateMap = ({
 
           return getRankIndex(list, value)
         }
-
+        const parentGroupName = _getGroupName(row)
         const parent = deepFind(
           listTree,
-          item => item[TREE_ROW_KEY] === row[TREE_ROW_PARENT_KEY]
+          item => item[GROUP_PATH] === parentGroupName
         )
         if (!parent || !parent.children) return '-'
 
@@ -772,10 +827,7 @@ const quickCalculateMap = ({
         // 当前日期值
         const dateValue = row[TREE_GROUP_NAME]
 
-        const parent = deepFind(
-          listTree,
-          item => item[TREE_ROW_KEY] === row[TREE_ROW_PARENT_KEY]
-        )
+        const parent = _getByDfs(row[TREE_ROW_PARENT_KEY], TREE_ROW_KEY)
         if (!parent?.children.length) return row[fieldName]
 
         // 当前分组内的数据
@@ -806,7 +858,7 @@ const quickCalculateMap = ({
         // 分组名
         const parentGroupName = _getGroupName(row, dateFieldI)
         // 获取树结构中的parent
-        const parent = _getParentByDfs(parentGroupName)
+        const parent = _getByDfs(parentGroupName, GROUP_PATH)
         if (!parent?.children.length) return row[fieldName]
 
         // 当前分组内的数据
@@ -819,7 +871,7 @@ const quickCalculateMap = ({
 
         return list.reduce((a, b) => a + b, 0)
       }
-    },
+    }
   }
 
   return map[quickType]
@@ -828,24 +880,31 @@ const quickCalculateMap = ({
 export const displayQuickCalculateValue = ({
   row,
   field,
-  renderType,
+  renderType = 'table',
   columns,
   listTree,
   summary,
   isGroupTable,
+  special
 }) => {
-  const { renderName, _quick } = field
+  const { renderName, fastCompute } = field
   const value = row[renderName]
 
-  if (!_quick) return
+  if (!fastCompute) return
+
+  // 图表类型的按照明细表格的逻辑处理
+  if (!isRenderTable(renderType)) {
+    renderType = 'table'
+  }
 
   const quickItem = quickCalculateMap({
     renderType,
     columns,
     listTree,
-    quickType: _quick,
+    quickType: fastCompute,
     summary,
     isGroupTable,
+    special
   })
   if (typeof quickItem === 'undefined') return value
 
@@ -858,7 +917,7 @@ export const updateFieldsWithCompare = ({ fields = [], compare = {} }) => {
     if (cur.children && cur.children.length) {
       cur.children = updateFieldsWithCompare({
         fields: cur.children,
-        compare,
+        compare
       })
     }
 
@@ -872,10 +931,12 @@ export const updateFieldsWithCompare = ({ fields = [], compare = {} }) => {
         if (!cur.fields) {
           cur.fields = []
         }
-        cur._quick = preCol._quick
+        cur.fastCompute = preCol.fastCompute
 
-        if (cur._quick) {
-          const opt = quickCalculateOptions.find(t => t.value === cur._quick)
+        if (cur.fastCompute) {
+          const opt = quickCalculateOptions.find(
+            t => t.value === cur.fastCompute
+          )
           cur.displayName = cur.displayName + '(' + opt.label + ')'
         }
 
@@ -886,4 +947,285 @@ export const updateFieldsWithCompare = ({ fields = [], compare = {} }) => {
 
     return acc
   }, [])
+}
+
+/**
+ * 显示底部汇总索引单元格
+ *
+ * @param column 列配置对象，默认值为空对象
+ * @param list 数据列表，默认值为空数组
+ * @param summaryOptions 汇总选项列表，默认值为空数组
+ * @param formatters 格式化器列表
+ * @param datasetFields 数据集字段
+ * @param summaryValue 汇总值
+ * @returns 返回格式化后的汇总值
+ */
+export const displayBottomSummaryIndexCell = ({
+  field = {},
+  values,
+  list = [],
+  summaryOptions = [],
+  formatters = [],
+  datasetFields,
+  summaryValue
+}) => {
+  // 自动汇总
+  const autoComputeSummaryValue = summaryValue
+
+  if (field.fastCompute) {
+    return formatIndexDisplay({
+      value: autoComputeSummaryValue,
+      field,
+      fields: datasetFields,
+      formatters
+    })
+  } else {
+    summaryOptions = summaryOptions.reduce((acc, cur) => {
+      const { name = [], aggregator, _all } = cur
+      if (_all) {
+        return acc.concat({ name: field.renderName, aggregator })
+      } else {
+        return acc.concat(name.map(t => ({ name: t, aggregator })))
+      }
+    }, [])
+
+    const item = summaryOptions.find(t => t.name === field.renderName)
+    const aggregator = item?.aggregator
+
+    let cValues = values
+    if (!cValues) {
+      cValues = list
+        .filter(t => !t._isSummaryRow)
+        .map(t => {
+          // 交叉表格使用 renderNameByValue 取值
+          const k = field.renderNameByValue ?? field.renderName
+          return t[k]
+        })
+        .filter(
+          t => typeof t !== 'undefined' && t !== null && typeof t !== 'string'
+        )
+    }
+
+    return getDisplayBySummaryAggregator({
+      values: cValues,
+      aggregator,
+      defaultValue: autoComputeSummaryValue
+    })({ field, fields: datasetFields, formatters })
+  }
+}
+
+/**
+ * 获取汇总值
+ *
+ * @param values 值数组，默认为空数组
+ * @param aggregator 汇总方式，默认为'SUM'，可选值有'SUM'、'AVG'、'MAX'、'MIN'、'COUNT'、'COUNT_DISTINCT'以及以QUANTILE_PREFIX为前缀的分位数，如'QUANTILE_0.5'表示中位数
+ * @param defaultValue 自定义汇总函数返回值，当aggregator参数不合法时返回此值
+ * @returns 汇总后的值
+ */
+export const getSummarizedValue = (values = [], aggregator, defaultValue) => {
+  if (!aggregator || aggregator === 'auto') return defaultValue
+
+  values = values.filter(
+    t => typeof t !== 'undefined' && t !== null && typeof t !== 'string'
+  )
+
+  if (!values.length) return 0
+  if (values.length === 1) return values[0]
+
+  if (aggregator === 'SUM') return sum(values)
+  if (aggregator === 'AVG') return avg(values)
+  if (aggregator === 'MAX') return Math.max(...values)
+  if (aggregator === 'MIN') return Math.min(...values)
+  if (aggregator === 'COUNT') return values.length
+  if (aggregator === 'COUNT_DISTINCT') return new Set(values).size
+  if (aggregator.includes(QUANTILE_PREFIX)) {
+    const [, number] = aggregator.split(QUANTILE_PREFIX)
+    return quantile(values, +number)
+  }
+
+  return defaultValue
+}
+
+/**
+ * 格式化指标显示
+ *
+ * @param param0 参数对象
+ * @param param0.value 值
+ * @param param0.field 字段信息
+ * @param param0.fields 字段数组，默认为空数组
+ * @param param0.formatters 格式化器数组，默认为空数组
+ * @returns 格式化后的值
+ */
+export const formatIndexDisplay = ({
+  value,
+  field,
+  fields = [],
+  formatters = []
+}) => {
+  if (!field) return value
+
+  if (field.category !== CATEGORY.INDEX) return value
+
+  const originField = fields.find(t => t.name === field.name)
+  if (!originField) return value
+
+  // 当前配置的格式化
+  let fConfig = formatters.find(t => t.field === field.renderName)
+  if (!fConfig || fConfig.code === FORMAT_DEFAULT_CODE) {
+    // 无格式化 或 默认，使用数据集字段的格式化
+    fConfig = {
+      field: field.renderName,
+      code: originField.dataFormat,
+      config: originField.customFormatConfig
+    }
+  }
+
+  // 格式化配置
+  const formatItem = formatterOptions.find(t => t.value === fConfig.code)
+  if (!formatItem) return value
+
+  return formatItem.format(value, fConfig.config)
+}
+
+/**
+ * 根据给定行值、列和聚合器计算汇总值
+ *
+ * @param row 行数据
+ * @param {?} values 值数组
+ * @param columns 列数组
+ * @param aggregator 聚合器，默认为'SUM'
+ * @returns 汇总值
+ */
+export const displayColumnSummaryCell = ({
+  row,
+  values,
+  columns,
+  aggregator = 'SUM'
+}) => {
+  let cValues = values
+  if (!cValues) {
+    const indexColumns = flat(columns).filter(
+      t => t.params?.field?.category === CATEGORY.INDEX
+    )
+    const fields = indexColumns.map(t => t.field)
+    cValues = fields.map(t => row[t]).filter(t => typeof t !== 'undefined')
+  }
+
+  return getSummarizedValue(cValues, aggregator)
+}
+
+/**
+ * 根据替换后的特殊字符获取列表
+ *
+ * @param params 参数对象，包含以下属性：
+ * - columns 列信息数组，每个元素包含以下属性：
+ * - category 类别
+ * - dataSource 数据源数组
+ * - config 配置对象
+ * @param defaultVal 默认值 - 汇总需要默认值，不能为 空值
+ * @returns 替换后的列表数组
+ */
+export const getListByReplacedSpecial = (
+  { columns = [], dataSource = [], config },
+  defaultVal
+) => {
+  return dataSource.map(row => {
+    return row.reduce((acc, val, colIndex) => {
+      return acc.concat(
+        replaceSpecialBy(
+          {
+            value: val,
+            category: columns[colIndex].category,
+            config
+          },
+          defaultVal
+        )
+      )
+    }, [])
+  })
+}
+
+export const replaceSpecialBy = (
+  { value, category, config: { dimension = 'original', measure = '0' } = {} },
+  defaultVal
+) => {
+  if (!isSpecialNumber(value)) return value
+
+  const defaultValue = value || defaultVal
+  if (category === CATEGORY.PROPERTY)
+    return dimension === 'original' ? defaultValue : dimension
+  if (category === CATEGORY.INDEX)
+    return measure === 'original' ? defaultValue : measure
+
+  return defaultValue
+}
+
+/**
+ * 根据聚合函数获取显示值
+ *
+ * @param values 值数组
+ * @param aggregator 聚合函数
+ * @param defaultValue 回调函数返回值
+ * @returns 返回根据聚合函数获取显示值的函数
+ */
+export const getDisplayBySummaryAggregator = ({
+  values,
+  aggregator,
+  defaultValue
+}) => {
+  return ({ field, fields, formatters = [] } = {}) => {
+    const value = getSummarizedValue(values, aggregator, defaultValue)
+
+    if (!field || aggregator === 'COUNT' || aggregator === 'COUNT_DISTINCT') {
+      return value
+    } else if (aggregator === 'AVG') {
+      const maxV = Math.max(...values)
+      // 使用最大的值求得格式化后的范围（避免千分位无法触发，对接下来的千分位的判断有影响）
+      const fv = formatIndexDisplay({
+        value: maxV,
+        field,
+        fields,
+        formatters
+      })
+      if (typeof fv === 'number' && isNaN(fv)) return value
+
+      const isThousand = String(fv).indexOf(',') > -1
+      const isPercent = String(fv).indexOf('%') > -1
+
+      return formatterByCustom(value, {
+        type: isPercent ? 1 : 0,
+        digit: 2,
+        thousand: isThousand
+      })
+    } else {
+      return formatIndexDisplay({
+        value,
+        field,
+        fields,
+        formatters
+      })
+    }
+  }
+}
+
+/**
+ * 获取比较差异数组
+ *
+ * @param {Array<number>} arr1 数组1
+ * @param {Array<number>}arr2 数组2
+ * @param {boolean} percent 是否返回差异百分比，默认为false
+ * @returns {Array<number>} 返回差异数组
+ */
+export const getCompareDifferArray = (arr1 = [], arr2 = [], percent) => {
+  return arr1.map((a1, i) => {
+    const b1 = arr2[i] || 0
+    const d = a1 - b1
+    if (percent) {
+      const r = d / Math.abs(b1)
+
+      return Number.isFinite(r) ? r : 0
+    } else {
+      return d
+    }
+  })
 }

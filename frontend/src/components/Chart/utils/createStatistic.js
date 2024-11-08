@@ -1,28 +1,30 @@
 ﻿import { transformOriginBySort } from './utils.js'
-import { CATEGORY } from '@/CONST.dict'
-import { formatFieldDisplay } from './index'
 import { deepClone } from 'common/utils/help'
+import { CATEGORY } from '@/CONST.dict.js'
 
 export default function createStatistic({
   originFields = [],
-  originData = [],
-  datasetFields = [],
+  originData = []
 }) {
   // 处理源数据字段和数据的排序
-  const { fields: fieldsSorted, data } = transformOriginBySort({
+  let { fields, data } = transformOriginBySort({
     originFields: deepClone(originFields),
-    originData: deepClone(originData),
+    originData: deepClone(originData)
   })
 
-  const pFields = fieldsSorted.filter(t => t.category === CATEGORY.PROPERTY)
-  const iFields = fieldsSorted.filter(t => t.category === CATEGORY.INDEX)
-  // 优先第一个指标，否则第一个维度
-  const field = iFields.length ? iFields[0] : pFields[0]
-  const vIndex = fieldsSorted.findIndex(t => t.name === field.name)
-  const value = data[0]?.[vIndex]
+  // 第一个指标的索引
+  const index = fields.findIndex(t => t.category === CATEGORY.INDEX)
+  if (index < 0) return {}
+
+  // 第一个指标字段
+  const indexField = fields[index]
+  // 行数据
+  const row = data[0]
 
   return {
-    field: field ?? {},
-    value: formatFieldDisplay(value, field, datasetFields),
+    fields,
+    field: indexField,
+    row,
+    value: row[index]
   }
 }

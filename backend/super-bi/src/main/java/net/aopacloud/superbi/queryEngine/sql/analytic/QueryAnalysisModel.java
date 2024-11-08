@@ -6,9 +6,11 @@ import lombok.Data;
 import lombok.experimental.Accessors;
 import net.aopacloud.superbi.constant.BiConsist;
 import net.aopacloud.superbi.queryEngine.sql.Segment;
+import net.aopacloud.superbi.queryEngine.sql.join.Table;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * common query analysis model.
@@ -27,7 +29,7 @@ public class QueryAnalysisModel implements AnalysisModel {
 
     private List<Segment> selections = Lists.newArrayList();
 
-    private String table;
+    private Table table;
 
     private List<Segment> where = Lists.newArrayList();
 
@@ -47,7 +49,7 @@ public class QueryAnalysisModel implements AnalysisModel {
         sql.append("select ");
         sql.append(Joiner.on(" , ").join(getExpressions(selections, Segment::getExpressionWithAlias)));
 
-        sql.append(" from ").append(table);
+        sql.append(" from ").append(table.produce());
 
         if (!where.isEmpty()) {
             sql.append(" where ").append(Joiner.on(" and ").join(getExpressions(where, Segment::getExpression)));
@@ -68,9 +70,11 @@ public class QueryAnalysisModel implements AnalysisModel {
             }
         } else {
             if (!measures.isEmpty()) {
-                Segment orderByMeasure = measures.stream().findFirst().get();
-                sql.append(" order by ").append(orderByMeasure.getExpression());
-                sql.append(" desc ");
+                Optional<Segment> orderByMeasure = measures.stream().findFirst();
+                if(orderByMeasure.isPresent()) {
+                    sql.append(" order by ").append(orderByMeasure.get().getExpression());
+                    sql.append(" desc ");
+                }
             }
         }
         if (withPaging) {

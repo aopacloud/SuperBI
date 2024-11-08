@@ -2,6 +2,7 @@ package net.aopacloud.superbi.service;
 
 import net.aopacloud.superbi.model.dto.AuthRoleDTO;
 import net.aopacloud.superbi.model.entity.AuthRole;
+import net.aopacloud.superbi.model.query.AuthRoleQuery;
 
 import java.util.List;
 
@@ -12,7 +13,7 @@ import java.util.List;
  */
 public interface AuthRoleService {
 
-    List<AuthRoleDTO> search(Long workspaceId, String keyword);
+    List<AuthRoleDTO> search(AuthRoleQuery query);
 
     AuthRoleDTO save(AuthRoleDTO authRoleDTO);
 

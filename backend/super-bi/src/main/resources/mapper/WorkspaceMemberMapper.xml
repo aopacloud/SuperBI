@@ -51,4 +51,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         select <include refid="fields" /> from bi_workspace_member where workspace_id = #{workspaceId} and username = #{username} and deleted = 0
     </select>
 
+    <select id="selectAdminByUsername" resultType="net.aopacloud.superbi.model.entity.WorkspaceMember">
+        select <include refid="fields" /> from bi_workspace_member where username = #{username} and deleted = 0 and sys_role_id = (select id from bi_sys_role role where name = '空间管理员' and role_type = 'SYSTEM')
+    </select>
+
 </mapper>

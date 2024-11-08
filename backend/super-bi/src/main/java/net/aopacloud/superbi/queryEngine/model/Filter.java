@@ -3,6 +3,7 @@ package net.aopacloud.superbi.queryEngine.model;
 import lombok.Data;
 import lombok.experimental.Accessors;
 import net.aopacloud.superbi.enums.DataTypeEnum;
+import net.aopacloud.superbi.model.domain.TableFilter;
 import net.aopacloud.superbi.queryEngine.enums.LogicalEnum;
 
 import java.util.List;
@@ -27,4 +28,8 @@ public class Filter {
     private List<Condition> conditions;
 
     private boolean having = Boolean.FALSE;
+
+    private boolean nested = Boolean.FALSE;
+
+    private TableFilter tableFilter;
 }

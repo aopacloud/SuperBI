@@ -1,6 +1,7 @@
 package net.aopacloud.superbi.queryEngine.model;
 
 import lombok.Data;
+import lombok.experimental.Accessors;
 
 /**
  * @author: hudong
@@ -8,6 +9,7 @@ import lombok.Data;
  * @description:
  */
 @Data
+@Accessors(chain = true)
 public class Dimension {
 
     private String name;

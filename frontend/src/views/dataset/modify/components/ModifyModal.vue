@@ -119,6 +119,7 @@ watch(
 const onCancel = () => {
   if (!props.initData.name) {
     window.close()
+    emits('cancel')
   } else {
     emits('update:open', false)
     emits('cancel')

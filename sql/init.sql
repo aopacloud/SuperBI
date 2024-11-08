@@ -144,6 +144,7 @@ CREATE TABLE `bi_dataset`
     `operator`          varchar(30)  DEFAULT NULL COMMENT '更新人',
     `doc_url`           text COMMENT '数据集说明文档',
     `deleted`           int(4) DEFAULT '0' COMMENT '是否删除',
+    `upload`            int(4) DEFAULT '0' COMMENT '是否上传',
     `create_time`       timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time`       timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
@@ -185,6 +186,8 @@ CREATE TABLE `bi_dataset_apply`
 CREATE TABLE `bi_dataset_authorize`
 (
     `id`               int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `auto_auth`        int(2) NOT NULL DEFAULT '0' COMMENT '新增字段是否授权',
+    `version`          int(11) DEFAULT NULL COMMENT '版本id',
     `scope`            varchar(20)  DEFAULT NULL COMMENT '共享对象类型，ROLE,USER',
     `permission`       varchar(128) DEFAULT NULL COMMENT '权限许可；READ 只读，WRITE 协作',
     `username`         varchar(255) DEFAULT NULL COMMENT '用户名',
@@ -326,6 +329,7 @@ CREATE TABLE `bi_folder`
     `workspace_id` int(11) DEFAULT NULL COMMENT '空间ID',
     `name`         varchar(512) DEFAULT NULL COMMENT '名称',
     `parent_id`    int(11) DEFAULT NULL COMMENT '上级组 id',
+    `sort_id`      int(11) DEFAULT NULL COMMENT '排序id',
     `creator`      varchar(255) DEFAULT NULL COMMENT '所有者',
     `type`         varchar(255) DEFAULT NULL COMMENT '组类别，ALL 全部 , personal 个人',
     `position`     varchar(255) DEFAULT NULL COMMENT '组位置  dataset, dashboard',
@@ -691,9 +695,9 @@ INSERT INTO bdp_super_bi.bi_sys_menu (name,name_en,parent_id,app_path,sort,icon,
      ('数据源','Datasource',0,'/super-bi',4,NULL,'/datasource',0,NULL,'','2023-12-05 16:23:05','','2023-12-20 17:15:32'),
      ('空间管理','workspace',0,'/super-bi',5,NULL,'/system/workspace',1,NULL,'','2023-12-05 16:16:16','','2023-12-20 17:15:26'),
      ('授权中心','Authorize Center',0,'/super-bi',6,NULL,'/authority',1,NULL,'','2023-12-05 16:17:11','','2023-12-20 17:15:30'),
-     ('我的申请','Apply',6,'/super-bi',1,NULL,'/authority/apply',1,NULL,'','2023-12-05 16:21:34','','2023-12-20 17:15:31'),
-     ('我的审批','Approve',6,'/super-bi',2,NULL,'/authority/approve',1,NULL,'','2023-12-05 16:22:30','','2023-12-20 17:15:32'),
-     ('申请管理','Manage',6,'/super-bi',3,NULL,'/authority/manage',1,NULL,'','2023-12-05 16:23:05','','2023-12-20 17:15:32');
+     ('我的申请','Apply',5,'/super-bi',1,NULL,'/authority/apply',1,NULL,'','2023-12-05 16:21:34','','2023-12-20 17:15:31'),
+     ('我的审批','Approve',5,'/super-bi',2,NULL,'/authority/approve',1,NULL,'','2023-12-05 16:22:30','','2023-12-20 17:15:32'),
+     ('申请管理','Manage',5,'/super-bi',3,NULL,'/authority/manage',1,NULL,'','2023-12-05 16:23:05','','2023-12-20 17:15:32');
 
 INSERT INTO bi_sys_admin(username) VALUES ('Admin');
 
@@ -716,3 +720,28 @@ CREATE TABLE `bi_dataset_extra_config` (
 alter table bi_dashboard add column refresh_interval_seconds int(11) default '0' comment '刷新间隔, 0不刷新' before deleted;
 
 alter table bi_dashboard add column visibility varchar(20) default 'ALL' comment '可见范围' after deleted;
+
+CREATE TABLE `bi_resource` (
+       `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+       `source_id` int(11) DEFAULT NULL COMMENT '资源id',
+       `position` varchar(30) DEFAULT NULL COMMENT '类型',
+       `name` varchar(255) DEFAULT NULL COMMENT '资源名称',
+       `creator` varchar(255) DEFAULT NULL COMMENT '创建者',
+       `status` varchar(30) DEFAULT NULL COMMENT '状态',
+       `report_num` int(11) DEFAULT '0' COMMENT '报告数量',
+       `dataset_num` int(11) DEFAULT '0' COMMENT '数据集数量',
+       `auth_num` int(11) DEFAULT '0' COMMENT '授权数量',
+       `query_num` int(11) DEFAULT '0' COMMENT '查询人数',
+       `visit_num` int(11) DEFAULT '0' COMMENT '访问人数',
+       `dashboard_count` int(11) DEFAULT '0' COMMENT '看板数量',
+       `dataset_id` int(11) DEFAULT NULL COMMENT '数据集id',
+       `dataset_name` varchar(255) DEFAULT NULL COMMENT '数据集名称',
+       `workspace_id` int(11) DEFAULT NULL COMMENT '工作空间ID',
+       `deleted` int(4) DEFAULT '0' COMMENT '是否删除',
+       `source_update_time` timestamp NULL DEFAULT NULL COMMENT '资源更新时间',
+       `create_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+       `update_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+       PRIMARY KEY (`id`),
+       KEY `position` (`position`,`deleted`),
+       KEY `position_2` (`position`,`deleted`,`workspace_id`,`source_id`,`creator`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='资源表';

@@ -7,6 +7,14 @@
         select * from bi_dataset where id = #{id} and deleted = 0
     </select>
 
+    <select id="selectAll" resultType="net.aopacloud.superbi.model.entity.Dataset">
+        select * from bi_dataset where deleted = 0
+    </select>
+
+    <select id="selectByIdRecycle" resultType="net.aopacloud.superbi.model.entity.Dataset">
+        select * from bi_dataset where id = #{id} and deleted >= 0
+    </select>
+
     <select id="search" resultType="net.aopacloud.superbi.model.dto.DatasetDTO" parameterType="net.aopacloud.superbi.model.query.DatasetQuery">
         select
             t.id,
@@ -93,8 +101,69 @@
         </where>
     </select>
 
+    <select id="searchByRecycle" resultType="net.aopacloud.superbi.model.vo.RecycleVO" parameterType="net.aopacloud.superbi.model.query.RecycleQuery">
+        select
+        id,
+        name,
+        creator,
+        FLOOR(DATEDIFF(update_time, DATE_SUB(CURDATE(), INTERVAL 30 DAY))) as days,
+        workspace_id,
+        update_time
+        from bi_dataset
+        <where>
+            deleted > 0
+            and update_time > DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            <if test="superAdmin == false">
+                <choose>
+                    <when test="workspaceAdminIdList != null and workspaceAdminIdList.size() > 0 ">
+                        and (workspace_id in
+                        <foreach collection="workspaceAdminIdList" item="wsaId" separator="," open="(" close=")">
+                            #{wsaId}
+                        </foreach>
+                        or (creator = #{currentUser} or operator = #{currentUser})
+                        )
+                    </when>
+                    <otherwise>
+                        and (creator = #{currentUser} or operator = #{currentUser})
+                    </otherwise>
+                </choose>
+            </if>
+            <if test="keyword != null and keyword != ''">
+                and (
+                name LIKE concat('%', #{keyword}, '%')
+                <if test="searchUsers != null and searchUsers.size() > 0 ">
+                    or creator in
+                    <foreach collection="searchUsers" item="searchUser" separator="," open="(" close=")">
+                        #{searchUser}
+                    </foreach>
+                </if>
+                )
+            </if>
+            <if test="workspaceIdList != null and workspaceIdList.size() > 0 ">
+                and workspace_id in
+                <foreach collection="workspaceIdList" item="wsId" separator="," open="(" close=")">
+                    #{wsId}
+                </foreach>
+            </if>
+            <if test="creatorList != null and creatorList.size() > 0 ">
+                and creator in
+                <foreach collection="creatorList" item="creator" separator="," open="(" close=")">
+                    #{creator}
+                </foreach>
+            </if>
+        </where>
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                order by ${sortField} ${sortType}
+            </when>
+            <otherwise>
+                order by id asc
+            </otherwise>
+        </choose>
+    </select>
+
     <insert id="save" useGeneratedKeys="true" keyProperty="id" parameterType="net.aopacloud.superbi.model.entity.Dataset">
-        insert into bi_dataset (`name`,description,version,last_edit_version, creator, operator , workspace_id ,doc_url, enable_apply, status)
+        insert into bi_dataset (`name`,description,version,last_edit_version, creator, operator , workspace_id ,doc_url, enable_apply, status, upload)
         values (
                 #{name},
                 #{description},
@@ -105,14 +174,15 @@
                 #{workspaceId},
                 #{docUrl},
                 #{enableApply},
-                #{status}
+                #{status},
+                #{upload}
                )
     </insert>
 
     <sql id="baseSelect" >
         select d.*,
         if(f.target_id is null, false, true) as favorite,
-        concat(c.db_name,'.',c.`table_name`) as source
+        c.ref_tables as source
         from
         bi_dataset d
         left join
@@ -138,9 +208,7 @@
                 OR
                 d.description LIKE concat('%', #{keyword}, '%')
                 OR
-                c.db_name LIKE concat('%', #{keyword}, '%')
-                OR
-                c.table_name LIKE concat('%', #{keyword}, '%')
+                c.ref_tables LIKE concat('%', #{keyword}, '%')
                 <if test="searchUsernames != null and searchUsernames.size() > 0">
                     OR
                     d.creator in
@@ -151,7 +219,27 @@
             )
             </if>
     </sql>
-
+    <sql id="listSort">
+        order by
+        <if test="authorizeIds != null and authorizeIds.size() > 0">
+            case when d.id in
+            <foreach collection="authorizeIds" item="aid" separator="," open="(" close=")">
+                #{aid}
+            </foreach>
+            then 1 else 0 end desc ,
+        </if>
+        <choose>
+            <when test="sortField == 'source'">
+                c.ref_tables ${sortType}
+            </when>
+            <when test="sortField != null and sortField != ''">
+                d.`${sortField}`  ${sortType}
+            </when>
+            <otherwise>
+                d.`update_time` desc
+            </otherwise>
+        </choose>
+    </sql>
     <select id="findMyAll" resultType="net.aopacloud.superbi.model.dto.DatasetDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
         <include refid="baseSelect" />
             and (f.target_id is not null
@@ -168,40 +256,24 @@
 
             )
             and (d.status = 'ONLINE' or d.creator = #{username})
-        <choose>
-            <when test="sortField != null and sortField != ''">
-                order by ${sortField} ${sortType}
-            </when>
-            <otherwise>
-                order by d.name asc
-            </otherwise>
-        </choose>
+        <include refid="listSort"/>
     </select>
 
     <select id="findMyFavorite" resultType="net.aopacloud.superbi.model.dto.DatasetDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
         <include refid="baseSelect" />
             and f.target_id is not null
-        <choose>
-            <when test="sortField != null and sortField != ''">
-                order by ${sortField} ${sortType}
-            </when>
-            <otherwise>
-                order by d.name asc
-            </otherwise>
-        </choose>
+        <include refid="listSort"/>
     </select>
     <select id="findMyCreate" resultType="net.aopacloud.superbi.model.dto.DatasetDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
         <include refid="baseSelect" />
             and d.creator = #{username}
-        <choose>
-            <when test="sortField != null and sortField != ''">
-                order by ${sortField} ${sortType}
-            </when>
-            <otherwise>
-                order by d.name asc
-            </otherwise>
-        </choose>
+        <include refid="listSort"/>
     </select>
+
+    <select id="findMyCreateId">
+        select id from bi_dataset where creator = #{username} and deleted = 0
+    </select>
+
     <select id="findHasPermission" resultType="net.aopacloud.superbi.model.dto.DatasetDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
         <include refid="baseSelect" />
             and (d.status = 'ONLINE' or d.creator = #{username})
@@ -223,29 +295,33 @@
     <select id="findList" resultType="net.aopacloud.superbi.model.dto.DatasetDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
         <include refid="baseSelect" />
             <if test="folderType.name() == 'ALL' ">
-                and d.status = 'ONLINE'
+                and d.status = 'ONLINE' and (
+                d.enable_apply = 1
+                <if test="authorizeIds != null and authorizeIds.size() > 0">
+                    or d.id in
+                    <foreach collection="authorizeIds" item="aid" separator="," open="(" close=")">
+                        #{aid}
+                    </foreach>
+                </if>
+                )
             </if>
             <if test="folderType.name() == 'PERSONAL'">
                 and (d.status = 'ONLINE' or d.creator = #{username})
             </if>
-        <choose>
-            <when test="sortField != null and sortField != ''">
-                order by ${sortField} ${sortType}
-            </when>
-            <otherwise>
-                order by d.name asc
-            </otherwise>
-        </choose>
+        <include refid="listSort"/>
     </select>
 
     <select id="findUnclassified" resultType="net.aopacloud.superbi.model.dto.DatasetDTO" parameterType="net.aopacloud.superbi.model.query.ConditionQuery">
         select d.*,
-        if(f.target_id is null, false, true) as favorite
+        if(f.target_id is null, false, true) as favorite,
+        c.ref_tables as source
         from
         bi_dataset d
         left join
         (select target_id from bi_favorite where `position` = 'DATASET' and username = #{username}) f
         on d.id = f.target_id
+        left join bi_dataset_meta_config c
+        on d.id = c.dataset_id and d.version = c.version
         left join
             (select r.target_id from bi_folder fo join bi_folder_resource_rel r on fo.id = r.folder_id and  fo.`type` = 'ALL' and fo.workspace_id = #{workspaceId} and fo.deleted = 0 and fo.`position` = 'DATASET') folder
         on d.id = folder.target_id
@@ -255,14 +331,7 @@
             and d.status = 'ONLINE'
             and folder.target_id is null
         </where>
-        <choose>
-            <when test="sortField != null and sortField != ''">
-                order by d.${sortField} ${sortType}
-            </when>
-            <otherwise>
-                order by d.name asc
-            </otherwise>
-        </choose>
+        <include refid="listSort"/>
     </select>
     <select id="selectIdsByWorkspaceAndCreator" resultType="java.lang.Long">
         select id from bi_dataset
@@ -350,6 +419,15 @@
     <update id="deleteById">
         update bi_dataset set deleted = #{id} where id = #{id}
     </update>
+
+    <delete id="recycleDelete">
+        update  bi_dataset set deleted = -#{id} where id = #{id}
+    </delete>
+
+    <delete id="restore">
+        update  bi_dataset set deleted = 0 where id = #{id}
+    </delete>
+
     <update id="updateStatus">
         update bi_dataset set status = #{status} where id = #{id}
     </update>
@@ -364,6 +442,12 @@
     </update>
     <update id="updateCreator">
         update bi_dataset set creator=#{toUsername} where creator=#{fromUsername} and deleted = 0
+    </update>
+    <update id="updateOperatorById">
+        update bi_dataset set operator = #{operator} where id = #{id}
+    </update>
+    <update id="updateCreatorById">
+        update bi_dataset set creator = #{toUsername} where id = #{id} and creator = #{fromUsername} and deleted = 0
     </update>
 
 </mapper>

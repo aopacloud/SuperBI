@@ -7,17 +7,19 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.aopacloud.superbi.common.core.context.LoginContextHolder;
 import net.aopacloud.superbi.constant.BiConsist;
+import net.aopacloud.superbi.enums.FieldCategoryEnum;
+import net.aopacloud.superbi.enums.FieldTypeEnum;
 import net.aopacloud.superbi.enums.QueryLogTypeEnum;
 import net.aopacloud.superbi.enums.QueryStatusEnum;
-import net.aopacloud.superbi.i18n.LocaleMessages;
-import net.aopacloud.superbi.i18n.MessageConsist;
 import net.aopacloud.superbi.model.domain.ExcelBuilder;
 import net.aopacloud.superbi.model.dto.*;
 import net.aopacloud.superbi.model.query.DatasetFieldValueQueryParam;
 import net.aopacloud.superbi.queryEngine.QueryExecuteEngine;
+import net.aopacloud.superbi.queryEngine.enums.DateTruncEnum;
 import net.aopacloud.superbi.queryEngine.enums.QueryTypeEnum;
 import net.aopacloud.superbi.queryEngine.executor.QueryResultProcessor;
 import net.aopacloud.superbi.queryEngine.model.*;
+import net.aopacloud.superbi.queryEngine.util.RatioLabelGenerator;
 import net.aopacloud.superbi.service.*;
 import net.aopacloud.superbi.util.DateUtils;
 import net.aopacloud.superbi.util.JSONUtils;
@@ -83,14 +85,16 @@ public class QueryServiceImpl implements QueryService {
             return;
         }
         String fileName = String.format("%s.%s", DateUtils.getCurrentTime(), BiConsist.EXCEL_SUFFIX);
-        ExcelBuilder excelBuilder = new ExcelBuilder(fileName);
+        ExcelBuilder excelBuilder = new ExcelBuilder(fileName, context.getColumns());
 
         // set title
-        List<String> titles = getTitles(context);
+        List<String> titles = context.getTitles();
         excelBuilder.setTitle(titles);
 
         // write data
         excelBuilder.setData(result.getRows());
+
+        excelBuilder.autoColumnSize();
 
         // download
         excelBuilder.writeToResponse();
@@ -112,6 +116,7 @@ public class QueryServiceImpl implements QueryService {
 
         Set<Object> enumValues = duplicate.stream()
                 .map(this::datasetFileValueQueryToContext)
+                .filter(Objects::nonNull)
                 .map(this::doQuery)
                 .flatMap(result -> result.getRows().stream())
                 .flatMap(data -> Arrays.stream(data))
@@ -127,18 +132,23 @@ public class QueryServiceImpl implements QueryService {
     }
 
     private QueryContext datasetFileValueQueryToContext(DatasetFieldValueQueryParam query) {
-        QueryParam queryParam = new QueryParam();
-        queryParam.setType(QueryTypeEnum.SINGLE_FIELD);
-        queryParam.setFromSource(BiConsist.DASHBOARD_FILTER_FROM);
-        queryParam.setDatasetId(query.getDatasetId());
-        DatasetDTO datasetDTO = getDataset(queryParam);
-        Dimension dim = new Dimension();
-        dim.setName(query.getFieldName());
-        queryParam.setDimensions(Lists.newArrayList(dim));
+        try {
+            QueryParam queryParam = new QueryParam();
+            queryParam.setType(QueryTypeEnum.SINGLE_FIELD);
+            queryParam.setFromSource(BiConsist.DASHBOARD_FILTER_FROM);
+            queryParam.setDatasetId(query.getDatasetId());
+            DatasetDTO datasetDTO = getDataset(queryParam);
+            Dimension dim = new Dimension();
+            dim.setName(query.getFieldName());
+            queryParam.setDimensions(Lists.newArrayList(dim));
 
-        ConnectionParamDTO connection = metaDataService.getDatasetConnection(datasetDTO);
+            ConnectionParamDTO connection = metaDataService.getDatasetConnection(datasetDTO);
 
-        return QueryContext.ofQuery(queryParam, datasetDTO, connection);
+            return QueryContext.ofQuery(queryParam, datasetDTO, connection);
+        } catch (Exception e) {
+            log.error("query filter value error", e);
+        }
+        return null;
     }
 
     private QueryResult doQuery(QueryContext context) {
@@ -160,8 +170,7 @@ public class QueryServiceImpl implements QueryService {
         context.setLatestPartitions(lastTenPartition);
 
         QueryResult result = executeEngine.execute(context);
-
-        result.setColumns(getColumns(context));
+        result.setDimensionColumnCount(context.getQueryParam().getDimensions().size());
 
         QueryResultProcessor.process(result);
 
@@ -192,66 +201,42 @@ public class QueryServiceImpl implements QueryService {
     }
 
     private DatasetDTO getDataset(QueryParam queryParam) {
-        return Optional.ofNullable(queryParam.getDataset())
-                .orElseGet(() -> datasetService.findOne(queryParam.getDatasetId()));
-    }
 
-    private List<String> getTitles(QueryContext queryContext) {
-        return getColumns(queryContext).stream().map(QueryColumn::getDisplayName).collect(Collectors.toList());
-    }
-
-    private List<QueryColumn> getColumns(QueryContext context) {
-
-        List<QueryColumn> columns = Lists.newArrayList();
-        QueryParam queryParam = context.getQueryParam();
-        Map<String, DatasetFieldDTO> fieldMap = context.getFieldMap();
-
-        for (Dimension dim : queryParam.getDimensions()) {
-
-            DatasetFieldDTO datasetFieldDTO = fieldMap.get(dim.getName());
-            QueryColumn column = QueryColumn.of(datasetFieldDTO);
-
-            if (!Strings.isNullOrEmpty(dim.getDisplayName())) {
-                column.setDisplayName(dim.getDisplayName());
-            }
-            columns.add(column);
+        if (Objects.nonNull(queryParam.getDataset()) && Objects.nonNull(queryParam.getDataset().getFields())) {
+            return queryParam.getDataset();
         }
 
-        List<String> ratioFieldNames = Lists.newArrayList();
-        if (queryParam.getCompare() != null) {
-            List<RatioMeasure> ratioMeasures = queryParam.getCompare().getMeasures();
-            if (ratioMeasures != null && !ratioMeasures.isEmpty()) {
-                ratioFieldNames = ratioMeasures.stream().map(Measure::getName).collect(Collectors.toList());
-            }
+        if (Objects.nonNull(queryParam.getDatasetId())) {
+            return datasetService.findOne(queryParam.getDatasetId());
         }
 
-        for (Measure measure : queryParam.getMeasures()) {
+        if (Objects.nonNull(queryParam.getDataset())) {
 
-            DatasetFieldDTO datasetFieldDTO = fieldMap.get(measure.getName());
-            QueryColumn column = QueryColumn.of(datasetFieldDTO);
-            column.setAggregator(measure.getAggregator());
-            columns.add(column);
-            if (!Strings.isNullOrEmpty(measure.getDisplayName())) {
-                column.setDisplayName(measure.getDisplayName());
-                for(String ratioFieldName : ratioFieldNames) {
-                    if (ratioFieldName.equals(measure.getName())) {
-                        QueryColumn ratioColumn = column.copy();
-                        ratioColumn.setDisplayName(String.format("%s(%s)", measure.getDisplayName(), LocaleMessages.getMessage(MessageConsist.RATIO_TIPS)));
-                        columns.add(ratioColumn);
-                    }
-                }
-            } else {
-                for(String ratioFieldName : ratioFieldNames) {
-                    if (ratioFieldName.equals(measure.getName())) {
-                        QueryColumn ratioColumn = column.copy();
-                        ratioColumn.setDisplayName(String.format("%s(%s)", datasetFieldDTO.getDisplayName(), LocaleMessages.getMessage(MessageConsist.RATIO_TIPS)));
-                        columns.add(ratioColumn);
-                    }
-                }
+            DatasetDTO dataset = queryParam.getDataset();
+            DatasetMetaConfigDTO config = dataset.getConfig();
+            TableSchemaDTO schema = new TableSchemaDTO();
+            schema.setEngine(config.getEngine());
+            schema.setDbName(config.getDbName());
+            schema.setTableName(config.getTableName());
+            TableSchemaDTO tableSchema = metaDataService.getTableSchema(schema);
 
-            }
+            List<DatasetFieldDTO> datasetFields = tableSchema.getFields().stream().map(field -> {
+                DatasetFieldDTO datasetField = new DatasetFieldDTO();
+                datasetField.setDisplayName(field.getDescription());
+                datasetField.setName(field.getName());
+                datasetField.setType(FieldTypeEnum.ORIGIN);
+                datasetField.setDataType(field.getDataType());
+                datasetField.setDatabaseDataType(field.getDatabaseDataType());
+                return datasetField;
+            }).collect(Collectors.toList());
+
+            dataset.setFields(datasetFields);
+
+            return dataset;
+
         }
-        return columns;
+
+        throw new IllegalArgumentException("dataset is null");
 
     }
 }

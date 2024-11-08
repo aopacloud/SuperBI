@@ -6,26 +6,37 @@
         :dataset="datasetDetail"
         @update-dataset="onDatasetUpdate"
         @update-chart="onChartUpdate"
-        @timeoffset-change="e => (timeOffset = e)" />
+        @timeoffset-change="e => (timeOffset = e)"
+      />
     </header>
     <main class="main">
-      <Splitpanes class="default-theme main-splitpanes">
-        <Pane style="min-width: 240px" :size="20" :max-size="55">
+      <Splitpanes class="default-theme main-splitpanes" @resized="onResized1">
+        <Pane style="min-width: 2px" :size="asideWidth">
           <aside class="aside">
             <AsideDatasetInfo
               style="border-bottom: 1px solid #eee"
               :chart="chartDetail"
               :dataset="datasetDetail"
-              @dataset-toggled="onDatasetToggled" />
-            <Splitpanes horizontal style="flex: 1; overflow: auto">
-              <Pane class="field-list-spin" style="min-height: 36px">
+              @dataset-toggled="onDatasetToggled"
+            />
+            <Splitpanes
+              horizontal
+              style="flex: 1; overflow: auto"
+              @resized="onResized2"
+            >
+              <Pane
+                class="field-list-spin"
+                style="min-height: 36px"
+                :size="asideTopWidth"
+              >
                 <a-spin :spinning="datasetDetailLoading">
                   <AsideFieldList
                     title="维度"
                     :category="CATEGORY.PROPERTY"
                     :data-source="dimensionList"
                     :hasDatasetAnalysis="hasDatasetAnalysisPermission"
-                    @dbclick="e => onFieldListDbclick(e, CATEGORY.PROPERTY)" />
+                    @dbclick="e => onFieldListDbclick(e, CATEGORY.PROPERTY)"
+                  />
                 </a-spin>
               </Pane>
               <Pane class="field-list-spin" style="min-height: 36px">
@@ -35,27 +46,38 @@
                     :category="CATEGORY.INDEX"
                     :data-source="indexList"
                     :hasDatasetAnalysis="hasDatasetAnalysisPermission"
-                    @dbclick="e => onFieldListDbclick(e, CATEGORY.INDEX)" />
+                    @dbclick="e => onFieldListDbclick(e, CATEGORY.INDEX)"
+                  />
                 </a-spin>
               </Pane>
             </Splitpanes>
           </aside>
         </Pane>
-        <Pane>
+        <Pane style="display: flex">
           <LayoutContent
             ref="layoutContentRef"
             :chart="chartDetail"
             :dataset="datasetDetail"
             :dimensions="chooseDimensions"
-            :indexes="chooseIndexes"
+            :measures="chooseIndexes"
             :filters="chooseFilters"
-            :options="settingOptions" />
+            :options="settingOptions"
+          />
+
+          <Resize
+            class="resize-theme-1 settingSide"
+            :style="{ width: settingWidth + 'px' }"
+            :minWidth="9"
+            :directions="['left']"
+            @resized="onSettingWidthResized"
+          >
+            <AsideSetting
+              :hasDatasetAnalysis="hasDatasetAnalysisPermission"
+              v-model:options="settingOptions"
+            />
+          </Resize>
         </Pane>
       </Splitpanes>
-
-      <AsideSetting
-        :hasDatasetAnalysis="hasDatasetAnalysisPermission"
-        v-model:options="settingOptions" />
     </main>
   </section>
 
@@ -71,7 +93,7 @@ import {
   onBeforeMount,
   onMounted,
   onBeforeUnmount,
-  watch,
+  watch
 } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Splitpanes, Pane } from 'splitpanes'
@@ -89,7 +111,7 @@ import {
   defaultQueryTotal,
   defaultCompareOptions,
   defaultTableOptions,
-  defaultChartOptions,
+  defaultChartOptions
 } from './defaultOptions'
 import useUserStore from '@/store/modules/user'
 import { getByIncludesKeys, deepClone } from 'common/utils/help'
@@ -98,8 +120,17 @@ import { storagePrefix } from '@/settings'
 import { DASHBORD_TO_REPORT_NAME } from '@/views/dashboard/modify/config'
 import useAppStore from '@/store/modules/app'
 import { versionJs } from '@/versions'
-import { getNameByJoinAggregator } from './utils'
+import {
+  getNameByJoinAggregator,
+  getFieldsChoseMap,
+  compatibleDefault,
+  compatibleHistory,
+  isSameMeasure,
+  transformWithQuickIndex
+} from './utils'
 import { uninitWorker } from '@/components/Chart/Table/exportUtil'
+import Resize from 'common/components/Layout/Resize/index.vue'
+import { isDtField } from '@/views/dataset/utils'
 
 const route = useRoute()
 const router = useRouter()
@@ -131,10 +162,7 @@ const hasDatasetManagePermission = computed(() => {
   if (userStore.hasPermission('DATASET:MANAGE:ALL:WORKSPACE')) {
     return true
   } else if (userStore.hasPermission('DATASET:MANAGE:HAS:PRIVILEGE')) {
-    return (
-      datasetDetail.value.permission === 'READ' ||
-      datasetDetail.value.permission === 'WRITE'
-    )
+    return datasetDetail.value.permission === 'WRITE'
   } else {
     return false
   }
@@ -185,14 +213,19 @@ const hasManagePermission = computed(() => {
 // 图表详情
 const loading = ref(false)
 const chartDetail = ref({
-  name: '查询',
+  name: '查询'
 })
 
+// 初始化
 const init = async () => {
+  resetChoosed()
+  setRequestResponse()
+  resetOptions()
+
   const {
     name,
     params: { id },
-    query = {},
+    query = {}
   } = route
 
   // 旧版本路由记录
@@ -219,7 +252,11 @@ const fetchChartDetail = async id => {
 
     await fetchDatasetDetail(res.dataset.id)
 
-    setOptions(undefined, JSON.parse(res.layout))
+    let ops = JSON.parse(res.layout)
+    ops = compatibleDefault(ops)
+    ops = compatibleHistory(ops, getFieldsChoseMap(JSON.parse(res.queryParam)))
+
+    setOptions(undefined, ops)
     setRecovert(res.queryParam)
 
     autoRun()
@@ -271,8 +308,8 @@ const initChooseFilters = () => {
           {
             ...dtField,
             _forced: true,
-            _latestPartitionValue: datasetDetail.value.latestPartitionValue,
-          },
+            _latestPartitionValue: datasetDetail.value.latestPartitionValue
+          }
         ]
       }
     } else {
@@ -281,7 +318,7 @@ const initChooseFilters = () => {
         return {
           ...t,
           displayName: field?.displayName,
-          _forced: true,
+          _forced: true
         }
       })
     }
@@ -304,7 +341,7 @@ const fetchDatasetDetail = async id => {
     datasetDetail.value = {
       ...res,
       extraConfig:
-        typeof res.extraConfig === 'string' ? JSON.parse(res.extraConfig) : {},
+        typeof res.extraConfig === 'string' ? JSON.parse(res.extraConfig) : {}
     }
 
     initChooseFilters()
@@ -350,7 +387,7 @@ const updateChoosed = () => {
       return {
         ...t,
         expression: item.expression,
-        displayName: item.displayName,
+        displayName: item.displayName
       }
     })
 
@@ -362,18 +399,21 @@ const updateChoosed = () => {
       return {
         ...t,
         expression: item.expression,
-        displayName: t._modifyDisplayName || item.displayName,
+        displayName: t._modifyDisplayName || item.displayName
       }
     })
 
   chooseFilters.value = chooseFilters.value
-    .filter(t => fields.some(f => f.name === t.name))
+    .filter(t => (t.nested ? true : fields.some(f => f.name === t.name)))
     .map(t => {
+      // 组合过滤
+      if (t.nested) return t
+
       const item = fields.find(f => f.name === t.name)
 
       return {
         ...t,
-        displayName: item.displayName,
+        displayName: item.displayName
       }
     })
 }
@@ -384,14 +424,10 @@ const onDatasetToggled = e => {
   router.replace({
     name: 'DatasetAnalysis',
     params: { id: e.id },
-    query: route.query,
+    query: { ...route.query, _t: Date.now() }
   })
 
-  resetChoosed()
-  setRequestResponse()
-  chartDetail.value = {
-    name: '查询',
-  }
+  chartDetail.value = { name: '查询' }
 }
 
 // 维度列表
@@ -436,7 +472,7 @@ const getChoosed = category => {
   const map = {
     [CATEGORY.PROPERTY]: chooseDimensions.value,
     [CATEGORY.INDEX]: chooseIndexes.value,
-    [CATEGORY.FILTER]: chooseFilters.value,
+    [CATEGORY.FILTER]: chooseFilters.value
   }
 
   return map[category] || map
@@ -488,12 +524,23 @@ const resetChoosed = () => {
 
 // topN
 const topN = reactive({
+  computeType: 'all', // 默认全部结果
+  sortGroup: undefined,
   sortField: undefined,
-  sortType: 'desc',
-  limit: 50,
+  sortType: 'desc', // 默认降序
+  limit: 50
 })
-const setTopN = ({ sortField, limit = 50 } = {}) => {
+const setTopN = ({
+  sortField,
+  limit = 50,
+  computeType = 'all',
+  sortGroup,
+  sortType = 'desc'
+} = {}) => {
+  topN.computeType = computeType
+  topN.sortGroup = sortGroup
   topN.sortField = sortField
+  topN.sortType = sortType
   topN.limit = limit
 }
 
@@ -505,7 +552,7 @@ const setCompare = e => {
 
 // 查询分页
 const paging = ref({
-  limit: defaultQueryTotal,
+  limit: defaultQueryTotal
 })
 const setPaging = (val = { limit: defaultQueryTotal }, key) => {
   if (typeof key === 'undefined') {
@@ -523,11 +570,12 @@ const settingOptions = ref({
   renderType: defaultRenderType,
   // 表格配置
   table: {
-    ...defaultTableOptions,
+    ...defaultTableOptions
   },
+  sorters: [],
   // 图表配置
   chart: { ...defaultChartOptions },
-  compare: { ...defaultCompareOptions },
+  compare: { ...defaultCompareOptions }
 })
 const getOptions = key =>
   typeof key === 'string' ? settingOptions.value[key] : settingOptions.value
@@ -538,55 +586,158 @@ const setOptions = (key, value) => {
     settingOptions.value[key] = value
   }
 }
+const resetOptions = () => {
+  settingOptions.value = {
+    // 渲染类型
+    renderType: defaultRenderType,
+    // 表格配置
+    table: { ...defaultTableOptions },
+    sorters: [],
+    // 图表配置
+    chart: { ...defaultChartOptions },
+    compare: { ...defaultCompareOptions }
+  }
+}
 
 // 选中字段更新配置项
 const updateByChoosedIndex = (list = []) => {
-  updateTopN(list)
-  updateAxisOptions(list)
+  updateTopN({ measures: list })
   updateComparOptions(list)
 }
 
-// 更新默认排序
-const updateDefaultSorter = list => {
-  const { sorter } = settingOptions.value.table
+// 更新排序配置
+const updateSorter = () => {
+  const pList = deepClone(chooseDimensions.value).map(t => ({
+    ...t,
+    category: CATEGORY.PROPERTY
+  }))
+  const iList = deepClone(chooseIndexes.value).map(t => ({
+    ...t,
+    category: CATEGORY.INDEX
+  }))
 
-  if (!list.length) {
-    sorter.field = undefined
-
-    return
+  const hasIn = item => {
+    return [...pList, ...iList].some(t => {
+      if (t.category === CATEGORY.PROPERTY) {
+        return item.field === t.name
+      } else {
+        return item.field === t.name + '.' + t.aggregator
+      }
+    })
   }
 
-  if (!sorter.field) {
-    const first = list[0]
-    sorter.field = first.name + '.' + first.aggregator
-    sorter.order = topN.sortType
+  const hasInPList = (item, group) =>
+    pList
+      .filter(t => {
+        if (group === 'column') {
+          return t._group === 'column'
+        } else {
+          return t._group !== 'column'
+        }
+      })
+      .some(t => item.field === t.name)
+
+  // 表格排序的默认规则
+  const { renderType, sorters = {}, table } = settingOptions.value
+  const iFirst = iList[0]
+  if (!iFirst) {
+    settingOptions.value.table.sorter = []
+  } else {
+    if (!table.sorter.length || !Array.isArray(table.sorter)) {
+      settingOptions.value.table.sorter = [
+        {
+          field: iFirst.name + '.' + iFirst.aggregator,
+          order: topN.sortType
+        }
+      ]
+    } else {
+      settingOptions.value.table.sorter = table.sorter.filter(hasIn)
+    }
+  }
+
+  // 更新排序设置
+  const isChart = ['intersectionTable', 'bar', 'line'].includes(renderType)
+  let sortList = sorters[renderType]
+  if (isChart) {
+    const { row = [], column = [] } = sortList || {}
+    settingOptions.value.sorters = {
+      ...sorters,
+      [renderType]: {
+        row: row.filter(t => hasInPList(t, 'row')),
+        column: column.filter(t => hasInPList(t, 'column'))
+      }
+    }
+  } else {
+    settingOptions.value.sorters = {
+      ...sorters,
+      [renderType]: (sortList || []).filter(hasIn)
+    }
   }
 }
 
-const updateTopN = list => {
-  const { sortField } = topN
+// 更新汇总配置
+const updateSummaryOptions = () => {
+  let { summary } = settingOptions.value.table
+  if (typeof summary !== 'object') return
 
-  if (typeof sortField === 'undefined') return
-  if (list.some(item => getNameByJoinAggregator(item) === sortField)) return
+  const iList = deepClone(chooseIndexes.value)
+    .map(t => ({
+      ...t,
+      category: CATEGORY.INDEX
+    }))
+    .map(t => ({ ...t, _name: t.name + '.' + t.aggregator }))
 
-  const item = list.find(item => getNameByJoinAggregator(item) === sortField)
-  if (!item) {
-    topN.sortField = undefined
+  settingOptions.value.table.summary.row = {
+    ...summary.row,
+    list: (summary.row?.list || []).map(t => {
+      return {
+        ...t,
+        name: t.name?.filter(n => iList.some(i => n === i._name))
+      }
+    })
   }
+}
+
+const updateTopN = ({ dimensions, measures }) => {
+  const { sortField, computeType, sortGroup } = topN
+  if (typeof sortField === 'undefined') return
+
+  const updateByDimensions = (list = []) => {
+    topN.sortGroup = topN.sortGroup.filter(name =>
+      list.some(item => item.name === name)
+    )
+  }
+
+  const updateByMeasures = (list = []) => {
+    const item = list.find(item => getNameByJoinAggregator(item) === sortField)
+    if (!item) topN.sortField = undefined
+  }
+
+  if (typeof dimensions !== 'undefined' && computeType === 'group')
+    updateByDimensions(dimensions)
+
+  if (typeof measures !== 'undefined') updateByMeasures(measures)
 }
 
 // 更新坐标轴设置
 const updateAxisOptions = list => {
-  const axis = settingOptions.value.chart?.axis ?? []
+  const renderType = settingOptions.value.renderType
+  const axis = settingOptions.value.chart?.yAxis?.axis ?? []
 
-  settingOptions.value.chart.axis = list.map(t => {
-    const item = axis.find(a => a.name === t.name)
-    return {
-      ...t,
-      chartType: item?.chartType ?? settingOptions.value.renderType,
-      yAxisPosition: item?.yAxisPosition ?? 'left',
-    }
-  })
+  settingOptions.value.chart.yAxis.axis = list
+    .map(transformWithQuickIndex)
+    .map(t => {
+      const item = axis.find(a => isSameMeasure(a, t))
+      return {
+        ...t,
+        chartType:
+          item?.chartType ??
+          (renderType === 'bar' || renderType === 'line'
+            ? renderType
+            : undefined),
+        yAxisPosition: item?.yAxisPosition ?? 'left'
+      }
+    })
 }
 
 // 更新同环比配置
@@ -600,7 +751,10 @@ const updateComparOptions = list => {
     const { measures = [] } = compare.value
 
     compare.value.measures = measures.filter(t =>
-      chooseIndexes.value.some(i => i.name === t.name)
+      chooseIndexes.value.some(
+        i =>
+          i.name === t.name && t.aggregator === i.aggregator && !i.fastCompute
+      )
     )
   }
 }
@@ -641,23 +795,54 @@ const updateCompareDimensionsByChoosed = (list = []) => {
   }
 }
 
+// 更新动态维度过滤
+const updateOptionDynamicFilters = (list = []) => {
+  const dynamicFilters = getOptions('dynamicFilters') || {}
+  Object.keys(dynamicFilters).forEach(key => {
+    if (!list.some(t => t.name === key)) {
+      delete dynamicFilters[key]
+    }
+  })
+}
+
 // 更新维度
 const updateByChoosedDimension = (ls = []) => {
+  updateTopN({ dimensions: ls })
   updateCompareDimensionsByChoosed(ls)
+  updateOptionDynamicFilters(ls)
+}
+
+const updateByChoosedFilter = (fs = []) => {
+  if (settingOptions.value.renderType === 'statistic') {
+    const hasDt = fs.some(isDtField)
+    if (!hasDt && compare.value?.measures?.length) {
+      setCompare()
+    }
+  }
 }
 
 watch(chooseDimensions, updateByChoosedDimension, { deep: true })
 
 watch(chooseIndexes, updateByChoosedIndex, { immediate: true, deep: true })
 
+watch(chooseFilters, updateByChoosedFilter, { deep: true })
+
+watch(() => settingOptions.value.renderType, updateSorter)
+
 // 查询成功响应
 const requestResponse = ref({})
-const setRequestResponse = (e = {}) => {
-  requestResponse.value = deepClone(e)
+const setRequestResponse = (e = {}, k) => {
+  if (!k) {
+    requestResponse.value = deepClone(e)
+  } else {
+    requestResponse.value[k] = deepClone(e)
+  }
 }
 
 const requestResponseUpdate = e => {
-  updateDefaultSorter(chooseIndexes.value)
+  updateSorter()
+  updateSummaryOptions()
+  updateAxisOptions(chooseIndexes.value)
 }
 
 watch(() => requestResponse.value.response, requestResponseUpdate)
@@ -673,15 +858,23 @@ const setRecovert = paylaod => {
     filters = [],
     sorts = [],
     compare,
-    paging,
+    paging
   } = params
 
   updateChoosedFromChart({ dimensions, measures, filters })
 
-  // setChoosed(CATEGORY.PROPERTY, dimensions)
-  // setChoosed(CATEGORY.INDEX, measures)
-  // setChoosed(CATEGORY.FILTER, filters)
-  setCompare(compare ?? undefined)
+  if (compare) {
+    setCompare({
+      ...compare,
+      measures: compare.measures.map(t => {
+        const { name, aggregator } = t
+        return {
+          ...t,
+          _key: name + '.' + aggregator
+        }
+      })
+    })
+  }
   setPaging(paging)
   setTopN(sorts[0])
 }
@@ -690,7 +883,7 @@ const setRecovert = paylaod => {
 const updateChoosedFromChart = ({
   dimensions = [],
   measures = [],
-  filters = [],
+  filters = []
 } = {}) => {
   const fields = [...dimensionList.value, ...indexList.value]
   // 维度
@@ -703,7 +896,7 @@ const updateChoosedFromChart = ({
         ...t,
         _id: getRandomKey(),
         category: item.category,
-        displayName: item.displayName,
+        displayName: item.displayName
       }
     })
 
@@ -717,13 +910,13 @@ const updateChoosedFromChart = ({
       const displayName =
         t.displayName !== item.displayName
           ? t.displayName
-          : t._modifyDisplayName ?? item.displayName
+          : (t._modifyDisplayName ?? item.displayName)
 
       return {
         ...t,
         _id: getRandomKey(),
         category: item.category,
-        displayName,
+        displayName
       }
     })
 
@@ -731,12 +924,17 @@ const updateChoosedFromChart = ({
 
   // 过滤条件
   chooseFilters.value = filters
-    .filter(t => fields.some(f => f.name === t.name))
+    .filter(t => (t.nested ? true : fields.some(f => f.name === t.name)))
     .map(t => {
+      // 组合过滤
+      if (t.nested) return t
+
       const item = fields.find(it => it.name === t.name)
 
       // 数据集中配置的强制过滤
-      const forceItem = force ? forcedFilters.find(ft => ft.name === t.name) : null
+      const forceItem = force
+        ? forcedFilters.find(ft => ft.name === t.name)
+        : null
 
       return {
         ...t,
@@ -746,7 +944,7 @@ const updateChoosedFromChart = ({
         filterMode: forceItem?.filterMode,
         dataType: item.dataType,
         category: item.category,
-        displayName: item.displayName,
+        displayName: item.displayName
       }
     })
 }
@@ -757,25 +955,25 @@ provide('index', {
   permissions: {
     dataset: {
       hasAnalysis: () => hasDatasetAnalysisPermission.value,
-      hasManage: () => hasDatasetManagePermission.value,
+      hasManage: () => hasDatasetManagePermission.value
     },
     chart: {
       hasRead: () => hasReadPermission.value,
       hasWrite: () => hasWritePermission.value,
-      hasManage: () => hasManagePermission.value,
-    },
+      hasManage: () => hasManagePermission.value
+    }
   },
   // 数据集
   dataset: {
     get: () => datasetDetail.value,
-    update: async () => fetchDatasetLastest(datasetDetail.value.id),
+    update: async () => fetchDatasetLastest(datasetDetail.value.id)
   },
   // 拖拽的字段
   draggingField: {
     get: () => draggingField.value,
     set: e => {
       draggingField.value = e
-    },
+    }
   },
   // 选中
   choosed: {
@@ -783,38 +981,39 @@ provide('index', {
     set: setChoosed,
     remove: removeChoosed,
     clear: category => setChoosed(category, []),
-    reset: resetChoosed,
+    reset: resetChoosed
   },
   // topN
   topN: {
     get: () => topN,
-    set: setTopN,
+    set: setTopN
   },
   // 同环比
   compare: {
     get: () => compare.value,
     set: setCompare,
     update: {
-      dimensions: updateCompareDimensions,
-    },
+      dimensions: updateCompareDimensions
+    }
   },
   paging: {
     get: key => {
       return typeof key === 'undefined' ? paging.value : paging.value[key]
     },
-    set: (key, value) => setPaging(value, key),
+    set: (key, value) => setPaging(value, key)
   },
   // 配置
   options: {
     get: getOptions,
     set: setOptions,
+    reset: resetOptions,
     clear: key => (setOptions(key, undefined), undefined),
-    reset: () => (settingOptions.value = undefined),
+    reset: () => (settingOptions.value = undefined)
   },
   // 请求响应
   requestResponse: {
-    get: key => requestResponse.value[key] || requestResponse.value,
-    set: setRequestResponse,
+    get: key => (key ? requestResponse.value[key] : requestResponse.value),
+    set: setRequestResponse
   },
   // 恢复
   recovert: setRecovert,
@@ -837,8 +1036,8 @@ provide('index', {
       dashboardFilters.value = {}
 
       layoutContentRef.value?.toolsRun()
-    },
-  },
+    }
+  }
 })
 
 // 从看板过来的查询条件
@@ -891,6 +1090,47 @@ onMounted(() => {
   }
 })
 
+const asideWidth = computed(() => {
+  const width = appStore.appLayout?.analysis?.aside?.width
+
+  if (typeof width === 'undefined') {
+    return 20
+  }
+  return width
+})
+const asideTopWidth = computed(() => {
+  const width = appStore.appLayout?.analysis?.asideTop?.width
+
+  if (typeof width === 'undefined') {
+    return 50
+  }
+  return width
+})
+const settingWidth = computed(() => {
+  const width = appStore.appLayout?.analysis?.settingSide?.width
+
+  if (typeof width === 'undefined') {
+    return 320
+  }
+  return width
+})
+
+const onResized1 = ([aside]) => {
+  const payload = appStore.appLayout?.analysis
+  appStore.setLayout('analysis', { ...payload, aside: { width: aside.size } })
+}
+const onResized2 = ([top]) => {
+  const payload = appStore.appLayout?.analysis
+  appStore.setLayout('analysis', { ...payload, asideTop: { width: top.size } })
+}
+const onSettingWidthResized = e => {
+  const payload = appStore.appLayout?.analysis
+  appStore.setLayout('analysis', {
+    ...payload,
+    settingSide: { width: e.width }
+  })
+}
+
 onBeforeMount(() => {
   appStore.toggleSideBarHide(true)
 })
@@ -907,9 +1147,6 @@ $border-color: #eee;
   display: flex;
   flex-direction: column;
   height: 100%;
-  .splitpanes.default-theme .splitpanes__pane {
-    background-color: #fff;
-  }
 }
 
 .main {
@@ -920,6 +1157,24 @@ $border-color: #eee;
   .main-splitpanes {
     flex: 1;
     overflow: hidden;
+    .splitpanes__pane {
+      background-color: #fff;
+    }
+    .splitpanes--horizontal {
+      :deep(.splitpanes__splitter) {
+        height: 5px;
+      }
+    }
+    &.splitpanes--vertical {
+      & > :deep(.splitpanes__splitter) {
+        width: 5px;
+      }
+    }
+    :deep(.splitpanes__splitter) {
+      &:hover {
+        background-color: #b4b4ff;
+      }
+    }
   }
   .main-content {
     overflow: auto;
@@ -938,5 +1193,8 @@ $border-color: #eee;
       }
     }
   }
+}
+.settingSide {
+  left: unset !important;
 }
 </style>

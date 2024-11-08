@@ -1,5 +1,6 @@
 package net.aopacloud.superbi.queryEngine.sql;
 
+import com.google.common.base.Strings;
 import lombok.Data;
 import net.aopacloud.superbi.constant.BiConsist;
 
@@ -25,6 +26,14 @@ public class Segment {
      */
     private String expression;
 
+    private String alias;
+
+    public Segment(String name, String aggregator, String expression, String alias) {
+        this.name = name;
+        this.aggregator = aggregator;
+        this.expression = expression;
+        this.alias = alias;
+    }
     public Segment(String name, String aggregator, String expression) {
         this.name = name;
         this.aggregator = aggregator;
@@ -41,6 +50,9 @@ public class Segment {
     }
 
     public String getAlias() {
+        if (!Strings.isNullOrEmpty(alias)) {
+            return alias;
+        }
         if (aggregator == null) {
             return String.format("`%s%s`", name, BiConsist.FIELD_AGGREGATOR_SEPARATOR);
         }

@@ -8,11 +8,14 @@ import java.util.concurrent.*;
 @Slf4j
 public class ThreadUtils {
 
+    private ThreadUtils(){}
+
     public static void sleep(long millis) {
         try {
             Thread.sleep(millis);
         } catch (InterruptedException e) {
             log.error("Thread sleep error", e);
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -24,7 +27,7 @@ public class ThreadUtils {
         ThreadFactory threadFactory = namedThreadFactory(prefix);
         return new ThreadPoolExecutor(nThreads, nThreads,
                 0L, TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<Runnable>(2000),
+                new LinkedBlockingQueue<>(2000),
                 threadFactory);
     }
 

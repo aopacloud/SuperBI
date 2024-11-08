@@ -25,4 +25,16 @@ public class HandOverController {
         return RestApiResponse.success();
     }
 
+    @PostMapping("/execute/auto")
+    public RestApiResponse handOverAuto(@RequestBody HandOverUO handOverUO) {
+        if (handOverUO.getIdList() != null) {
+            handOverService.moveUserResourceByIdList(handOverUO.getIdList(), handOverUO.getFromUsernameList(), handOverUO.getToUsername(),
+                    handOverUO.getPosition(), handOverUO.getAutoTrans());
+        } else {
+            handOverService.moveUserResourceById(handOverUO.getId(), handOverUO.getFromUsername(), handOverUO.getToUsername(),
+                    handOverUO.getPosition(), handOverUO.getAutoTrans());
+        }
+        return RestApiResponse.success();
+    }
+
 }

@@ -7,12 +7,31 @@
 /* 左侧有勾的选中 */
 .selected-with-icon-left {
   position: relative;
-  padding-left: 30px;
+  padding-left: 30px !important;
   &::before {
     content: '';
     position: absolute;
     top: 50%;
-    left: 10px;
+    left: 12px;
+    display: table;
+    width: 6px;
+    height: 10px;
+    border: 2px solid #1677ff;
+    border-top: 0;
+    border-left: 0;
+    transform: rotate(45deg) scale(1) translate(-50%, -50%);
+  }
+}
+
+/* 右侧有勾的选中 */
+.selected-with-icon-right {
+  position: relative;
+  padding-right: 30px !important;
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 12px;
     display: table;
     width: 6px;
     height: 10px;

@@ -11,6 +11,7 @@ import net.aopacloud.superbi.model.converter.WorkspaceMemberConverter;
 import net.aopacloud.superbi.model.dto.SysUserDTO;
 import net.aopacloud.superbi.model.dto.WorkspaceMemberDTO;
 import net.aopacloud.superbi.model.query.WorkspaceMemberQuery;
+import net.aopacloud.superbi.model.uo.WorkspaceMemberAddUO;
 import net.aopacloud.superbi.model.vo.WorkspaceMemberVO;
 import net.aopacloud.superbi.service.SysUserService;
 import net.aopacloud.superbi.service.WorkspaceMemberService;
@@ -66,14 +67,17 @@ public class WorkspaceMemberController {
     /**
      * add member to workspace
      *
-     * @param memberVOS
+     * @param uo
      * @return
      */
     @PostMapping
     @ApiPermission("WORKSPACE:VIEW:MANAGE:USER")
-    public RestApiResponse<List<WorkspaceMemberVO>> add(@RequestBody List<WorkspaceMemberVO> memberVOS) {
+    public RestApiResponse<List<WorkspaceMemberVO>> add(@RequestBody WorkspaceMemberAddUO uo) {
 
-        List<WorkspaceMemberDTO> memberDTOS = workspaceMemberService.save(converter.toDTOList(memberVOS));
+        List<WorkspaceMemberDTO> addMemberDTOS = uo.getUsernames().stream()
+                .map(member -> new WorkspaceMemberDTO().setWorkspaceId(uo.getWorkspaceId()).setUsername(member))
+                .collect(Collectors.toList());
+        List<WorkspaceMemberDTO> memberDTOS = workspaceMemberService.save(addMemberDTOS);
         return RestApiResponse.success(converter.toVOList(memberDTOS));
     }
 

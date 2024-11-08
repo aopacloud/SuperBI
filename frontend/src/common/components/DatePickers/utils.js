@@ -24,7 +24,10 @@ export const getUtcDate = (utcOffset = 8, date) => {
  *  getStartDateStr({ type: 'day', value: -2 }) => 过去两天
  */
 export const getStartDateStr = ({ type, offset = 0 }, utcOffset = 8) => {
-  return getUtcDate(utcOffset).add(+offset, type).startOf(type).format('YYYY-MM-DD')
+  return getUtcDate(utcOffset)
+    .add(+offset, type)
+    .startOf(type)
+    .format('YYYY-MM-DD')
 }
 
 /**
@@ -35,10 +38,13 @@ export const getStartDateStr = ({ type, offset = 0 }, utcOffset = 8) => {
  * @returns {dayjs}
  */
 export const getEndDateStr = ({ type, offset = 0 }, utcOffset = 8) => {
-  return getUtcDate(utcOffset)
-    .subtract(+offset ? 1 : 0, type)
-    .endOf(offset ? type : 'day')
-    .format('YYYY-MM-DD')
+  return (
+    getUtcDate(utcOffset)
+      .subtract(+offset ? 1 : 0, type)
+      // .endOf(offset ? type : 'day')
+      .endOf(type)
+      .format('YYYY-MM-DD')
+  )
 }
 
 /**
@@ -53,7 +59,7 @@ export const displayDateFormat = ({
   hms = ['', ''],
   format = 'YYYY-MM-DD',
   extra = {},
-  timeOffset = 8,
+  timeOffset = 8
 } = {}) => {
   if (extra.dt) return ['有数的一天']
 
@@ -75,13 +81,20 @@ export const displayDateFormat = ({
       utcOffset
     )
 
-    return [date[0], e].map(joinDateWithHms)
+    return [offset[0], e].map(joinDateWithHms)
   } else if (mode === 0) {
     const crt = extra.current
     if (crt) {
-      const [tp, of = 0] = crt.split('_')
-      const s = getStartDateStr({ type: tp.toLowerCase(), offset: +of }, utcOffset)
-      const e = getEndDateStr({ type: tp.toLowerCase(), offset: +of }, utcOffset)
+      const [tp, of = 0, m] = crt.split('_')
+      const isToday = isIncludeToday(m)
+      const s = getStartDateStr(
+        { type: tp.toLowerCase(), offset: isToday ? +of + 1 : +of },
+        utcOffset
+      )
+      const e = getEndDateStr(
+        { type: tp.toLowerCase(), offset: isToday ? 0 : +of },
+        utcOffset
+      )
 
       return [s, e].map(joinDateWithHms)
     }
@@ -95,3 +108,10 @@ export const displayDateFormat = ({
     return date.map(joinDateWithHms)
   }
 }
+
+/**
+ * 是否包含今天
+ * @param {string} mode
+ * @returns {boolean}
+ */
+export const isIncludeToday = mode => mode === 'recent'

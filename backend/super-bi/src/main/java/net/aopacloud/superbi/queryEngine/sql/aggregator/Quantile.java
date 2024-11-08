@@ -2,7 +2,7 @@ package net.aopacloud.superbi.queryEngine.sql.aggregator;
 
 public class Quantile implements Aggregator{
 
-    public static String name = "QUANTILE";
+    public static final String name = "QUANTILE";
 
     private String param;
 

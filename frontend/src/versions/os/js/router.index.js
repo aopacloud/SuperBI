@@ -4,8 +4,8 @@ export const staticRoutes = [
     path: '/login',
     name: 'Login',
     component: () => import('@/versions/os/views/login.vue'),
-    meta: { title: '登录' },
-  },
+    meta: { title: '登录' }
+  }
 ]
 
 // 系统路由
@@ -14,26 +14,21 @@ export const systemRoutes = [
     path: '/system/profile',
     name: 'SystemProfile',
     component: () => import('@/versions/os/views/system.profile/index.vue'),
-    meta: { title: '个人中心', icon: 'user' },
+    meta: { title: '个人中心', icon: 'user' }
   },
   {
     path: '/system/notification',
     name: 'SystemNotification',
-    component: () => import('@/versions/os/views/system.notification/index.vue'),
-    meta: { title: '消息中心', icon: 'user' },
+    component: () =>
+      import('@/versions/os/views/system.notification/index.vue'),
+    meta: { title: '消息中心', icon: 'user' }
   },
   {
     path: '/system/user',
     name: 'SystemUser',
     component: () => import('@/versions/os/views/system.user/index.vue'),
-    meta: { title: '成员管理', icon: 'user', roles: ['SuperAdmin'] },
-  },
-  {
-    path: '/system/recycleBin',
-    name: 'SystemRecycleBin',
-    component: () => import('@/views/system/recycleBin/index.vue'),
-    meta: { title: '回收站', icon: 'user' },
-  },
+    meta: { title: '成员管理', icon: 'user', roles: ['SuperAdmin'] }
+  }
 ]
 
 // 动态路由
@@ -42,12 +37,12 @@ export const dynamicRoutes = [
     path: '/datasource',
     name: 'Datasource',
     component: () => import('@/versions/os/views/datasource/index.vue'),
-    meta: { title: '数据源' },
+    meta: { title: '数据源' }
   },
   {
     path: '/authority/approve',
     name: 'AuthorityApprove',
     component: () => import('@/views/authority/approve/index.vue'),
-    meta: { title: '我的审批', permissions: ['DATASET:VIEW:CREATE'] },
-  },
+    meta: { title: '我的审批', permissions: ['DATASET:VIEW:CREATE'] }
+  }
 ]

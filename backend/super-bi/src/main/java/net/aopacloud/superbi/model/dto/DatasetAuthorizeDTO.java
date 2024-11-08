@@ -19,6 +19,12 @@ public class DatasetAuthorizeDTO {
 
     private Long id;
 
+    // 新增字段默认授权
+    private Boolean autoAuth;
+
+    // autoAuth开启时，字段的版本
+    private Integer version;
+
     private AuthorizeScopeEnum scope;
 
     private PermissionEnum permission;
@@ -54,6 +60,8 @@ public class DatasetAuthorizeDTO {
     private String remark;
 
     private Integer deleted;
+
+    private Integer expired;
 
     private Date createTime;
 

@@ -17,11 +17,13 @@
           size="small"
           type="text"
           :icon="h(EditOutlined)"
-          @click="modifyOpen" />
+          @click="modifyOpen"
+        />
         <!-- 时区预览 -->
         <ComponentsTimeoffsetPreview
           :value="timeOffset"
-          @change="e => emits('timeoffset-change', e)" />
+          @change="e => emits('timeoffset-change', e)"
+        />
         <!-- 创建人 -->
         <div class="creator">
           <span style="color: #999">创建者:</span>
@@ -32,10 +34,12 @@
         <a-space>
           <a-badge
             v-if="
-              mode === 'READONLY' && detail.lastEditVersion > (detail.version || 0)
+              mode === 'READONLY' &&
+              detail.lastEditVersion > (detail.version || 0)
             "
             color="blue"
-            text="有保存的最新版本，可点击“编辑”前往查看" />
+            text="有保存的最新版本，可点击“编辑”前往查看"
+          />
 
           <a-badge v-if="mode === 'EDIT'" v-bind="displayStatusProps()" />
 
@@ -43,18 +47,23 @@
             v-if="mode !== 'EDIT'"
             :utcOffset="timeOffset"
             :globalDateConfig="globalDateConfig"
-            @reset="resetGlobalDate">
+            @reset="resetGlobalDate"
+          >
           </ViewsDashboardLHeaderGlobalDate>
 
           <AutoRefresh
             :detail="detail"
-            :writeable="hasWritePermission && mode === 'EDIT'" />
+            :writeable="hasWritePermission && mode === 'EDIT'"
+          />
 
-          <a-tooltip title="图表">
-            <div class="tools-item" @click="toReport">
-              <AreaChartOutlined />
+          <!-- <a-tooltip
+            title="自动排版"
+            v-if="hasWritePermission && mode === 'EDIT'"
+          >
+            <div class="tools-item">
+              <SvgIcon name="gridLayout" @click="autoLayout" />
             </div>
-          </a-tooltip>
+          </a-tooltip> -->
 
           <a-tooltip title="全局筛选" v-if="mode === 'EDIT'">
             <div class="tools-item" @click="emits('filter')">
@@ -80,10 +89,15 @@
                 <a-button
                   v-if="mode === 'EDIT'"
                   size="small"
-                  @click="emits('update:mode', 'PREVIEW')">
+                  @click="emits('update:mode', 'PREVIEW')"
+                >
                   预览
                 </a-button>
-                <a-button v-else size="small" @click="emits('update:mode', 'EDIT')">
+                <a-button
+                  v-else
+                  size="small"
+                  @click="emits('update:mode', 'EDIT')"
+                >
                   编辑
                 </a-button>
               </keep-alive>
@@ -97,7 +111,8 @@
               size="small"
               :loading="saveLoading"
               :disabled="publishLoading"
-              @click="save">
+              @click="handleSave"
+            >
               保存
             </a-button>
             <a-button
@@ -106,7 +121,8 @@
               type="primary"
               :loading="publishLoading"
               :disabled="saveLoading"
-              @click="rePublish">
+              @click="rePublish"
+            >
               {{ !detail.id ? '提交并发布' : '重新发布' }}
             </a-button>
           </template>
@@ -115,7 +131,8 @@
           <a-dropdown
             v-if="hasManagePermission"
             trigger="click"
-            :loading="actionLoading">
+            :loading="actionLoading"
+          >
             <div class="tools-item">
               <keep-alive>
                 <LoadingOutlined v-if="actionLoading" />
@@ -133,7 +150,8 @@
                 <ViewsDashboardActionDropdownMenuItemPushSetting />
                 <a-menu-item
                   v-if="detail.status === 'UN_PUBLISH' && mode == 0"
-                  key="publish">
+                  key="publish"
+                >
                   发布
                 </a-menu-item>
               </a-menu>
@@ -149,25 +167,29 @@
     v-model:open="modifyModalOpen"
     :detail="detail"
     :init-params="{ position: 'DASHBOARD', type: 'ALL', workspaceId }"
-    @ok="onModifyOk" />
+    @ok="onModifyOk"
+  />
 
   <!-- 分享 -->
   <ShareDrawer
     v-model:open="shareDrawerOpen"
     :initData="detail"
-    @visibility-change="onVisibilityChange" />
+    @visibility-change="onVisibilityChange"
+  />
 
   <!-- 移动 -->
   <MoveDrawer
     v-model:open="moveDrawerOpen"
     :init-data="detail"
     :init-params="{ position: 'DASHBOARD', type: 'ALL', workspaceId }"
-    @ok="onMoveOk" />
+    @ok="onMoveOk"
+  />
 
   <!-- 推送设置 -->
   <ViewsDashboardPushSettingDrawer
     v-model:open="pushSettingDrawerOpen"
-    :initData="detail" />
+    :initData="detail"
+  />
 </template>
 
 <script setup lang="jsx">
@@ -181,7 +203,7 @@ import {
   MoreOutlined,
   AppstoreOutlined,
   LoadingOutlined,
-  InfoCircleOutlined,
+  InfoCircleOutlined
 } from '@ant-design/icons-vue'
 import useAppStore from '@/store/modules/app'
 import ModifyModal from './components/ModifyModal.vue'
@@ -192,7 +214,7 @@ import {
   postSave,
   putUpdate,
   postPublishById,
-  postOfflineById,
+  postOfflineById
 } from '@/apis/dashboard'
 import { message } from 'ant-design-vue'
 import { deepCloneByJson } from '@/common/utils/help'
@@ -204,7 +226,7 @@ const {
   ComponentsTimeoffsetPreview,
   ViewsDashboardLHeaderGlobalDate,
   ViewsDashboardActionDropdownMenuItemPushSetting,
-  ViewsDashboardPushSettingDrawer,
+  ViewsDashboardPushSettingDrawer
 } = versionVue
 
 const emits = defineEmits([
@@ -220,12 +242,13 @@ const emits = defineEmits([
   'published',
   'update:mode',
   'timeoffset-change',
+  'auto-grid-layout'
 ])
 const props = defineProps({
   // 看板详情
   detail: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
   mode: {
     type: String,
@@ -233,27 +256,29 @@ const props = defineProps({
     validator: t => {
       // READONLY 看板详情; EDIT 看板编辑; PREVIEW 编辑预览
       return ['READONLY', 'EDIT', 'PREVIEW'].includes(t)
-    },
+    }
   },
   // 看板组件
   layoutComponents: {
     type: Array,
-    default: () => [],
+    default: () => []
   },
   // 全局日期筛选
   globalDateConfig: {
-    type: Object,
+    type: Object
   },
   needBeforeInit: {
-    type: Boolean,
-  },
+    type: Boolean
+  }
 })
 
 const router = useRouter()
 const appStore = useAppStore()
 const userStore = useUserStore()
 
-const workspaceId = computed(() => props.detail.workspaceId || appStore.workspaceId)
+const workspaceId = computed(
+  () => props.detail.workspaceId || appStore.workspaceId
+)
 
 // 编辑权限
 const hasWritePermission = computed(() => {
@@ -325,15 +350,8 @@ const displayStatusProps = () => {
 
   return {
     color,
-    text,
+    text
   }
-}
-
-const toReport = () => {
-  const routeRes = router.resolve({ name: 'ReportList' })
-  if (!routeRes) return
-
-  window.open(routeRes.href, '_blank')
 }
 
 const resetGlobalDate = () => {
@@ -433,16 +451,16 @@ const transformPayload = (list = []) => {
   return deepCloneByJson(list).map(item => {
     delete item._loaded
 
-    const { i, type, content, ...layout } = item
+    const { i, type, content, reportId, ...layout } = item
 
     delete content.report
 
     return {
       i,
       type,
-      reportId: type === 'REPORT' ? content.id : undefined,
+      reportId,
       content: JSON.stringify(content),
-      layout: JSON.stringify({ ...layout, i }),
+      layout: JSON.stringify({ ...layout, i })
     }
   })
 }
@@ -454,13 +472,19 @@ const move = dId => {
       type: 'ALL',
       workspaceId: workspaceId.value,
       targetId: dId,
-      folderId: props.detail.folderId,
+      folderId: props.detail.folderId
     }
 
     return moveDirectory(payload)
   } catch (error) {
     console.error('更新文件夹位置失败', error)
   }
+}
+
+const handleSave = () => {
+  save().then(id => {
+    router.replace({ name: 'DashboardModify', params: { id } })
+  })
 }
 
 const saveLoading = ref(false)
@@ -473,19 +497,21 @@ const save = async () => {
     const payload = {
       ...props.detail,
       workspaceId: workspaceId.value,
-      dashboardComponents: transformPayload(props.layoutComponents),
+      dashboardComponents: transformPayload(props.layoutComponents)
     }
 
     const fn = !props.detail.id
       ? () => postSave(payload)
       : () => putUpdate(props.detail.id, payload)
-    const { id, version, status, lastEditVersion, permission, folder } = await fn()
+    const { id, version, status, lastEditVersion, permission, folder } =
+      await fn()
 
     emits('update-detail', { id, version, status, lastEditVersion, permission })
     message.success('保存成功')
 
     // 当前位置与保存的位置不一致
     if (folder.id !== props.detail.folderId) move(id)
+    return id
   } catch (error) {
     console.error('看板保存错误', error)
     return Promise.reject()
@@ -507,11 +533,16 @@ const rePublish = async () => {
     emits('update-detail', { version, status, lastEditVersion })
     emits('published', { version, status, lastEditVersion })
     message.success('发布成功')
+    toBack()
   } catch (error) {
     console.error('重新发布错误', error)
   } finally {
     publishLoading.value = false
   }
+}
+
+const autoLayout = () => {
+  emits('auto-grid-layout')
 }
 </script>
 

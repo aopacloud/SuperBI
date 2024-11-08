@@ -1,9 +1,14 @@
 package net.aopacloud.superbi.service;
 
 import net.aopacloud.superbi.common.core.web.page.PageVO;
+import net.aopacloud.superbi.model.domain.TableDescriptor;
 import net.aopacloud.superbi.model.dto.DatasetDTO;
+import net.aopacloud.superbi.model.dto.DatasetFieldDTO;
 import net.aopacloud.superbi.model.query.DatasetQuery;
+import net.aopacloud.superbi.model.query.RecycleQuery;
 import net.aopacloud.superbi.model.vo.DatasetVO;
+import net.aopacloud.superbi.model.vo.FieldPreviewVO;
+import net.aopacloud.superbi.model.vo.RecycleVO;
 
 import java.util.List;
 
@@ -24,9 +29,15 @@ public interface DatasetService {
 
     PageVO<DatasetVO> search(DatasetQuery datasetQuery);
 
+    PageVO<RecycleVO> searchByRecycle(RecycleQuery recycleQuery);
+
     DatasetDTO save(DatasetDTO datasetDTO);
 
     DatasetDTO delete(Long id);
+
+    void recycleDelete(Long id);
+
+    void restore(Long id);
 
     DatasetDTO update(DatasetDTO dataset, Long id);
 
@@ -50,9 +61,15 @@ public interface DatasetService {
 
     void handOver(String fromUsername, String toUsername);
 
+    void handOverById(Long id, String fromUsername, String toUsername);
+
     List<DatasetDTO> findDatasetCanAuthorize(Long workspaceId, String username);
 
     List<DatasetDTO> findByDashboard(Long dashboardId);
 
     List<DatasetDTO> findOnlineDataset(Long workspaceId);
+
+    String previewSql(DatasetDTO dataset);
+
+    FieldPreviewVO previewField(Long datasetId, List<TableDescriptor> tables, List<DatasetFieldDTO> fieldDTOS);
 }

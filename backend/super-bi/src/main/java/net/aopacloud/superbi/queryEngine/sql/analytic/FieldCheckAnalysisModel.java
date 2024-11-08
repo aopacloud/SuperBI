@@ -1,8 +1,13 @@
 package net.aopacloud.superbi.queryEngine.sql.analytic;
 
+import com.google.common.base.Joiner;
 import lombok.Data;
 import lombok.experimental.Accessors;
 import net.aopacloud.superbi.queryEngine.sql.Segment;
+import net.aopacloud.superbi.queryEngine.sql.join.Table;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * @author: hudong
@@ -15,25 +20,21 @@ public class FieldCheckAnalysisModel implements AnalysisModel {
 
     private Segment field;
 
-    private String table;
+    private Table table;
 
     private Segment where;
 
-    private Segment groupBy;
+    private List<Segment> groupBy;
 
     @Override
     public String getSql() {
         StringBuilder sql = new StringBuilder();
-        sql.append("select ");
-        if (groupBy != null) {
-            sql.append(groupBy.getExpression()).append(" , ");
-        }
+        sql.append("explain select ");
         sql.append(field.getExpression());
-        sql.append(" from ").append(table);
-        sql.append(" where ").append(where.getExpression());
-
-        if (groupBy != null) {
-            sql.append(" group by ").append(groupBy.getExpression());
+        sql.append(" from ").append(table.produce());
+        if (groupBy != null && !groupBy.isEmpty()) {
+            sql.append(" group by ");
+            sql.append(Joiner.on(" , ").join(groupBy.stream().map(Segment::getExpression).collect(Collectors.toList())));
         }
 
         sql.append(" limit 100");

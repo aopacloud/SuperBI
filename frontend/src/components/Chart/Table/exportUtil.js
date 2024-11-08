@@ -2,24 +2,30 @@
  * 该文件依赖较多其他模块的方法和配置项，不适合放在webworker中
  */
 
-import { CATEGORY } from '@/CONST.dict'
+import { CATEGORY, COMPARE } from '@/CONST.dict'
 import {
   formatDtWithOption,
   VS_FIELD_SUFFIX,
-  formatFieldDisplay,
+  formatFieldDisplay
 } from '../utils/index'
 import {
   getCompareDisplay,
   displayQuickCalculateValue,
   listDataToTreeByKeys,
+  displayBottomSummaryIndexCell,
+  displayColumnSummaryCell,
+  getSummarizedValue,
+  getDisplayBySummaryAggregator,
+  getCompareDifferArray
 } from './utils'
 import {
-  formatterOptions,
   FORMAT_DEFAULT_CODE,
-  FORMAT_CUSTOM_CODE,
+  FORMAT_CUSTOM_CODE
 } from '@/views/dataset/config.field'
-import { createSortByOrder } from 'common/utils/help'
+import { createSortByOrders, getDiffColor, deepClone } from 'common/utils/help'
 import { downloadByUrl } from 'common/utils/file'
+import { TREE_GROUP_NAME } from '../utils/createGroupTable'
+import { toPercent, toDigit } from 'common/utils/number'
 
 let worker = null
 /**
@@ -27,7 +33,7 @@ let worker = null
  */
 export const initWorker = () => {
   worker = new Worker(new URL('@/worker.js', import.meta.url), {
-    type: 'module',
+    type: 'module'
   })
 
   worker.addEventListener('message', e => {
@@ -87,7 +93,7 @@ const indexFormatMap = {
 
       return thousandStr + percentStr
     }
-  },
+  }
 }
 
 /**
@@ -114,64 +120,89 @@ export default function transformExport({
   columns = [],
   summary = {},
   dataset = {},
-  config = {},
-  filename = Date.now(),
+  tableConfig = {},
+  sorters = [],
+  formatters = [],
+  filename = Date.now()
 }) {
   if (!worker) {
     initWorker()
   }
 
-  const tableConfig = config.table || {}
-  const listTree = tableConfig.isGroupTable
-    ? data
-    : listDataToTreeByKeys({
-        renderType: config.renderType,
+  const renderType = tableConfig.renderType
+
+  const tableTypes = ['table', 'bar', 'line']
+
+  const listTree = tableTypes.includes(renderType)
+    ? listDataToTreeByKeys({
+        renderType: renderType,
         list: data,
         groupKeys: columns
-          .filter(t => t.params.field.category === CATEGORY.PROPERTY)
+          .filter(t => t.params?.field?.category === CATEGORY.PROPERTY)
           .map(t => t.params.field.renderName),
-        summaryMap: summary,
+        summaryMap: summary
       })
+    : data
 
   // 数据集字段
   const fields = dataset.fields || []
 
-  // 排序
-  const {
-    sorter,
-    sorter: { order: sOrder, field: sField },
-  } = tableConfig
-  if (sorter) {
-    data = data.sort(createSortByOrder(sOrder === 'asc', sField))
-  }
-
-  const displayIndexFormat = (value, field) => {
-    // 指标
-    const originField = fields.find(t => t.name === field.name)
-    if (!originField) return value
-
-    const formatter = tableConfig.formatter || []
-    let formatItem = formatter.find(t => t.field === field.renderName)
-    if (!formatItem || !formatItem.code) {
-      formatItem = {
-        field: field.renderName,
-        code: originField.dataFormat,
-        config: originField.customFormatConfig,
-      }
-    }
-
-    const formatOpt = formatterOptions.find(t => t.value === formatItem.code)
-    if (!formatOpt) {
-      return value
+  // 获取合并的排序
+  const getMergeSorters = () => {
+    let oldSorters = []
+    // 交叉表格
+    if (
+      renderType === 'intersectionTable' ||
+      renderType === 'bar' ||
+      renderType === 'line'
+    ) {
+      const { row = [], column = [] } = deepClone(sorters)
+      oldSorters = row
+        .map(t => ({ ...t, _group: 'row' }))
+        .concat(column.map(t => ({ ...t, _group: 'column' })))
     } else {
-      return formatOpt.format(value, formatItem.config)
+      oldSorters = deepClone(sorters)
     }
+
+    // 行列转置的下载排序不应用表格表头的排序
+    const tableSorter =
+      !tableConfig.sorter || tableConfig.reverse
+        ? []
+        : Array.isArray(tableConfig.sorter)
+          ? tableConfig.sorter
+          : [tableConfig.sorter]
+
+    const newSorters = tableSorter.filter(t => !!t.order)
+
+    return [...oldSorters, ...newSorters].reduce((acc, cur) => {
+      const item = acc.find(t => t.field === cur.field)
+
+      if (!item) {
+        acc.push({
+          ...cur,
+          field:
+            renderType === 'table'
+              ? cur.field
+              : cur._group === 'column'
+                ? 'title'
+                : TREE_GROUP_NAME
+        })
+      } else {
+        item.order = cur.order
+        if (cur.order !== 'custom') {
+          item.custom = undefined
+        }
+      }
+
+      return acc
+    }, [])
   }
 
-  const summaryRows = columns.reduce((acc, cur, i) => {
-    acc[cur.field] = i === 0 ? '汇总' : summary[cur.field]
-    return acc
-  }, [])
+  // 排序
+  const mergedSorters = getMergeSorters()
+  if (mergedSorters.length) {
+    data = data.sort(createSortByOrders(mergedSorters))
+  }
 
   /**
    * 获取字段格式化字符串
@@ -183,109 +214,398 @@ export default function transformExport({
     const originField = fields.find(t => t.name === field.name)
     if (!originField) getFormatStr(val)
 
-    const formatter = tableConfig.formatter || []
-    let formatItem = formatter.find(t => t.field === field.renderName)
+    let formatItem = formatters.find(t => t.field === field.renderName)
     if (!formatItem || !formatItem.code) {
       formatItem = {
         field: field.renderName,
         code: originField.dataFormat,
-        config: originField.customFormatConfig,
+        config: originField.customFormatConfig
       }
     }
 
     return getFormatStr(val, formatItem.code, formatItem.config)
   }
 
-  const tableData = tableConfig.showSummary
+  const summaryConfig = tableConfig.summary
+  let rowSummary = {},
+    columnSummary = {}
+  if (Array.isArray(summaryConfig)) {
+    rowSummary = summaryConfig
+  } else {
+    const { row = {}, column } = summaryConfig
+    rowSummary = row
+    columnSummary = column
+  }
+
+  // 列汇总（也可以在数据填充时去处理）
+  // if (columnSummary?.enable) {
+  //   const fn = (list = []) => {
+  //     return list.map(item => {
+  //       return {
+  //         ...item,
+  //         children: fn(item.children),
+  //         column_summary: displayColumnSummaryCell({
+  //           row: item,
+  //           columns,
+  //           summaryConfig: columnSummary
+  //         })
+  //       }
+  //     })
+  //   }
+  //   data = fn(data)
+  // }
+
+  const hasRowSummary = rowSummary.enable
+  const tableData = hasRowSummary
     ? [...data, { ...summary, _isSummaryRow: true }]
     : data
 
-  // 处理导出的数据
-  const formattedData = tableData.map(row => {
-    return columns.reduce((acc, col, colIndex, arr) => {
-      const {
-        field: renderName,
-        slots,
-        params: { field },
-      } = col
-      const { default: sDefault } = slots
-      const colVal = row[renderName]
-      const isSummary = row._isSummaryRow
+  const listToTree = (list = [], children) => {
+    const fn = (l = []) => {
+      if (!l.length) return children
+      const [f, ...rest] = l
+      return [
+        {
+          ...f,
+          children: fn(rest)
+        }
+      ]
+    }
+    return fn(list)
+  }
 
-      if (isSummary && colIndex === 0) {
-        // 汇总的第一列
-        acc[colIndex] = '汇总'
-      } else if (sDefault === 'date') {
-        acc[colIndex] = { t: 's', v: formatDtWithOption(colVal, field) }
-      } else if (sDefault === 'vs') {
-        // 同环比
-        const { mode, merge } = config.compare || {}
-        const origin = colVal
-        const target = row[renderName.split(VS_FIELD_SUFFIX)[0]]
-
-        // 拆分显示
-        if (!merge) {
-          if (mode === 0) {
-            acc[colIndex] = {
-              t: 'n',
-              v: origin,
-              z: getFieldFormatStr(origin, field),
-            }
+  // 列分组排序
+  const columnSorters = mergedSorters.filter(t => t._group === 'column')
+  if (columnSorters.length) {
+    const sortedColumns = arr => {
+      // 行， 列
+      const [rows, cols] = arr.reduce(
+        (acc, cur) => {
+          if (cur.field === TREE_GROUP_NAME) {
+            acc[0].push(cur)
           } else {
-            acc[colIndex] = {
-              v: getCompareDisplay(origin, target, mode)(field, fields),
-            }
+            acc[1].push(cur)
           }
-        } else {
-          // 合并显示
-          const targetStr = formatFieldDisplay(target, field, fields)
+          return acc
+        },
+        [[], []]
+      )
 
-          acc[colIndex] = {
-            t: 's',
-            v:
-              targetStr +
-              '(' +
-              getCompareDisplay(origin, target, mode)(field, fields) +
-              ')',
+      const fn = (list, sorts) => {
+        return list
+          .map(t => {
+            if (t.children?.length) {
+              return {
+                ...t,
+                children: fn(t.children, sorts)
+              }
+            } else {
+              return t
+            }
+          })
+          .sort(createSortByOrders(columnSorters))
+      }
+
+      return rows.concat(fn(cols, toRaw(sorters)))
+    }
+
+    columns = sortedColumns(columns)
+  }
+
+  // 分组表头的字段展开
+  const expandTreeNodeColumns = columns.reduce((acc, col) => {
+    const { params: { fields = [], _columnFields = [] } = {} } = col
+
+    let item = {}
+    if (_columnFields.length) {
+      item = listToTree(_columnFields, fields.length ? [...fields] : [col])
+    } else {
+      item = [col]
+    }
+    acc.push(...item)
+
+    return acc
+  }, [])
+
+  const expandChildren = list => {
+    return list.reduce((acc, row) => {
+      const { children = [] } = row
+      if (children.length) {
+        acc.push(...expandChildren(children))
+      } else {
+        acc.push(row)
+      }
+      return acc
+    }, [])
+  }
+
+  const expandChildrenColumns = expandChildren(expandTreeNodeColumns)
+
+  const _isColumnSummaryFirst =
+    columnSummary?.enable && columnSummary?.position === 'first'
+
+  // 获取同环比单元格显示
+  const getVsCellDisplay = (
+    cell,
+    {
+      origin,
+      target,
+      field,
+      aggregator,
+      originValues = [],
+      targetValues = [],
+      colored = true
+    },
+    { merge, mode }
+  ) => {
+    if (colored) {
+      const color = getDiffColor(origin, target)
+      cell.s.font = { color: { rgb: color.split('#')[1] } }
+    }
+
+    let originStr
+    // 汇总
+    if (aggregator && mode !== COMPARE.MODE.ORIGIN) {
+      const differ = getCompareDifferArray(
+        targetValues,
+        originValues,
+        mode === COMPARE.MODE.DIFF_PERSENT
+      )
+
+      originStr = getSummarizedValue(differ, aggregator)
+
+      if (mode === COMPARE.MODE.DIFF_PERSENT) {
+        originStr = toPercent(originStr, 2)
+      } else {
+        originStr = toDigit(originStr, 2)
+      }
+    }
+
+    // 拆分显示
+    if (!merge) {
+      if (mode === COMPARE.MODE.ORIGIN) {
+        cell = {
+          ...cell,
+          t: 'n',
+          v: origin,
+          z: getFieldFormatStr(origin, field)
+        }
+      } else {
+        cell = {
+          ...cell,
+          v:
+            originStr ||
+            getCompareDisplay({
+              origin,
+              target,
+              mode,
+              config: tableConfig
+            })(field, fields)
+        }
+      }
+    } else {
+      // 合并显示
+      const targetStr = formatFieldDisplay(target, field, fields)
+      const r =
+        originStr ||
+        getCompareDisplay({
+          origin,
+          target,
+          mode,
+          config: tableConfig
+        })(field, fields)
+
+      cell.v = targetStr + '(' + r + ')'
+    }
+
+    return cell
+  }
+
+  const toList = (list = []) => {
+    return list.reduce((acc, row) => {
+      const r = expandChildrenColumns.reduce((a, col, colIndex, arr) => {
+        // 单元格对象 https://docs.sheetjs.com/docs/csf/cell
+        let cell = {
+          t: 's',
+          s: {
+            alignment: {
+              vertical: 'center',
+              horizontal: tableConfig.align ?? 'left'
+            }
           }
         }
-      } else if (sDefault === 'quickCalculate') {
-        if (!isSummary) {
-          // 快速计算
-          acc[colIndex] = {
-            t: 's',
-            v: displayQuickCalculateValue({
+
+        const {
+          field: renderName,
+          slots,
+          params: { field }
+        } = col
+        const { default: sDefault } = slots
+        const colVal = row[renderName] ?? '' // excel填充空值单元格
+        const isSummary = row._isSummaryRow
+
+        // 列汇总
+        if (sDefault === 'columnSummary') {
+          if (!isSummary) {
+            // 列汇总（也可以提前处理完数据）
+            const cV = displayColumnSummaryCell({
+              row,
+              columns: arr,
+              aggregator: columnSummary.aggregator
+            })
+
+            cell = {
+              ...cell,
+              t: 'n',
+              v: cV,
+              z: getFormatStr(cV)
+            }
+          }
+        } else if (isSummary) {
+          // 行汇总
+          let i = 0
+          if (_isColumnSummaryFirst) i++
+
+          if (colIndex === i) {
+            // 汇总的第一列
+            cell.v = '汇总'
+          } else {
+            if (field.category === CATEGORY.INDEX) {
+              if (sDefault !== 'vs') {
+                cell.v = displayBottomSummaryIndexCell({
+                  field,
+                  list,
+                  summaryOptions: rowSummary?.list,
+                  formatters,
+                  datasetFields: fields,
+                  summaryValue: colVal
+                })
+              } else {
+                const mode = tableConfig.compare.mode
+
+                const dataList = list.filter(t => !t._isSummaryRow)
+                const tName = renderName.split(VS_FIELD_SUFFIX)[0]
+                const tValues = dataList.map(t => t[tName])
+                const oValues = dataList.map(t => t[renderName])
+                let target = row[tName],
+                  origin = colVal
+
+                let summaryOptions = rowSummary?.list || []
+                summaryOptions = summaryOptions.reduce((acc, cur) => {
+                  const { name = [], aggregator, _all } = cur
+                  if (_all) {
+                    return acc.concat({ name: tName, aggregator })
+                  } else {
+                    return acc.concat(name.map(t => ({ name: t, aggregator })))
+                  }
+                }, [])
+
+                const item = summaryOptions.find(t => t.name === tName)
+                const aggregator = item?.aggregator
+
+                // 自动汇总
+                if (!aggregator || aggregator === 'auto') {
+                  return getCompareDisplay({
+                    origin,
+                    target,
+                    mode,
+                    config: tableConfig
+                  })(field, fields)
+                }
+
+                // 这里不需要获取格式化的值
+                // field,
+                // fields,
+                // formatters
+                target = getDisplayBySummaryAggregator({
+                  values: tValues,
+                  aggregator,
+                  defaultValue: target
+                })()
+
+                origin = getDisplayBySummaryAggregator({
+                  values: oValues,
+                  aggregator,
+                  defaultValue: origin
+                })()
+
+                cell = getVsCellDisplay(
+                  cell,
+                  {
+                    origin,
+                    target,
+                    field,
+                    aggregator,
+                    colored: false,
+                    originValues: oValues,
+                    targetValues: tValues
+                  },
+                  tableConfig.compare
+                )
+              }
+            }
+          }
+        } else if (sDefault === 'date') {
+          // 日期
+          cell.v = formatDtWithOption(colVal, field)
+        } else if (sDefault === 'vs') {
+          const origin = colVal
+          const target = row[renderName.split(VS_FIELD_SUFFIX)[0]]
+
+          cell = getVsCellDisplay(
+            cell,
+            { origin, target, field },
+            tableConfig.compare
+          )
+        } else if (sDefault === 'quickCalculate') {
+          if (!isSummary) {
+            // 快速计算
+            cell.v = displayQuickCalculateValue({
               row,
               field,
-              renderType: config.renderType,
+              renderType,
               columns: arr,
               listTree,
               summary,
               isGroupTable: tableConfig.isGroupTable,
-            }),
+              special: tableConfig.special
+            })
+          } else {
+            cell = {
+              ...cell,
+              t: 'n',
+              v: colVal,
+              z: getFieldFormatStr(colVal, field)
+            }
+          }
+        } else if (field.category === CATEGORY.INDEX) {
+          // 指标
+          cell = {
+            ...cell,
+            ...{ t: 'n', v: colVal, z: getFieldFormatStr(colVal, field) }
           }
         } else {
-          acc[colIndex] = {
-            t: 'n',
-            v: colVal,
-            z: getFieldFormatStr(colVal, field),
-          }
+          // 默认
+          cell.v = colVal
         }
-      } else if (field.category === CATEGORY.INDEX) {
-        // 指标
-        acc[colIndex] = {
-          t: 'n',
-          v: colVal,
-          z: getFieldFormatStr(colVal, field),
-        }
+
+        a.push(cell)
+
+        return a
+      }, [])
+
+      if (row.children?.length) {
+        acc.push(...toList(row.children))
       } else {
-        // 默认
-        acc[colIndex] = colVal
+        acc.push(r)
       }
 
       return acc
     }, [])
-  })
+  }
+
+  // 处理导出的数据
+  const formattedData = toList(tableData)
 
   const name = filename
     ? filename + '-' + new Date().toLocaleString()
@@ -295,11 +615,12 @@ export default function transformExport({
     type: 'export',
     payload: {
       data: formattedData,
-      columns,
+      columns: expandTreeNodeColumns,
       tableLayout: tableConfig.layout,
       options: {
-        filename: name,
-      },
-    },
+        alignment: tableConfig.align,
+        filename: name
+      }
+    }
   })
 }

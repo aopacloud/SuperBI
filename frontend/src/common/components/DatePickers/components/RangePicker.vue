@@ -1,7 +1,7 @@
 ﻿<template>
   <div class="custom-picker">
     <div class="panel left" ref="startPanel">
-      <div class="panel-title">
+      <div v-show="!pickerOnly" class="panel-title">
         <span class="title-label">起始日期:</span>
         <a-date-picker
           open
@@ -35,7 +35,7 @@
         @change="onStartTimeChange" />
     </div>
     <div class="panel right" ref="endPanel">
-      <div class="panel-title">
+      <div v-show="!pickerOnly" class="panel-title">
         <span class="title-label">结束日期:</span>
         <a-date-picker
           open
@@ -73,7 +73,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, watchEffect } from 'vue'
+import { ref, watch, watchEffect } from 'vue'
 import { message } from 'ant-design-vue'
 import { getUtcDate } from '../utils'
 import dayjs from 'dayjs'
@@ -97,6 +97,8 @@ const props = defineProps({
       return typeof str === 'number'
     },
   },
+
+  pickerOnly: Boolean,
 })
 
 const rangeCls = 'ant-picker-cell-in-range'

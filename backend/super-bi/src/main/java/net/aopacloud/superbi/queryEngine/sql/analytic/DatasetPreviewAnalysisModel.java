@@ -5,6 +5,7 @@ import com.google.common.collect.Lists;
 import lombok.Data;
 import lombok.experimental.Accessors;
 import net.aopacloud.superbi.queryEngine.sql.Segment;
+import net.aopacloud.superbi.queryEngine.sql.join.Table;
 
 import java.util.List;
 import java.util.Objects;
@@ -18,7 +19,7 @@ import java.util.Objects;
 @Accessors(chain = true)
 public class DatasetPreviewAnalysisModel implements AnalysisModel {
 
-    private String table;
+    private Table table;
 
     private List<Segment> dimensions;
 
@@ -37,7 +38,7 @@ public class DatasetPreviewAnalysisModel implements AnalysisModel {
 
 //        sql.append(" from ").append(table);
 
-        sql.append(" from ").append(" (  select * from ").append(table);
+        sql.append(" from ").append(" (  select * from ").append(table.produce());
 
         if (where != null) {
             sql.append(" where ").append(where.getExpression());

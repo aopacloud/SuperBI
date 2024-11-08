@@ -61,6 +61,17 @@ public class FolderServiceImpl implements FolderService {
         if (existsFolder != null) {
             throw new ServiceException(LocaleMessages.getMessage(MessageConsist.DUPLICATE_NAME_ERROR));
         }
+        FolderQuery folderQuery = new FolderQuery();
+        folderQuery.setType(folder.getType());
+        folderQuery.setWorkspaceId(folder.getWorkspaceId());
+        if (folder.getType() == FolderTypeEnum.PERSONAL) {
+            folderQuery.setCreator(folder.getCreator());
+        }
+        folderQuery.setPosition(folder.getPosition());
+        List<Folder> folderList = folderMapper.selectChildren(folder.getParentId(), folderQuery);
+        if (folderList != null) {
+            folder.setSortId(Long.valueOf(folderList.size()));
+        }
 
         folderMapper.save(folder);
         return folderConverter.entityToDTO(folder);
@@ -74,6 +85,12 @@ public class FolderServiceImpl implements FolderService {
         }
         folderMapper.update(folderConverter.toEntity(folderDTO));
         return folderDTO;
+    }
+
+    @Override
+    public List<FolderDTO> updateList(List<FolderDTO> folderDTOList) {
+        folderDTOList.forEach(folderDTO -> update(folderDTO));
+        return folderDTOList;
     }
 
     @Override

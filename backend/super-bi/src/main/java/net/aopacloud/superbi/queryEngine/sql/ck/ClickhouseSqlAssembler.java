@@ -17,7 +17,7 @@ import net.aopacloud.superbi.queryEngine.sql.SqlAssembler;
 public class ClickhouseSqlAssembler extends AbstractSqlAssembler implements SqlAssembler {
 
     public ClickhouseSqlAssembler(QueryContext queryContext) {
-        super(queryContext.getDataset(), new ClickhouseTypeConverter(), new ClickhouseTableStage(queryContext.getTable()) ,queryContext);
+        super(queryContext.getDataset(), new ClickhouseTypeConverter(), new ClickhouseTableStage() ,queryContext);
     }
 
 

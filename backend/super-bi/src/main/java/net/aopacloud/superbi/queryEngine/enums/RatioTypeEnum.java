@@ -112,6 +112,10 @@ public enum RatioTypeEnum {
                         LocalDateTime end = timeRange.get(1);
                         return Lists.newArrayList(start.minusDays(7).withHour(0).withMinute(0).withSecond(0), end);
                     case SAME:
+                        LocalDateTime weekStart = timeRange.get(0);
+                        LocalDateTime weekEnd = timeRange.get(1);
+                        LocalDateTime weekTmpEnd = yesterday().isBefore(weekEnd) ? yesterday() : weekEnd;
+                        return Lists.newArrayList(weekStart, weekTmpEnd).stream().map(time -> time.minusDays(7)).collect(Collectors.toList());
                     default:
                         return timeRange.stream().map(time -> time.minusDays(7)).collect(Collectors.toList());
                 }
@@ -136,10 +140,15 @@ public enum RatioTypeEnum {
                 }
                 switch (period) {
                     case WHOLE:
-                        LocalDateTime start = timeRange.get(0);
-                        LocalDateTime end = timeRange.get(1);
-                        return Lists.newArrayList(start.minusMonths(1).withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0), end);
+//;                        LocalDateTime start = timeRange.get(0);
+////                        LocalDateTime end = timeRange.get(1);
+////                        return Lists.newArrayList(start.minusMonths(1).withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0), end)
+                        return timeRange.stream().map(time -> time.minusMonths(1)).collect(Collectors.toList());
                     case SAME:
+                        LocalDateTime monthStart = timeRange.get(0);
+                        LocalDateTime monthEnd = timeRange.get(1);
+                        LocalDateTime monthTmpEnd = yesterday().isBefore(monthEnd) ? yesterday() : monthEnd;
+                        return Lists.newArrayList(monthStart, monthTmpEnd).stream().map(time -> time.minusMonths(1)).collect(Collectors.toList());
                     default:
                         return timeRange.stream().map(time -> time.minusMonths(1)).collect(Collectors.toList());
                 }
@@ -196,7 +205,7 @@ public enum RatioTypeEnum {
                 LocalDateTime transformMonthEnd = end.withDayOfMonth(1).minusDays(1).withHour(23).withMinute(59).withSecond(59);
                 return Lists.newArrayList(transformMonthStart, transformMonthEnd);
             case WEEK:
-                int startMinusDays = 7 + start.getDayOfWeek().getValue();
+                int startMinusDays = 6 + start.getDayOfWeek().getValue();
                 LocalDateTime transformWeekStart = start.minusDays(startMinusDays).withHour(0).withMinute(0).withSecond(0);
                 int endMinusDays = end.getDayOfWeek().getValue();
                 LocalDateTime transformWeekEnd = end.minusDays(endMinusDays).withHour(23).withMinute(59).withSecond(59);
@@ -237,9 +246,15 @@ public enum RatioTypeEnum {
             case QUARTER:
                 return timeRange.stream().map(time -> time.minusMonths(3)).collect(Collectors.toList());
             case MONTH:
-                return timeRange.stream().map(time -> time.minusMonths(1)).collect(Collectors.toList());
+                LocalDateTime monthStart = timeRange.get(0);
+                LocalDateTime monthEnd = timeRange.get(1);
+                LocalDateTime monthTmpEnd = yesterday().isBefore(monthEnd) ? yesterday() : monthEnd;
+                return Lists.newArrayList(monthStart, monthTmpEnd).stream().map(time -> time.minusMonths(1)).collect(Collectors.toList());
             case WEEK:
-                return timeRange.stream().map(time -> time.minusDays(7)).collect(Collectors.toList());
+                LocalDateTime weekStart = timeRange.get(0);
+                LocalDateTime weekEnd = timeRange.get(1);
+                LocalDateTime weekTmpEnd = yesterday().isBefore(weekEnd) ? yesterday() : weekEnd;
+                return Lists.newArrayList(weekStart, weekTmpEnd).stream().map(time -> time.minusDays(7)).collect(Collectors.toList());
             case DAY:
                 return timeRange.stream().map(time -> time.minusDays(1)).collect(Collectors.toList());
             case ORIGIN:
@@ -263,4 +278,7 @@ public enum RatioTypeEnum {
 
     public abstract String transformDimension(String expression, DateTruncEnum dateTrunc, TypeConverter typeConverter, DatasetFieldDTO field);
 
+    private static LocalDateTime yesterday() {
+        return LocalDateTime.now().minusDays(1);
+    }
 }

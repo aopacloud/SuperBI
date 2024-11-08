@@ -113,22 +113,16 @@ public class ServletUtils {
      * get request
      */
     public static HttpServletRequest getRequest() {
-        try {
-            return getRequestAttributes().getRequest();
-        } catch (Exception e) {
-            return null;
-        }
+        return getRequestAttributes().getRequest();
     }
 
     /**
      * getResponse
      */
     public static HttpServletResponse getResponse() {
-        try {
+
             return getRequestAttributes().getResponse();
-        } catch (Exception e) {
-            return null;
-        }
+
     }
 
     /**
@@ -139,12 +133,9 @@ public class ServletUtils {
     }
 
     public static ServletRequestAttributes getRequestAttributes() {
-        try {
-            RequestAttributes attributes = RequestContextHolder.getRequestAttributes();
-            return (ServletRequestAttributes) attributes;
-        } catch (Exception e) {
-            return null;
-        }
+        RequestAttributes attributes = RequestContextHolder.getRequestAttributes();
+        return (ServletRequestAttributes) attributes;
+
     }
 
     public static String getHeader(HttpServletRequest request, String name) {
@@ -181,7 +172,6 @@ public class ServletUtils {
             response.setCharacterEncoding("utf-8");
             response.getWriter().print(string);
         } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 

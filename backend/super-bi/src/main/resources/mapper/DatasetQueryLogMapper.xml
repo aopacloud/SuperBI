@@ -29,4 +29,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectById" resultType="net.aopacloud.superbi.model.dto.DatasetQueryLogDTO">
         select * from bi_dataset_query_log where id = #{id}
     </select>
+
+    <select id="selectByDatasetId" resultType="net.aopacloud.superbi.model.dto.DatasetQueryLogDTO">
+        select * from bi_dataset_query_log where dataset_id = #{id} and create_time > DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+    </select>
 </mapper>

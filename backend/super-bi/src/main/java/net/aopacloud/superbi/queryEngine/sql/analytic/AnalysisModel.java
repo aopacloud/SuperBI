@@ -31,6 +31,7 @@ public interface AnalysisModel {
         if (Objects.isNull(segments) || segments.isEmpty()) {
             return Lists.newArrayList();
         }
+        segments = segments.stream().filter(segment -> segment != null).collect(Collectors.toList());
         return segments.stream().map(function).collect(Collectors.toList());
     }
 }

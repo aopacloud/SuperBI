@@ -1,6 +1,7 @@
 package net.aopacloud.superbi.queryEngine.sql;
 
 import net.aopacloud.superbi.queryEngine.sql.analytic.AnalysisModel;
+import net.aopacloud.superbi.queryEngine.sql.join.Table;
 
 /**
  * Sql assembler interface.
@@ -18,5 +19,7 @@ public interface SqlAssembler {
      * @return
      */
     AnalysisModel produce();
+
+    Table getTable();
 
 }

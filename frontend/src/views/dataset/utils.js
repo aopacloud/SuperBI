@@ -6,7 +6,14 @@
  * @FilePath: /dm-BDP-front-feat/src/views/dataset/utils.js
  */
 
-import { dataTypeOptions } from './config.field'
+import { CATEGORY } from '@/CONST.dict'
+import {
+  dataTypeOptions,
+  summaryOptions,
+  propertySummaryOptions,
+  propertyNumberSummaryOptions,
+  propertyTextSummaryOptions
+} from './config.field'
 import { versionJs } from '@/versions'
 
 // 显示自定义格式文本
@@ -35,7 +42,7 @@ export const getIconByFieldType = type => {
 
       return {
         icon: res.icon,
-        color: res.color,
+        color: res.color
       }
     } else {
       return {}
@@ -43,9 +50,41 @@ export const getIconByFieldType = type => {
   } else {
     return {
       icon: item.icon,
-      color: item.color,
+      color: item.color
     }
   }
 }
 
 export const isDateField = t => versionJs.ViewsAnalysis.isDateField(t)
+
+export const isDtField = t => versionJs.ViewsDatasetModify.isDt(t)
+
+export const getAggregatorLabel = field => {
+  const { category, dataType, aggregator } = field
+  let allSummary = []
+  if (category === CATEGORY.INDEX) {
+    allSummary = summaryOptions
+  } else {
+    const isTextOrTime = dataType === 'TEXT' || dataType.includes('TIME')
+    const isNumber = dataType === 'NUMBER'
+    const summary = isNumber
+      ? propertyNumberSummaryOptions
+      : isTextOrTime
+        ? propertyTextSummaryOptions
+        : []
+
+    allSummary = summary.concat(propertySummaryOptions)
+  }
+
+  const item = allSummary.find(t => t.value === aggregator)
+  return item?.label ?? aggregator
+}
+
+export const getFieldDataTypeOptions = field => {
+  return dataTypeOptions.map(t => {
+    return {
+      ...t,
+      disabled: versionJs.ViewsDatasetModify.isDt(field) && t.value !== 'TIME'
+    }
+  })
+}

@@ -7,7 +7,10 @@ public enum ViewModelEnum {
     WEEK_RANGE(3, "2022/04/17 - 2022/04/23"),
     WEEK_RANGE_WITHOUT_YEAR(4, "04/17 - 04/23"),
     DAY_SEQUENCE(5, "xxxx-xx-xx"),
-    DAY_WEEK(6, "周x");
+    DAY_WEEK(6, "周x"),
+    MONTH_SEQUENCE(7, "YYYY/MM/DD"),
+    MONTH_YEAR(8,"YYYY-MM"),
+    MONTH_YEAR_CN(9, "YYYY年MM月");
 
     private int code;
     private String msg;

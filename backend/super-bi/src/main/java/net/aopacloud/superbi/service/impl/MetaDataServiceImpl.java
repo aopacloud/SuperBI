@@ -66,8 +66,8 @@ public class MetaDataServiceImpl implements MetaDataService {
         DatasourceDTO datasource = datasourceService.getOneByWorkspaceAndName(datasetDTO.getWorkspaceId(), config.getDatasourceName());
 
         ConnectionParamDTO param = new ConnectionParamDTO();
-
         BeanUtils.copyProperties(datasource, param);
+        param.setTable(config.getTableName());
         return param;
     }
 

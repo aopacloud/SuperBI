@@ -61,6 +61,8 @@ public class DatasetField {
 
     private Date updateTime;
 
+    private String tableAlias;
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

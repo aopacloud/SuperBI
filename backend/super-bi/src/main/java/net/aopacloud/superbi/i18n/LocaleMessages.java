@@ -12,7 +12,7 @@ import org.springframework.context.i18n.LocaleContextHolder;
  */
 public class LocaleMessages {
 
-    private static MessageSource messageSource;
+    private static MessageSource messageSource = SpringUtils.getBean(MessageSource.class);;
 
     public static String getMessage(String code, Object... args) {
         String message = getMessageSource().getMessage(code, args, LocaleContextHolder.getLocale());
@@ -23,13 +23,6 @@ public class LocaleMessages {
     }
 
     private static MessageSource getMessageSource() {
-        if (messageSource == null) {
-            synchronized (LocaleMessages.class) {
-                if (messageSource == null) {
-                    messageSource = SpringUtils.getBean(MessageSource.class);
-                }
-            }
-        }
         return messageSource;
     }
 }

@@ -5,6 +5,7 @@ import com.google.common.collect.Lists;
 import lombok.Data;
 import lombok.experimental.Accessors;
 import net.aopacloud.superbi.queryEngine.sql.Segment;
+import net.aopacloud.superbi.queryEngine.sql.join.Table;
 
 import java.util.List;
 
@@ -19,7 +20,7 @@ import java.util.List;
 @Accessors(chain = true)
 public class TotalAnalysisModel implements AnalysisModel {
 
-    private String table;
+    private Table table;
 
     private List<Segment> where = Lists.newArrayList();
 
@@ -29,13 +30,18 @@ public class TotalAnalysisModel implements AnalysisModel {
 
     @Override
     public String getSql() {
+
+        if (groupBy.isEmpty()) {
+            return "select 1";
+        }
+
         StringBuilder sql = new StringBuilder();
 
         sql.append("select count(*) from ");
 
         sql.append("( select ").append(Joiner.on(" , ").join(getExpressions(groupBy, Segment::getExpressionWithAlias)));
 
-        sql.append(" from ").append(table);
+        sql.append(" from ").append(table.produce());
 
         if (!where.isEmpty()) {
             sql.append(" where ");

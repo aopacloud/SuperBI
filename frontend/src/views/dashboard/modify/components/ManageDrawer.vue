@@ -5,10 +5,13 @@
     width="750"
     :open="open"
     :bodyStyle="{ display: 'flex', 'flex-direction': 'column', padding: 0 }"
-    @close="close">
+    @close="close"
+  >
     <div class="header">
       图表数量: {{ layout.length }} / {{ LAYOUT_MAX }}
-      <a target="_blank" style="margin-left: auto" @click="toReport">图表管理</a>
+      <a target="_blank" style="margin-left: auto" @click="toReport"
+        >图表管理</a
+      >
     </div>
 
     <div class="content">
@@ -19,24 +22,42 @@
           v-else
           class="layout"
           :col-num="colNum"
+          :cols="{
+            lg: colNum,
+            md: colNum,
+            sm: colNum,
+            xs: colNum,
+            xxs: colNum
+          }"
           :row-height="rowHeight"
           :is-draggable="graggable"
-          :is-resizable="resizable"
+          :verticalCompact="true"
           :margin="margin"
-          v-model:layout="layout">
+          v-model:layout="layout"
+        >
           <grid-item
             class="layout-item"
             v-for="item in layout"
+            :class="[`layout-item-${item.type}`]"
             :key="item.i"
             :i="item.i"
             :x="item.x"
             :y="item.y"
             :w="item.w"
-            :h="item.h">
+            :h="item.h"
+            :minW="colNum / 5"
+            :minH="18 / transferRatio"
+            :maxW="colNum"
+            :maxH="(rowHeight / transferRatio) * 100"
+            :isResizable="item.type === 'REPORT'"
+            :resizeFrom="['top', 'right', 'bottom', 'left']"
+          >
             <div
               class="item"
               :style="getItemStyle(item.type)"
-              :title="displayItemName(item)">
+              :title="displayItemName(item)"
+              @mousedown.prevent
+            >
               <div class="item-name">
                 {{ displayItemName(item) }}
               </div>
@@ -48,21 +69,14 @@
                 <template #overlay>
                   <a-menu @click="e => onMenuClick(e, item)">
                     <template
-                      v-if="item.type !== 'REMARK' && item.type !== 'FILTER'">
-                      <a-menu-item v-if="item._size !== 'large'" key="size_large"
-                        >调整为大图
-                      </a-menu-item>
-                      <a-menu-item
-                        v-if="item._size !== 'middle' && item._size !== 'default'"
-                        key="size_middle"
-                        >调整为中图
-                      </a-menu-item>
-                      <a-menu-item v-if="item._size !== 'small'" key="size_small"
-                        >调整为小图
-                      </a-menu-item>
+                      v-if="item.type !== 'REMARK' && item.type !== 'FILTER'"
+                    >
+                      <a-menu-item key="size_large">调整为大图 </a-menu-item>
+                      <a-menu-item key="size_middle">调整为中图 </a-menu-item>
+                      <a-menu-item key="size_small">调整为小图 </a-menu-item>
                     </template>
-                    <a-menu-item key="edit" v-if="item.type === 'REMARK'"
-                      >编辑
+                    <a-menu-item v-if="item.type === 'REMARK'" key="edit">
+                      编辑
                     </a-menu-item>
                     <a-menu-item key="remove">移除</a-menu-item>
                   </a-menu>
@@ -76,12 +90,15 @@
         <ReportList
           :exited="reportExited"
           :disabled="layout.length >= LAYOUT_MAX"
-          @click="onReportListClick" />
+          @click="onReportListClick"
+        />
       </div>
     </div>
 
     <template #footer>
-      <a-button :icon="h(FileTextOutlined)" @click="addNote"> 添加标签</a-button>
+      <a-button :icon="h(FileTextOutlined)" @click="addNote">
+        添加标签</a-button
+      >
       <a-space style="float: right">
         <a-button @click="close">关闭</a-button>
         <a-button type="primary" @click="ok">确认</a-button>
@@ -90,24 +107,26 @@
   </a-drawer>
 
   <!-- 便签 -->
-  <RemarkModal v-model:open="noteOpen" :initial-value="noteInfo" @ok="onNoteOk" />
+  <RemarkModal
+    v-model:open="noteOpen"
+    :initial-value="noteInfo"
+    @ok="onNoteOk"
+  />
 </template>
 
 <script setup>
-import { h, ref, computed, watch, nextTick } from 'vue'
+import { h, ref, computed, watch, nextTick, toRaw } from 'vue'
 import { useRouter } from 'vue-router'
-import {
-  ReloadOutlined,
-  DownOutlined,
-  FileTextOutlined,
-} from '@ant-design/icons-vue'
+import { DownOutlined, FileTextOutlined } from '@ant-design/icons-vue'
 import RemarkModal from './RemarkModal.vue'
 import { ManageLayoutOptions, LAYOUT_MAX } from '../config'
 import ReportList from './ReportList.vue'
+import { deepClone } from 'common/utils/help'
 
 const router = useRouter()
 
-const { margin, colNum, rowHeight, graggable, resizable } = ManageLayoutOptions
+const { margin, colNum, rowHeight, graggable, transferRatio } =
+  ManageLayoutOptions
 const getLayoutItemSize = (type, size = 'default') => {
   if (type !== 'width' && type !== 'height') {
     console.error('参数不正确')
@@ -120,14 +139,14 @@ const getLayoutItemSize = (type, size = 'default') => {
       large: colNum,
       middle: colNum / 2,
       small: colNum / 4,
-      default: colNum,
+      default: colNum
     },
     height: {
-      large: rowHeight,
-      middle: rowHeight,
-      small: rowHeight / 2,
-      default: rowHeight,
-    },
+      large: rowHeight * 20,
+      middle: rowHeight * 20,
+      small: rowHeight * 10,
+      default: rowHeight * 20
+    }
   }
 
   const sizes = SIZE_MAP[type]
@@ -139,12 +158,12 @@ const emits = defineEmits(['update:open', 'ok'])
 const props = defineProps({
   open: {
     type: Boolean,
-    default: false,
+    default: false
   },
   dataSource: {
     type: Array,
-    default: () => [],
-  },
+    default: () => []
+  }
 })
 
 const toReport = () => {
@@ -158,7 +177,9 @@ const toReport = () => {
 const layoutRef = ref()
 // 布局数据
 const layout = ref([])
-const reportExited = computed(() => layout.value.filter(t => t.type === 'REPORT'))
+const reportExited = computed(() =>
+  layout.value.filter(t => t.type === 'REPORT')
+)
 
 watch(
   () => props.open,
@@ -170,31 +191,31 @@ watch(
   }
 )
 
-const init = () => {
-  layout.value = props.dataSource
-    .map(item => {
-      const h =
-        item.type === 'REMARK' || item.type === 'FILTER'
-          ? getLayoutItemSize('height', 'small')
-          : getLayoutItemSize('height', item._size)
+const isFilterOrRemark = item =>
+  item.type === 'REMARK' || item.type === 'FILTER'
 
-      return {
-        ...item,
-        _oH: item.h, // 缓存外层的高度
-        h,
-      }
-    })
-    .sort((a, b) => a.y - b.y)
+const init = () => {
+  layout.value = props.dataSource.map(item => {
+    const h = isFilterOrRemark(item)
+      ? getLayoutItemSize('height', 'small')
+      : item.h / transferRatio
+    return {
+      ...item,
+      h: item.h / transferRatio,
+      y: item.y / transferRatio,
+      _oH: isFilterOrRemark(item) ? item.h : undefined
+    }
+  })
 }
 
 const getItemStyle = type => {
   const colorMap = {
     REMARK: '#fefcef',
-    FILTER: '#e2e9ef',
+    FILTER: '#e2e9ef'
   }
 
   return {
-    backgroundColor: colorMap[type] ?? '#f6f8fa',
+    backgroundColor: colorMap[type] ?? '#f6f8fa'
   }
 }
 const displayItemName = (item = {}) => {
@@ -228,15 +249,16 @@ const onNoteOk = payload => {
 
   // 新增便签
   if (isAdd) {
-    const lastItem = layout.value.slice(-1)[0]
+    const maxY = Math.max(...layout.value.map(t => t.y))
+    const lastItem = layout.value.find(t => t.y === maxY) || {}
     const item = {
       type: 'REMARK',
       i: Date.now(),
       x: 0,
-      y: (lastItem?.y ?? 0) + (lastItem?.h ?? 0),
+      y: maxY + (lastItem.h || 0),
       w: colNum,
-      h: getLayoutItemSize('height', 'small'),
-      content: { ...payload },
+      h: 7 / transferRatio, // getLayoutItemSize('height', 'small'),
+      content: { ...payload }
     }
 
     layout.value.push(item)
@@ -249,24 +271,21 @@ const onNoteOk = payload => {
   }
 }
 
-const onItemRemvoe = i => {
+const onItemRemove = i => {
   layout.value = layout.value.filter(t => t.i !== i)
 }
 const onMenuClick = ({ key }, item) => {
   switch (key) {
     case 'size_large':
-      item._size = 'large'
       item.x = 0
       item.w = getLayoutItemSize('width', 'large')
       item.h = getLayoutItemSize('height', 'large')
       break
     case 'size_middle':
-      item._size = 'middle'
       item.w = getLayoutItemSize('width', 'middle')
       item.h = getLayoutItemSize('height', 'middle')
       break
     case 'size_small':
-      item._size = 'small'
       item.w = getLayoutItemSize('width', 'small')
       item.h = getLayoutItemSize('height', 'small')
       break
@@ -274,14 +293,14 @@ const onMenuClick = ({ key }, item) => {
       onNodeEdit({ i: item.i, ...item.content })
       break
     case 'remove':
-      onItemRemvoe(item.i)
+      onItemRemove(item.i)
       break
     default:
       break
   }
 
   if (key.startsWith('size_')) {
-    item._oH = undefined
+    // item._oH = undefined
     layout.value = layout.value.map(t => t)
   }
 }
@@ -292,7 +311,9 @@ const onReportListClick = payload => {
   const h = getLayoutItemSize('height', size)
   const w = getLayoutItemSize('width', size)
 
-  const sorted = layout.value.sort((a, b) => (a.y === b.y ? a.x - b.x : a.y - b.y))
+  const sorted = layout.value.sort((a, b) =>
+    a.y === b.y ? a.x - b.x : a.y - b.y
+  )
 
   let x = 0,
     y = 0
@@ -314,10 +335,9 @@ const onReportListClick = payload => {
     i: Date.now(),
     w: getLayoutItemSize('width', size),
     h,
-    _size: size,
     x,
     y,
-    content: { ...payload },
+    content: { ...payload }
   }
 
   layout.value.push(item)
@@ -329,20 +349,19 @@ const close = () => {
   emits('update:open', false)
   reset()
 }
-const _resolvePayload = list => {
-  return list.map((item, i) => {
-    const { _oH } = item
 
+const _resolvePayload = list =>
+  list.map(item => {
     return {
       ...item,
-      h: undefined,
-      _oH,
-      _sort: i,
+      _id: item._id || item.i || Date.now(),
+      h: item.h * transferRatio,
+      y: item.y * transferRatio
     }
   })
-}
+
 const ok = () => {
-  emits('ok', _resolvePayload(layout.value))
+  emits('ok', _resolvePayload(toRaw(layout.value)))
   close()
 }
 </script>
@@ -385,9 +404,6 @@ $borderStyle: 1px solid #f0f0f0;
   &.note {
     background-color: #fefcef;
   }
-  &:hover {
-    background-color: #fff;
-  }
   .item-name {
     flex: 1;
     @extend .ellipsis;
@@ -407,8 +423,18 @@ $borderStyle: 1px solid #f0f0f0;
       background-color: #bdddff;
     }
   }
-  &:hover {
-    outline-color: #1677ff;
+}
+
+.layout {
+  .layout-item:hover {
+    outline: 1px solid #1677ff;
+  }
+}
+.layout-item:not(.vue-grid-placeholder):not(:hover) {
+  background: #fff;
+  :deep(.vue-resizable-handle),
+  :deep(.vue-resizable-handle2) {
+    opacity: 0;
   }
 }
 </style>

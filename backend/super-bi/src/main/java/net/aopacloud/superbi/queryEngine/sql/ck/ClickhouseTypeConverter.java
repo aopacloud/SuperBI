@@ -136,6 +136,6 @@ public class ClickhouseTypeConverter implements TypeConverter {
 
     @Override
     public String numberToDate(String expression) {
-        return String.format("if(toTypeName(%s) = 'Int64',fromUnixTimestamp64Milli(%s),null)", expression, expression);
+        return String.format("if(length(toString(%s))>10,toDateTime((%s)/1000), toDateTime(%s))", expression, expression, expression);
     }
 }

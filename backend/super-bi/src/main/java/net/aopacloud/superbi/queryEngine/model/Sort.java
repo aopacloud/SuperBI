@@ -2,6 +2,8 @@ package net.aopacloud.superbi.queryEngine.model;
 
 import lombok.Data;
 
+import java.util.List;
+
 /**
  * @author: hudong
  * @date: 2023/8/14
@@ -9,6 +11,12 @@ import lombok.Data;
  */
 @Data
 public class Sort {
+
+    // 计算类型  all | group
+    private String computeType;
+
+    // 分组
+    private List<String> sortGroup;
 
     private String sortType;
 

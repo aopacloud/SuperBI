@@ -1,6 +1,10 @@
 <template>
   <section class="aside">
-    <a-input-search placeholder="请输入图表过滤" allow-clear v-model:value="keyword" />
+    <a-input-search
+      placeholder="请输入图表过滤"
+      allow-clear
+      v-model:value="keyword"
+    />
 
     <main class="list">
       <div v-if="list.length" @click="itemClick">
@@ -24,8 +28,8 @@ import { ref, computed } from 'vue'
 const props = defineProps({
   dataSource: {
     type: Array,
-    default: () => [],
-  },
+    default: () => []
+  }
 })
 
 const keyword = ref('')
@@ -54,7 +58,7 @@ const itemClick = e => {
 
   if (element) {
     element.scrollIntoView({
-      behavior: 'smooth',
+      behavior: 'smooth'
     })
   }
 }
@@ -65,7 +69,6 @@ const itemClick = e => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  width: 260px;
   padding: 10px 15px 15px;
   background-color: #f4f7fa;
   transition: all 0.2s;

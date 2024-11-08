@@ -53,6 +53,8 @@ export const getSectionListLabel = renderType => {
   return category => ({ ...labelObj, ...filterObj }[category])
 }
 
+export const GROUP_MONTH = 'MONTH' // 月分组
+
 export const GROUP_WEEK = 'WEEK' // 周分组
 
 export const GROUP_DAY = 'DAY' // 天分组
@@ -144,17 +146,22 @@ export const dateGroupOptions_HHMMSS = [
 // 默认日期展示
 export const DEFAULT_WEEK_DISPLAY = 'WEEK_SEQUENCE' // 默认周显示
 export const DEFAULT_DAY_DISPLAY = 'DAY_SEQUENCE' // 默认日显示
+export const DEFAULT_MONTH_DISPLAY = 'MONTH_SEQUENCE' // 默认月显示
 export const DEFAULT_WEEK_DAY_DISPLAY = 'WEEK_DAY_SEQUENCE' // 默认周的日显示
-export const DEFAULT_HOUR_DISPLAY = 'HOUR' // 默认小时显示
-export const DEFAULT_MINUTE_DISPLAY = 'MINUTE' // 默认分钟显示
 
-export const DEFAULT_WEEK_START = '1' // 默认周起始日
+export const DEFAULT_WEEK_START = 'MONDAY' // 默认周起始日
 // 周的起始日显示选项
 export const WEEK_START_OPTIONS = [
   { label: '当周周一', value: DEFAULT_WEEK_START },
-  { label: '当周周日', value: '7' },
-  { label: '起始日', value: 0 },
-  { label: '结束日', value: 1 },
+  { label: '当周周日', value: 'SUNDAY' },
+  { label: '起始日', value: 'START' },
+  { label: '结束日', value: 'END' },
+]
+
+export const DEFAULT_MONTH_START = 'START' // 默认月起始日
+export const MONTH_START_OPTIONS = [
+  { label: '当月首日', value: 'START' },
+  { label: '当月末日', value: 'END' },
 ]
 
 // 日期展示
@@ -189,7 +196,7 @@ export const dateDisplayOptions = [
     label: 'YYYY/MM/DD',
     group: GROUP_WEEK,
     value: DEFAULT_WEEK_DAY_DISPLAY,
-    width: 120,
+    width: 110,
     children: WEEK_START_OPTIONS,
   },
   {
@@ -201,6 +208,23 @@ export const dateDisplayOptions = [
     label: 'YYYY/MM/DD（周 *）',
     group: GROUP_DAY,
     value: 'DAY_WEEK',
+  },
+  {
+    label: 'YYYY/MM/DD',
+    group: GROUP_MONTH,
+    value: DEFAULT_MONTH_DISPLAY,
+    width: 110,
+    children: MONTH_START_OPTIONS,
+  },
+  {
+    label: 'YYYY-MM',
+    group: GROUP_MONTH,
+    value: 'MONTH_YEAR',
+  },
+  {
+    label: 'YYYY年MM月',
+    group: GROUP_MONTH,
+    value: 'MONTH_YEAR_CN',
   },
 ]
 

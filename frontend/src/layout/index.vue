@@ -6,8 +6,9 @@
         lineHeight: UINavbar.height,
         padding: '0 10px',
         backgroundColor: UINavbar.backgroundColor,
-        color: UINavbar.color,
-      }">
+        color: UINavbar.color
+      }"
+    >
       <Navbar />
     </a-layout-header>
 
@@ -16,7 +17,8 @@
 
       <a-layout>
         <a-layout-header
-          style="height: initial; padding: 0; background-color: transparent">
+          style="height: initial; padding: 0; background-color: transparent"
+        >
         </a-layout-header>
 
         <a-layout-content>

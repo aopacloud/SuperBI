@@ -8,6 +8,7 @@ import net.aopacloud.superbi.common.core.web.domain.RestApiResponse;
 import net.aopacloud.superbi.common.core.web.page.PageVO;
 import net.aopacloud.superbi.model.converter.AuthRoleConverter;
 import net.aopacloud.superbi.model.dto.AuthRoleDTO;
+import net.aopacloud.superbi.model.query.AuthRoleQuery;
 import net.aopacloud.superbi.model.query.BaseQuery;
 import net.aopacloud.superbi.model.vo.AuthRoleVO;
 import net.aopacloud.superbi.service.AuthRoleService;
@@ -38,9 +39,9 @@ public class AuthRoleController {
      * @return
      */
     @GetMapping
-    public RestApiResponse<PageVO<AuthRoleVO>> search(BaseQuery query) {
+    public RestApiResponse<PageVO<AuthRoleVO>> search(AuthRoleQuery query) {
         PageUtils.startPage();
-        List<AuthRoleDTO> authRoleDTOS = authRoleService.search(query.getWorkspaceId(), query.getKeyword());
+        List<AuthRoleDTO> authRoleDTOS = authRoleService.search(query);
 
         PageInfo pageInfo = new PageInfo(authRoleDTOS);
         PageVO page = new PageVO(authRoleConverter.toVOList(authRoleDTOS), pageInfo.getTotal());
