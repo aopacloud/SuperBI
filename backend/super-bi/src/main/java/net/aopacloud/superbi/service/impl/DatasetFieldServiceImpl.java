@@ -1,6 +1,7 @@
 package net.aopacloud.superbi.service.impl;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.Lists;
 import lombok.RequiredArgsConstructor;
 import net.aopacloud.superbi.enums.FieldTypeEnum;
 import net.aopacloud.superbi.enums.QueryStatusEnum;
@@ -19,21 +20,22 @@ import net.aopacloud.superbi.model.vo.DatasetFieldCheckVO;
 import net.aopacloud.superbi.queryEngine.QueryExecuteEngine;
 import net.aopacloud.superbi.queryEngine.model.QueryContext;
 import net.aopacloud.superbi.queryEngine.model.QueryResult;
-import net.aopacloud.superbi.queryEngine.sql.ExpressionParser;
-import net.aopacloud.superbi.queryEngine.sql.Segment;
-import net.aopacloud.superbi.queryEngine.sql.TypeConverter;
-import net.aopacloud.superbi.queryEngine.sql.TypeConverterFactory;
+import net.aopacloud.superbi.queryEngine.parser.CheckResult;
+import net.aopacloud.superbi.queryEngine.parser.SqlColumns;
+import net.aopacloud.superbi.queryEngine.parser.SqlParser;
+import net.aopacloud.superbi.queryEngine.parser.SqlParserImpl;
+import net.aopacloud.superbi.queryEngine.sql.*;
 import net.aopacloud.superbi.queryEngine.sql.analytic.FieldCheckAnalysisModel;
 import net.aopacloud.superbi.service.DatasetFieldService;
 import net.aopacloud.superbi.service.MetaDataService;
 import net.aopacloud.superbi.util.DateUtils;
 import net.aopacloud.superbi.util.FieldUtils;
-import org.apache.commons.compress.utils.Lists;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * @author: hudong
@@ -54,6 +56,8 @@ public class DatasetFieldServiceImpl implements DatasetFieldService {
 
     private final MetaDataService metaDataService;
 
+    private final SqlParser sqlParser = new SqlParserImpl();
+
     @Override
     public DatasetFieldCheckResultVO check(DatasetFieldCheckVO datasetFieldCheck) {
 
@@ -64,27 +68,39 @@ public class DatasetFieldServiceImpl implements DatasetFieldService {
 
         ConnectionParamDTO connection = metaDataService.getDatasetConnection(dataset);
         TypeConverter typeConverter = TypeConverterFactory.getTypeConverter(connection.getEngine());
+        QueryContext context = new QueryContext();
+        context.setConnectionParam(connection);
+        context.setDataset(dataset);
+
+        SqlAssembler sqlAssembler = SqlAssemblerFactory.getSqlAssembler(context);
 
         FieldCheckAnalysisModel model = new FieldCheckAnalysisModel();
         ExpressionParser parser = new ExpressionParser(dataset.getFields(), typeConverter);
         DatasetFieldDTO fieldDTO = new DatasetFieldDTO();
         fieldDTO.setExpression(expression);
         fieldDTO.setType(FieldTypeEnum.ADD);
-        model.setField(new Segment(parser.parse(fieldDTO)));
-        model.setTable(String.format("%s.%s", dataset.getConfig().getDbName(), dataset.getConfig().getTableName()));
+        String originExpression = parser.parse(fieldDTO);
+        model.setField(new Segment(originExpression));
+        model.setTable(sqlAssembler.getTable());
 
-        if (FieldUtils.hasAggregation(expression)) {
-            model.setGroupBy(new Segment("dt"));
+//        String unfoldExpression = sqlParser.removeOutsideAggregator(originExpression);
+        String unfoldExpression = originExpression;
+        if (sqlParser.hasAggregator(unfoldExpression)) {
+            String sqlPart = String.format("select %s", unfoldExpression);
+//            CheckResult checkResult = sqlParser.checkSql(sqlPart);
+//            if(!checkResult.isPass()) {
+//                result.setMsg(checkResult.getError());
+//                return result;
+//            }
+
+            SqlColumns sqlColumns = sqlParser.parseSqlColumns(sqlPart);
+            List<Segment> groupBy = sqlColumns.groupByColumns().stream().map(Segment::new).collect(Collectors.toList());
+
+            model.setGroupBy(groupBy);
             result.setHasAggregation(true);
         }
 
-        model.setWhere(new Segment(String.format("%s='%s'", "dt", DateUtils.getCurrentDate())));
-
-        QueryContext context = new QueryContext();
         context.setSql(model.getSql());
-        context.setConnectionParam(connection);
-        context.setDataset(dataset);
-
         QueryResult queryResult = queryExecuteEngine.execute(context);
         result.setQueryId(queryResult.getQueryId());
         if (queryResult.getStatus() == QueryStatusEnum.SUCCESS) {
@@ -114,9 +130,8 @@ public class DatasetFieldServiceImpl implements DatasetFieldService {
             Dataset dataset = datasetMapper.selectById(datasetId);
             List<DatasetField> datasetFields = datasetFieldMapper.selectByDatasetAndVersion(datasetId, dataset.getVersion());
             if (Objects.isNull(lastIntersection)) {
-                lastIntersection = Lists.newArrayList();
-                lastIntersection.addAll(datasetFields);
-                currentIntersection.addAll(datasetFields);
+                lastIntersection = Lists.newArrayList(datasetFields);
+                currentIntersection = Lists.newArrayList(datasetFields);
             } else {
                 currentIntersection = Lists.newArrayList();
                 for (DatasetField field : datasetFields) {

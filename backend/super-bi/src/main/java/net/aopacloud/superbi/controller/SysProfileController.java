@@ -23,7 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class SysProfileController {
     private final SysUserService sysUserService;
     private final SysUserConverter sysUserConverter;
-    private static final long MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB
+    private static final long MAX_AVATAR_SIZE = 5L * 1024 * 1024; // 5MB
 
     @PostMapping("/avatar")
     public RestApiResponse<SysUserVO> avatar(@RequestParam("avatarFile") MultipartFile avatarFile) {

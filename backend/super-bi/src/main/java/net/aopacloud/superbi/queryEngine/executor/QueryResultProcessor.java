@@ -14,20 +14,25 @@ import java.util.Objects;
  */
 public class QueryResultProcessor {
 
+    /**
+     * only for measure
+     * @param queryResult
+     * @return
+     */
     public static QueryResult process(QueryResult queryResult) {
 
         List<Object[]> rows = queryResult.getRows();
-        process(rows);
+        process(rows, queryResult.getDimensionColumnCount());
 
         List<Object[]> summaryRows = queryResult.getSummaryRows();
-        process(summaryRows);
+        process(summaryRows, queryResult.getDimensionColumnCount());
 
         return queryResult;
     }
 
-    public static void process(List<Object[]> data) {
+    public static void process(List<Object[]> data, int startColumn) {
         for (Object[] cells : data) {
-            for (int i = 0; i < cells.length; i++) {
+            for (int i = startColumn; i < cells.length; i++) {
                 Object cell = cells[i];
                 if (Objects.isNull(cell) || StringUtils.equalsAnyIgnoreCase(cell.toString(), "NaN", "Infinity", "null")) {
                     cells[i] = 0;

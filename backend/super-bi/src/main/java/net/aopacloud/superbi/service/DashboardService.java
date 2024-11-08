@@ -1,9 +1,13 @@
 package net.aopacloud.superbi.service;
 
+import net.aopacloud.superbi.common.core.web.page.PageVO;
 import net.aopacloud.superbi.model.dto.DashboardComponentDTO;
 import net.aopacloud.superbi.model.dto.DashboardDTO;
 import net.aopacloud.superbi.model.query.DashboardQuery;
+import net.aopacloud.superbi.model.query.RecycleQuery;
 import net.aopacloud.superbi.model.uo.DashboardVisibilityUO;
+import net.aopacloud.superbi.model.vo.DashboardVO;
+import net.aopacloud.superbi.model.vo.RecycleVO;
 
 import java.util.List;
 import java.util.Set;
@@ -15,7 +19,9 @@ import java.util.Set;
  */
 public interface DashboardService {
 
-    List<DashboardDTO> search(DashboardQuery dashboardQuery);
+    PageVO<DashboardVO> search(DashboardQuery dashboardQuery);
+
+    PageVO<RecycleVO> searchByRecycle(RecycleQuery recycleQuery);
 
     DashboardDTO findOne(Long id);
 
@@ -27,7 +33,11 @@ public interface DashboardService {
 
     DashboardDTO update(DashboardDTO dashboardDTO, Long id);
 
+    void recycleDelete(Long id);
+
     void delete(Long id);
+
+    void restore(Long id);
 
     void offline(Long id);
 
@@ -40,6 +50,8 @@ public interface DashboardService {
     Integer countByUsername(String username);
 
     void handOver(String fromUsername, String toUsername);
+
+    void handOverById(Long id, String fromUsername, String toUsername);
 
     List<DashboardDTO> findDashboardCanShare(Long workspaceId, String username);
 

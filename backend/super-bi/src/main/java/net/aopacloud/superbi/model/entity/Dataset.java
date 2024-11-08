@@ -29,6 +29,8 @@ public class Dataset {
 
     private Integer enableApply;
 
+    private boolean upload;
+
     private String creator;
 
     private String operator;

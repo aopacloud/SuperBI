@@ -5,12 +5,18 @@ import net.aopacloud.superbi.auth.ApiPermission;
 import net.aopacloud.superbi.common.core.web.domain.RestApiResponse;
 import net.aopacloud.superbi.common.core.web.page.PageVO;
 import net.aopacloud.superbi.model.converter.DatasetConverter;
+import net.aopacloud.superbi.model.converter.DatasetFieldConverter;
 import net.aopacloud.superbi.model.dto.DatasetDTO;
 import net.aopacloud.superbi.model.query.DatasetQuery;
+import net.aopacloud.superbi.model.uo.FieldPreviewUO;
+import net.aopacloud.superbi.model.vo.DatasetFieldVO;
 import net.aopacloud.superbi.model.vo.DatasetVO;
+import net.aopacloud.superbi.model.vo.FieldPreviewVO;
 import net.aopacloud.superbi.service.DatasetService;
 import net.aopacloud.superbi.service.SysUserService;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * Dataset
@@ -27,7 +33,7 @@ public class DatasetController {
 
     private final DatasetConverter converter;
 
-    private final SysUserService sysUserService;
+    private final DatasetFieldConverter fieldConverter;
 
     /**
      * get specified id dataset
@@ -187,5 +193,24 @@ public class DatasetController {
     public RestApiResponse<DatasetVO> setDataset(@RequestBody DatasetDTO datasetDTO, @PathVariable Long id) {
         datasetService.setDataset(id, datasetDTO);
         return RestApiResponse.success(converter.toVO(datasetDTO));
+    }
+
+
+    /**
+     * get dataset preview sql with multiple table join
+     * @param dataset
+     * @return
+     */
+    @PostMapping("/preview/sql")
+    public RestApiResponse<String> previewSql(@RequestBody DatasetVO dataset) {
+        String sql = datasetService.previewSql(converter.toDTO(dataset));
+        return RestApiResponse.success(sql);
+    }
+
+    @PostMapping("/preview/field")
+    public RestApiResponse<FieldPreviewVO> previewField(@RequestBody FieldPreviewUO fieldPreviewUO) {
+        List<DatasetFieldVO> fields = fieldPreviewUO.getFields();
+        FieldPreviewVO vo = datasetService.previewField(fieldPreviewUO.getDatasetId(), fieldPreviewUO.getTables(), fieldConverter.toDTOList(fields));
+        return RestApiResponse.success(vo);
     }
 }

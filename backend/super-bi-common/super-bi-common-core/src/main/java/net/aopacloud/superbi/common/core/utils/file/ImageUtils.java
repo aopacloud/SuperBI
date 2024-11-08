@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * Image process utils
@@ -43,8 +44,10 @@ public class ImageUtils {
     public static InputStream getFile(String imagePath) {
         try {
             byte[] result = readFile(imagePath);
-            result = Arrays.copyOf(result, result.length);
-            return new ByteArrayInputStream(result);
+            if(Objects.nonNull(result)) {
+                result = Arrays.copyOf(result, result.length);
+                return new ByteArrayInputStream(result);
+            }
         } catch (Exception e) {
             log.error("get file stream error {}", e);
         }

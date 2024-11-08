@@ -88,17 +88,97 @@
             </otherwise>
         </choose>
     </select>
+
+    <select id="searchByRecycle" resultType="net.aopacloud.superbi.model.vo.RecycleVO" parameterType="net.aopacloud.superbi.model.query.RecycleQuery">
+        select
+        id,
+        name,
+        creator,
+        FLOOR(DATEDIFF(update_time, DATE_SUB(CURDATE(), INTERVAL 30 DAY))) as days,
+        workspace_id,
+        update_time
+        from bi_report
+        <where>
+            deleted > 0
+            and update_time > DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            <if test="superAdmin == false">
+                <choose>
+                    <when test="workspaceAdminIdList != null and workspaceAdminIdList.size() > 0 ">
+                        and (workspace_id in
+                        <foreach collection="workspaceAdminIdList" item="wsaId" separator="," open="(" close=")">
+                            #{wsaId}
+                        </foreach>
+                        or (creator = #{currentUser} or operator = #{currentUser})
+                        )
+                    </when>
+                    <otherwise>
+                        and (creator = #{currentUser} or operator = #{currentUser})
+                    </otherwise>
+                </choose>
+            </if>
+            <if test="keyword != null and keyword != ''">
+                and (
+                name LIKE concat('%', #{keyword}, '%')
+                <if test="searchUsers != null and searchUsers.size() > 0 ">
+                    or creator in
+                    <foreach collection="searchUsers" item="searchUser" separator="," open="(" close=")">
+                        #{searchUser}
+                    </foreach>
+                </if>
+                )
+            </if>
+            <if test="workspaceIdList != null and workspaceIdList.size() > 0 ">
+                and workspace_id in
+                <foreach collection="workspaceIdList" item="wsId" separator="," open="(" close=")">
+                    #{wsId}
+                </foreach>
+            </if>
+            <if test="creatorList != null and creatorList.size() > 0 ">
+                and creator in
+                <foreach collection="creatorList" item="creator" separator="," open="(" close=")">
+                    #{creator}
+                </foreach>
+            </if>
+        </where>
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                order by ${sortField} ${sortType}
+            </when>
+            <otherwise>
+                order by id asc
+            </otherwise>
+        </choose>
+    </select>
+
     <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
         select
         <include refid="Base_Column_List"/>
         from bi_report
         where id = #{id,jdbcType=INTEGER} and deleted = 0
     </select>
+
+    <select id="selectAll" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_report
+        where deleted = 0
+    </select>
+
+    <select id="selectByIdRecycle" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from bi_report
+        where id = #{id,jdbcType=INTEGER} and deleted > 0
+    </select>
     <select id="countByUsername" resultType="java.lang.Integer">
         select count(*) from bi_report where deleted = 0 and creator = #{username}
     </select>
     <select id="selectByDatasetId" resultType="net.aopacloud.superbi.model.dto.ReportDTO">
         select <include refid="Base_Column_List"/> from bi_report where dataset_id = #{datasetId} and deleted = 0
+    </select>
+
+    <select id="selectByDatasetRecycle" resultType="net.aopacloud.superbi.model.dto.ReportDTO">
+        select <include refid="Base_Column_List"/> from bi_report where dataset_id = #{datasetId} and deleted > 0
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id"
@@ -125,8 +205,23 @@
     <update id="updateCreator">
         update bi_report set creator=#{toUsername} where creator = #{fromUsername} and deleted = 0
     </update>
+    <update id="updateOperatorById">
+        update bi_report set operator = #{operator} where id = #{id}
+    </update>
+    <update id="updateCreatorById">
+        update bi_report set creator = #{toUsername} where id = #{id} and creator = #{fromUsername} and deleted = 0
+    </update>
     <update id="deleteById" parameterType="java.lang.Long">
         update  bi_report set deleted = #{id}
+        where id = #{id}
+    </update>
+
+    <delete id="recycleDelete" parameterType="java.lang.Long">
+        update  bi_report set deleted = -#{id} where id = #{id}
+    </delete>
+
+    <update id="restore" parameterType="java.lang.Long">
+        update  bi_report set deleted = 0
         where id = #{id}
     </update>
 </mapper>

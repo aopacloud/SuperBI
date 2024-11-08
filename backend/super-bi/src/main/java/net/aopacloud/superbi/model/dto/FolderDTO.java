@@ -20,6 +20,8 @@ public class FolderDTO {
 
     private Long parentId;
 
+    private Long sortId;
+
     private String creator;
 
     private FolderTypeEnum type;

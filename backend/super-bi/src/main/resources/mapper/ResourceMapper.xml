@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.aopacloud.superbi.mapper.ResourceMapper" >
+    <select id="search" resultType="net.aopacloud.superbi.model.vo.ResourceVO" parameterType="net.aopacloud.superbi.model.query.ResourceQuery">
+        select
+        `id`,
+        `source_id`,
+        `position`,
+        `name`,
+        `creator`,
+        `status`,
+        `report_num`,
+        `dataset_num`,
+        `auth_num`,
+        `query_num`,
+        `visit_num`,
+        `dashboard_count`,
+        `dataset_id`,
+        `dataset_name`,
+        `workspace_id`,
+        `source_update_time`,
+        `create_time`,
+        `update_time`
+        from bi_resource
+        <where>
+            deleted = 0 and `position` = #{position}
+            <choose>
+                <when test="sourceIdSet != null and sourceIdSet.size() > 0 and sourceWorkspaceIdList != null and sourceWorkspaceIdList.size() > 0 ">
+                    and (
+                    source_id in
+                    <foreach collection="sourceIdSet" item="source" separator="," open="(" close=")">
+                        #{source}
+                    </foreach> or workspace_id in
+                    <foreach collection="sourceWorkspaceIdList" item="wsId" separator="," open="(" close=")">
+                        #{wsId}
+                    </foreach>
+                    )
+                </when>
+                <when test="sourceIdSet != null and sourceIdSet.size() == 0 and sourceWorkspaceIdList != null and sourceWorkspaceIdList.size() == 0 ">
+                    and (1 = 0)
+                </when>
+                <otherwise>
+                    <if test="sourceIdSet != null and sourceIdSet.size() > 0 ">
+                        and source_id in
+                        <foreach collection="sourceIdSet" item="source" separator="," open="(" close=")">
+                            #{source}
+                        </foreach>
+                    </if>
+                    <if test="sourceWorkspaceIdList != null and sourceWorkspaceIdList.size() > 0 ">
+                        and workspace_id in
+                        <foreach collection="sourceWorkspaceIdList" item="wsId" separator="," open="(" close=")">
+                            #{wsId}
+                        </foreach>
+                    </if>
+                </otherwise>
+            </choose>
+
+            <if test="keyword != null and keyword != ''">
+                and (
+                name LIKE concat('%', #{keyword}, '%')
+                <if test="searchUsers != null and searchUsers.size() > 0 ">
+                    or creator in
+                    <foreach collection="searchUsers" item="searchUser" separator="," open="(" close=")">
+                        #{searchUser}
+                    </foreach>
+                </if>
+                or dataset_name LIKE concat('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="workspaceIdList != null and workspaceIdList.size() > 0 ">
+                and workspace_id in
+                <foreach collection="workspaceIdList" item="wsId" separator="," open="(" close=")">
+                    #{wsId}
+                </foreach>
+            </if>
+            <if test="creatorList != null and creatorList.size() > 0 ">
+                and creator in
+                <foreach collection="creatorList" item="creator" separator="," open="(" close=")">
+                    #{creator}
+                </foreach>
+            </if>
+            <if test="statusList != null and statusList.size() > 0 ">
+                and status in
+                <foreach collection="statusList" item="status" separator="," open="(" close=")">
+                    #{status}
+                </foreach>
+            </if>
+            <if test="datasetIdSet != null and datasetIdSet.size() > 0 ">
+                and dataset_id in
+                <foreach collection="datasetIdSet" item="dataset" separator="," open="(" close=")">
+                    #{dataset}
+                </foreach>
+            </if>
+            <if test="datasetIdSet != null and datasetIdSet.size() == 0 ">
+                and (1 = 0)
+            </if>
+            <if test="reportIdSet != null and reportIdSet.size() > 0 ">
+                and source_id in
+                <foreach collection="reportIdSet" item="report" separator="," open="(" close=")">
+                    #{report}
+                </foreach>
+            </if>
+        </where>
+        <choose>
+            <when test="sortField != null and sortField != ''">
+                order by ${sortField} ${sortType}
+            </when>
+            <otherwise>
+                order by id asc
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectById" parameterType="java.lang.Long" resultType="net.aopacloud.superbi.model.vo.ResourceVO">
+        select
+            `id`,
+            `source_id`,
+            `position`,
+            `name`,
+            `creator`,
+            `status`,
+            `report_num`,
+            `dataset_num`,
+            `auth_num`,
+            `query_num`,
+            `visit_num`,
+            `dashboard_count`,
+            `dataset_id`,
+            `dataset_name`,
+            `workspace_id`,
+            `source_update_time`,
+            `create_time`,
+            `update_time`
+        from bi_resource
+        where id = #{id,jdbcType=INTEGER} and deleted = 0
+    </select>
+
+    <select id="selectByCreatorAndPosition">
+        select `source_id`
+        from bi_resource
+        where creator = #{creator}
+          and position = #{position}
+          and deleted = 0
+    </select>
+
+    <update id="deleteAll">
+        update  bi_resource set deleted = 1 where deleted != '-99999'
+    </update>
+
+    <update id="updateInsert">
+        update  bi_resource set deleted = 0 where deleted = -99999
+    </update>
+
+    <delete id="deleteHistory">
+        delete from bi_resource where deleted = 1 and create_time <![CDATA[ < ]]> DATE_SUB(CURDATE(), INTERVAL 3 DAY)
+    </delete>
+
+    <update id="delete">
+        update  bi_resource set deleted = 1 where source_id = #{sourceId} and position = #{position}
+    </update>
+
+    <insert id="save" useGeneratedKeys="true" keyProperty="id" parameterType="net.aopacloud.superbi.model.entity.Resource">
+        insert into bi_resource (`source_id`,
+                                 `position`,
+                                 `name`,
+                                 `creator`,
+                                 `status`,
+                                 `report_num`,
+                                 `dataset_num`,
+                                 `auth_num`,
+                                 `query_num`,
+                                 `visit_num`,
+                                 `dashboard_count`,
+                                 `dataset_id`,
+                                 `dataset_name`,
+                                 `workspace_id`,
+                                 `deleted`,
+                                 `source_update_time`)
+        values (
+                   #{sourceId},
+                   #{position},
+                   #{name},
+                   #{creator},
+                   #{status},
+                   #{reportNum},
+                   #{datasetNum},
+                   #{authNum},
+                   #{queryNum},
+                   #{visitNum},
+                   #{dashboardCount},
+                   #{datasetId},
+                   #{datasetName},
+                   #{workspaceId},
+                   #{deleted},
+                   #{sourceUpdateTime}
+               )
+    </insert>
+
+    <update id="update" parameterType="net.aopacloud.superbi.model.entity.Resource">
+        update bi_resource
+        set
+        <if test="name != null and name != ''">
+            `name` = #{name}
+        </if>
+        <if test="creator != null and creator != ''">
+            `creator` = #{creator}
+        </if>
+        <if test="status != null">
+            `status` = #{status}
+        </if>
+        ,source_update_time = NOW()
+        where source_id = #{sourceId} and position = #{position}
+    </update>
+
+    <update id="updateDatasetName" parameterType="net.aopacloud.superbi.model.entity.Resource">
+        update bi_resource
+        set
+        <if test="name != null and name != ''">
+            `dataset_name` = #{name}
+        </if>
+        where dataset_id = #{datasetId} and position = 'REPORT'
+    </update>
+</mapper>

@@ -4,6 +4,9 @@ import lombok.Data;
 import lombok.experimental.Accessors;
 import net.aopacloud.superbi.enums.EngineEnum;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * @author: hudong
  * @date: 2023/10/23
@@ -27,8 +30,14 @@ public class ConnectionParamDTO {
 
     private String database;
 
+    private String table;
+
     private String initSql;
 
     private boolean realtime = Boolean.FALSE;
+
+    private Map<String, Boolean> tableAttrs;
+
+    private List<String> tableIdentifiers;
 
 }

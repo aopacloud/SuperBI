@@ -5,4 +5,12 @@ public class Minimum implements Aggregator{
     public String getFunction() {
         return "MIN({})";
     }
+
+//    @Override
+//    public String replaceIfFunction(String expression) {
+//
+//        String field = unfoldFunction("MIN", expression);
+//
+//        return String.format("minIf(%s,isFinite(%s))", field, field);
+//    }
 }

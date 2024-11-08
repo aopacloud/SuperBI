@@ -47,7 +47,7 @@ public class DatasetAuthorizeController {
     @GetMapping("/user")
     public RestApiResponse<PageVO<DatasetAuthorizeVO>> searchUserAuthorize(DatasetAuthorizeQuery query) {
 
-        if (Strings.isNullOrEmpty(query.getKeyword())) {
+        if (!Strings.isNullOrEmpty(query.getKeyword())) {
             List<SysUserDTO> sysUserDTOS = sysUserService.filter(query.getKeyword());
             if (!sysUserDTOS.isEmpty()) {
                 query.setSearchUsers(sysUserDTOS.stream().map(SysUserDTO::getUsername).collect(Collectors.toList()));

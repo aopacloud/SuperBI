@@ -1,7 +1,11 @@
 package net.aopacloud.superbi.queryEngine.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 import net.aopacloud.superbi.model.dto.DatasetDTO;
 import net.aopacloud.superbi.queryEngine.enums.QueryTypeEnum;
 import org.apache.commons.compress.utils.Lists;
@@ -20,6 +24,9 @@ import java.util.stream.Collectors;
  * @description:
  */
 @Data
+@SuperBuilder(toBuilder = true)
+@NoArgsConstructor
+@AllArgsConstructor
 public class QueryParam {
 
     private Long reportId;
@@ -45,8 +52,11 @@ public class QueryParam {
 
     private Compare compare;
 
+    @Builder.Default
     private Boolean summary = Boolean.FALSE;
 
+    @Builder.Default
+    private Boolean summaryDetail = Boolean.FALSE;
     @JsonIgnore
     public Set<String> getUsedFieldName() {
         Set<String> fieldNames = Sets.newHashSet();

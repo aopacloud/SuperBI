@@ -4,10 +4,9 @@ import lombok.Data;
 import net.aopacloud.superbi.enums.AuthorizeScopeEnum;
 import net.aopacloud.superbi.enums.PermissionEnum;
 import net.aopacloud.superbi.enums.PrivilegeTypeEnum;
-import net.aopacloud.superbi.queryEngine.sql.operator.FunctionalOperatorEnum;
+import net.aopacloud.superbi.model.domain.Rows;
 
 import java.util.Date;
-import java.util.List;
 
 /**
  * @author: hudong
@@ -17,6 +16,9 @@ import java.util.List;
 @Data
 public class DatasetAuthorizeVO {
     private Long id;
+
+    // 新增字段默认授权
+    private Boolean autoAuth;
 
     private AuthorizeScopeEnum scope;
 
@@ -68,25 +70,25 @@ public class DatasetAuthorizeVO {
 
     private Date expireTime;
 
-    @Data
-    public static class Row {
-        private String relation;
-        private List<Condition> children;
-    }
-
-    @Data
-    public static class Condition {
-        private String dataType;
-        private String field;
-        private FunctionalOperatorEnum operator;
-        private String type;
-        private String databaseDataType;
-        private List<String> value;
-    }
-
-    @Data
-    public static class Rows {
-        private String relation;
-        private List<Row> children;
-    }
+//    @Data
+//    public static class Row {
+//        private String relation;
+//        private List<Condition> children;
+//    }
+//
+//    @Data
+//    public static class Condition {
+//        private String dataType;
+//        private String field;
+//        private FunctionalOperatorEnum operator;
+//        private String type;
+//        private String databaseDataType;
+//        private List<String> value;
+//    }
+//
+//    @Data
+//    public static class Rows {
+//        private String relation;
+//        private List<Row> children;
+//    }
 }

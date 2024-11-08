@@ -101,4 +101,6 @@ public interface DatasetAuthorizeService {
     List<DatasetAuthorizeDTO> findAuthorizeByDatasetAndUsernameAndRole(Set<Long> datasetIds, String username, Long roleId);
 
     void deleteByUsername(String username);
+
+    List<DatasetAuthorizeDTO> selectAuthorizeShouldDelete();
 }

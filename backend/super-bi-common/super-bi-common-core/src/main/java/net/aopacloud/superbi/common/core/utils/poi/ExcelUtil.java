@@ -429,16 +429,16 @@ public class ExcelUtil<T> {
      * 填充excel数据
      *
      * @param index 序号
-     * @param row   单元格行
+     * @param rowValue   单元格行
      */
     @SuppressWarnings("unchecked")
-    public void fillExcelData(int index, Row row) {
+    public void fillExcelData(int index, Row rowValue) {
         int startNo = index * sheetSize;
         int endNo = Math.min(startNo + sheetSize, list.size());
         int rowNo = (1 + rownum) - startNo;
         for (int i = startNo; i < endNo; i++) {
             rowNo = isSubList() ? (i > 1 ? rowNo + 1 : rowNo + i) : i + 1 + rownum - startNo;
-            row = sheet.createRow(rowNo);
+            Row row = sheet.createRow(rowNo);
             // 得到导出对象.
             T vo = (T) list.get(i);
             Collection<?> subList = null;
@@ -640,7 +640,11 @@ public class ExcelUtil<T> {
             cell.setCellValue(StringUtils.isNull(cellValue) ? attr.defaultValue() : cellValue + attr.suffix());
         } else if (Excel.ColumnType.NUMERIC == attr.cellType()) {
             if (StringUtils.isNotNull(value)) {
-                cell.setCellValue(StringUtils.contains(Convert.toStr(value), ".") ? Convert.toDouble(value) : Convert.toInt(value));
+                if (StringUtils.contains(Convert.toStr(value), ".")) {
+                    cell.setCellValue(Convert.toDouble(value));
+                } else {
+                    cell.setCellValue(Convert.toInt(value));
+                }
             }
         } else if (Excel.ColumnType.IMAGE == attr.cellType()) {
             ClientAnchor anchor = new XSSFClientAnchor(0, 0, 0, 0, (short) cell.getColumnIndex(), cell.getRow().getRowNum(), (short) (cell.getColumnIndex() + 1), cell.getRow().getRowNum() + 1);

@@ -5,6 +5,7 @@ import com.google.common.collect.Lists;
 import lombok.Data;
 import lombok.experimental.Accessors;
 import net.aopacloud.superbi.queryEngine.sql.Segment;
+import net.aopacloud.superbi.queryEngine.sql.join.Table;
 
 import java.util.List;
 
@@ -21,7 +22,7 @@ public class SingleFieldAnalysisModel implements AnalysisModel {
 
     private Segment field;
 
-    private String table;
+    private Table table;
 
     private List<Segment> where = Lists.newArrayList();
 
@@ -33,7 +34,7 @@ public class SingleFieldAnalysisModel implements AnalysisModel {
         sql.append("select distinct ")
                 .append(field.getExpression())
                 .append(" from ")
-                .append(table);
+                .append(table.produce());
 
         if (where != null && !where.isEmpty()) {
             sql.append(" where ").append(Joiner.on(" and ").join(getExpressions(where, Segment::getExpression)));

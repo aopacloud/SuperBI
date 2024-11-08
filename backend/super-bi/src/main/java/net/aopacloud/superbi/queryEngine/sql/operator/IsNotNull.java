@@ -10,7 +10,7 @@ public class IsNotNull implements Operator {
     public String apply(OperatorParam param) {
 
         if (param.getDateType().isText()) {
-            return String.format("%s is not null and %s != ''", param.getExpression(), param.getExpression());
+            return String.format("(%s is not null and %s != '')", param.getExpression(), param.getExpression());
         } else {
             return String.format("%s is not null", param.getExpression());
         }

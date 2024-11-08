@@ -11,6 +11,7 @@ import net.aopacloud.superbi.model.converter.AuthRoleConverter;
 import net.aopacloud.superbi.model.dto.AuthRoleDTO;
 import net.aopacloud.superbi.model.dto.SysUserDTO;
 import net.aopacloud.superbi.model.entity.AuthRole;
+import net.aopacloud.superbi.model.query.AuthRoleQuery;
 import net.aopacloud.superbi.service.AuthRoleService;
 import net.aopacloud.superbi.service.SysUserService;
 import org.assertj.core.util.Sets;
@@ -47,22 +48,19 @@ public class AuthRoleServiceImpl implements AuthRoleService {
     }
 
     @Override
-    public List<AuthRoleDTO> search(Long workspaceId, String keyword) {
+    public List<AuthRoleDTO> search(AuthRoleQuery query) {
 
-        List<AuthRoleDTO> byKeywords = authRoleMapper.selectAllByWorkspace(workspaceId, keyword);
-
-        List<String> usernames = sysUserService.filter(keyword).stream().map(SysUserDTO::getUsername).collect(Collectors.toList());
-        List<AuthRoleDTO> byUsernames = searchByUsernames(usernames);
-
-        Set<AuthRoleDTO> roles = Sets.newHashSet();
-        roles.addAll(byUsernames);
-        roles.addAll(byKeywords);
+        List<String> usernames = sysUserService.filter(query.getKeyword()).stream().map(SysUserDTO::getUsername).collect(Collectors.toList());
+        if (!usernames.isEmpty()) {
+            query.setUsernames(usernames);
+        }
+        List<AuthRoleDTO> roles = authRoleMapper.searchByQuery(query);
 
         roles.stream().forEach(role -> {
             role.setUserNum(authRoleUserMapper.countByRoleId(role.getId()));
             role.setCreatorAliasName(sysUserService.getUserAliasName(role.getCreator()));
         });
-        return Lists.newArrayList(roles);
+        return roles;
     }
 
     @Override

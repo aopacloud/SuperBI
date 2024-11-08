@@ -2,34 +2,43 @@ package net.aopacloud.superbi.service.impl;
 
 import com.github.pagehelper.PageInfo;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.aopacloud.superbi.common.core.context.LoginContextHolder;
 import net.aopacloud.superbi.common.core.exception.ObjectNotFoundException;
 import net.aopacloud.superbi.common.core.exception.ServiceException;
 import net.aopacloud.superbi.common.core.utils.PageUtils;
-import net.aopacloud.superbi.common.core.utils.StringUtils;
 import net.aopacloud.superbi.common.core.web.page.PageVO;
 import net.aopacloud.superbi.constant.BiConsist;
 import net.aopacloud.superbi.enums.*;
 import net.aopacloud.superbi.i18n.LocaleMessages;
 import net.aopacloud.superbi.i18n.MessageConsist;
+import net.aopacloud.superbi.listener.event.AutoAuthorizeUpdateEvent;
 import net.aopacloud.superbi.listener.event.DatasetDeleteEvent;
 import net.aopacloud.superbi.listener.event.DatasetOfflineEvent;
+import net.aopacloud.superbi.listener.event.DatasetUpdateEvent;
 import net.aopacloud.superbi.mapper.*;
+import net.aopacloud.superbi.model.converter.DatasetAuthorizeConverter;
 import net.aopacloud.superbi.model.converter.DatasetConverter;
 import net.aopacloud.superbi.model.converter.DatasetFieldConverter;
 import net.aopacloud.superbi.model.converter.DatasetMetaConfigConverter;
 import net.aopacloud.superbi.model.domain.ExcelBuilder;
+import net.aopacloud.superbi.model.domain.TableDescriptor;
 import net.aopacloud.superbi.model.dto.*;
-import net.aopacloud.superbi.model.entity.Dataset;
-import net.aopacloud.superbi.model.entity.DatasetExtraConfig;
-import net.aopacloud.superbi.model.entity.DatasetField;
-import net.aopacloud.superbi.model.entity.DatasetMetaConfig;
+import net.aopacloud.superbi.model.entity.*;
 import net.aopacloud.superbi.model.query.ConditionQuery;
 import net.aopacloud.superbi.model.query.DatasetQuery;
+import net.aopacloud.superbi.model.query.RecycleQuery;
 import net.aopacloud.superbi.model.vo.DatasetVO;
+import net.aopacloud.superbi.model.vo.FieldPreviewVO;
 import net.aopacloud.superbi.model.vo.FolderNode;
+import net.aopacloud.superbi.model.vo.RecycleVO;
+import net.aopacloud.superbi.queryEngine.DataTypeConverter;
+import net.aopacloud.superbi.queryEngine.model.QueryContext;
+import net.aopacloud.superbi.queryEngine.sql.AbstractSqlAssembler;
+import net.aopacloud.superbi.queryEngine.sql.SqlAssemblerFactory;
+import net.aopacloud.superbi.queryEngine.sql.join.TableJoinSQLGenerator;
 import net.aopacloud.superbi.service.*;
 import org.assertj.core.util.Strings;
 import org.springframework.context.ApplicationContext;
@@ -37,10 +46,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -78,9 +84,13 @@ public class DatasetServiceImpl implements DatasetService {
 
     private final MetaDataService metaDataService;
 
+    private final ResourceMapper resourceMapper;
+
     private final WorkspaceUserResourceService workspaceUserResourceService;
 
     private final ApplicationContext applicationContext;
+
+    private final DatasetAuthorizeConverter datasetAuthorizeConverter;
 
     @Override
     public DatasetDTO findOneWithoutFields(Long id) {
@@ -101,13 +111,15 @@ public class DatasetServiceImpl implements DatasetService {
 
         DatasetMetaConfig config = metaConfigMapper.selectOneByDatasetAndVersion(id, version);
 
+        DatasetMetaConfigDTO configDTO = configConverter.entityToDTO(config);
+
         DatasetExtraConfig extraConfig = extraConfigMapper.selectOneByDatasetAndVersion(id, version);
 
         List<DatasetField> fields = fieldMapper.selectByDatasetAndVersion(id, version);
 
-        DatasetDTO datasetDTO = converter.toDTO(dataset, config, fields);
+        DatasetDTO datasetDTO = converter.toDTO(dataset, configDTO, fields);
 
-        if(Objects.nonNull(extraConfig)) {
+        if (Objects.nonNull(extraConfig)) {
             datasetDTO.setExtraConfig(extraConfig.getContent());
         }
 
@@ -144,9 +156,9 @@ public class DatasetServiceImpl implements DatasetService {
         List<DatasetDTO> datasetDTOS = pageInfo.getList().stream().map(dataset -> {
                     PermissionEnum permission = datasetPrivilegeService.findDatasetMixedPermission(dataset);
                     dataset.setPermission(permission);
-                    DatasetMetaConfig datasetMetaConfig = metaConfigMapper.selectOneByDatasetAndVersion(dataset.getId(), dataset.getVersion());
-                    String source = Optional.ofNullable(datasetMetaConfig).map(config -> String.format("%s.%s", config.getDbName(), config.getTableName())).orElse(StringUtils.EMPTY);
-                    dataset.setSource(source);
+//                    DatasetMetaConfig datasetMetaConfig = metaConfigMapper.selectOneByDatasetAndVersion(dataset.getId(), dataset.getVersion());
+//                    String source = Optional.ofNullable(datasetMetaConfig).map(config -> String.format("%s.%s", config.getDbName(), config.getTableName())).orElse(StringUtils.EMPTY);
+//                    dataset.setSource(source);
 
                     FullFolderDTO folder = null;
                     if (datasetQuery.getFolderType() == FolderTypeEnum.ALL) {
@@ -162,11 +174,26 @@ public class DatasetServiceImpl implements DatasetService {
                     dataset.setApplying(datasetApplyService.isApplying(dataset.getId()));
 
                     return dataset;
-                }).filter(dataset -> datasetQuery.getFolderType() == FolderTypeEnum.PERSONAL || (dataset.getPermission() != PermissionEnum.NONE || dataset.isEnableApply()))
+                })
+//                .filter(dataset -> datasetQuery.getFolderType() == FolderTypeEnum.PERSONAL || (dataset.getPermission() != PermissionEnum.NONE || dataset.isEnableApply()))
                 .collect(Collectors.toList());
 
         return new PageVO<>(converter.toVOList(datasetDTOS), pageInfo.getTotal());
     }
+
+    ;
+
+    public PageVO<RecycleVO> searchByRecycle(RecycleQuery recycleQuery) {
+        PageUtils.startPage();
+        List<RecycleVO> recycleVOS = datasetMapper.searchByRecycle(recycleQuery);
+        recycleVOS.forEach(recycleVO -> {
+            recycleVO.setCreatorAlias(sysUserService.getUserAliasName(recycleVO.getCreator()));
+            recycleVO.setPosition(recycleQuery.getPosition());
+        });
+        PageInfo<RecycleVO> pageInfo = new PageInfo<>(recycleVOS);
+        return new PageVO<>(recycleVOS, pageInfo.getTotal());
+    }
+
 
     private PageInfo<DatasetDTO> find(DatasetQuery datasetQuery) {
 
@@ -189,6 +216,9 @@ public class DatasetServiceImpl implements DatasetService {
             condition.setSearchUsernames(filterUser.stream().map(SysUserDTO::getUsername).collect(Collectors.toList()));
         }
 
+        Set<Long> authorizeDatasetIds = getAuthorizeDatasetIds(datasetQuery, condition);
+        condition.setAuthorizeIds(authorizeDatasetIds);
+
 
         if (!Objects.isNull(folderEnum)) {
             switch (folderEnum) {
@@ -200,14 +230,12 @@ public class DatasetServiceImpl implements DatasetService {
                         List<DatasetDTO> root = datasetMapper.findList(condition);
                         return new PageInfo<>(root);
                     } else {
-                        List<DatasetAuthorizeDTO> activedAuthorize = datasetAuthorizeMapper.findActivedAuthorize(datasetQuery.getUsername(), datasetQuery.getWorkspaceId());
-                        Set<Long> datasetIds = activedAuthorize.stream().map(DatasetAuthorizeDTO::getDatasetId).collect(Collectors.toSet());
-                        List<DatasetDTO> creatorByMe = datasetMapper.findMyCreate(condition);
-                        datasetIds.addAll(creatorByMe.stream().map(DatasetDTO::getId).collect(Collectors.toSet()));
-                        if (datasetIds.isEmpty()) {
+
+                        if (authorizeDatasetIds.isEmpty()) {
                             return new PageInfo<>(Lists.newArrayList());
                         }
-                        condition.setIds(datasetIds);
+
+                        condition.setIds(authorizeDatasetIds);
                         PageUtils.startPage();
                         List<DatasetDTO> hasPermissionDatasets = datasetMapper.findHasPermission(condition);
                         return new PageInfo<>(hasPermissionDatasets);
@@ -282,7 +310,7 @@ public class DatasetServiceImpl implements DatasetService {
             DatasetMetaConfigDTO configDTO = datasetDTO.getConfig();
             DatasetMetaConfig config = configConverter.toEntity(configDTO);
             config.setDatasetId(dataset.getId());
-
+            config.setRefTables(configDTO.getContent().getRefTables());
             config.setVersion(1);
             metaConfigMapper.insert(config);
 
@@ -296,7 +324,7 @@ public class DatasetServiceImpl implements DatasetService {
 
             return findOne(dataset.getId(), dataset.getLastEditVersion());
         } catch (DuplicateKeyException e) {
-            throw new ServiceException(LocaleMessages.getMessage(MessageConsist.DUPLICATE_NAME_ERROR));
+            throw new ServiceException(LocaleMessages.getMessage(MessageConsist.DATASET_DUPLICATE_NAME_ERROR));
         }
     }
 
@@ -305,11 +333,23 @@ public class DatasetServiceImpl implements DatasetService {
 
         DatasetDTO datasetDTO = findOne(id);
 
+        datasetMapper.updateOperatorById(id, LoginContextHolder.getUsername());
         datasetMapper.deleteById(id);
+        resourceMapper.delete(id, PositionEnum.DATASET);
 
         applicationContext.publishEvent(new DatasetDeleteEvent(datasetDTO, LoginContextHolder.getUsername()));
 
         return datasetDTO;
+    }
+
+    @Override
+    public void recycleDelete(Long id) {
+        datasetMapper.recycleDelete(id);
+    }
+
+    @Override
+    public void restore(Long id) {
+        datasetMapper.restore(id);
     }
 
     @Override
@@ -330,6 +370,7 @@ public class DatasetServiceImpl implements DatasetService {
             DatasetMetaConfig config = configConverter.toEntity(configDTO);
             config.setDatasetId(dataset.getId());
             config.setVersion(lastEditVersion);
+            config.setRefTables(configDTO.getContent().getRefTables());
             metaConfigMapper.insert(config);
 
             String extraConfigContent = datasetDTO.getExtraConfig();
@@ -339,10 +380,14 @@ public class DatasetServiceImpl implements DatasetService {
             }
 
             saveFields(dataset, datasetDTO.getFields());
+            if (datasetDTO.getName() != null) {
+                //更新资源列表
+                updateResourceName(dataset.getId(), PositionEnum.DATASET, datasetDTO.getName());
+            }
 
             return findOne(id, lastEditVersion);
         } catch (DuplicateKeyException e) {
-            throw new ServiceException(LocaleMessages.getMessage(MessageConsist.DUPLICATE_NAME_ERROR));
+            throw new ServiceException(LocaleMessages.getMessage(MessageConsist.DATASET_DUPLICATE_NAME_ERROR));
         }
     }
 
@@ -351,6 +396,9 @@ public class DatasetServiceImpl implements DatasetService {
             DatasetField field = fieldConverter.toEntity(fieldDTO);
             field.setDatasetId(dataset.getId());
             field.setVersion(dataset.getLastEditVersion());
+            if (!fieldDTO.getType().isNewAdd()) {
+                field.setOriginDataType(DataTypeConverter.convert(field.getDatabaseDataType()));
+            }
             fieldMapper.insert(field);
             return fieldConverter.entityToDTO(field);
         }).collect(Collectors.toList());
@@ -359,13 +407,32 @@ public class DatasetServiceImpl implements DatasetService {
     @Override
     public void offline(Long id) {
         datasetMapper.updateStatus(id, StatusEnum.OFFLINE);
+        updateResource(id, PositionEnum.DATASET, StatusEnum.OFFLINE);
         DatasetDTO datasetDTO = findOne(id);
         applicationContext.publishEvent(new DatasetOfflineEvent(datasetDTO, LoginContextHolder.getUsername()));
+    }
+
+    private void updateResource(Long id, PositionEnum position, StatusEnum status) {
+        Resource resource = new Resource();
+        resource.setSourceId(id);
+        resource.setPosition(position);
+        resource.setStatus(status);
+        resourceMapper.update(resource);
+    }
+
+    private void updateResourceName(Long id, PositionEnum position, String name) {
+        Resource resource = new Resource();
+        resource.setSourceId(id);
+        resource.setPosition(position);
+        resource.setName(name);
+        resourceMapper.update(resource);
+        resourceMapper.updateDatasetName(name, id);
     }
 
     @Override
     public void online(Long id) {
         datasetMapper.updateStatus(id, StatusEnum.ONLINE);
+        updateResource(id, PositionEnum.DATASET, StatusEnum.ONLINE);
     }
 
     @Override
@@ -377,7 +444,12 @@ public class DatasetServiceImpl implements DatasetService {
         dataset.setVersion(version);
         dataset.setStatus(StatusEnum.ONLINE);
         datasetMapper.update(dataset);
-        return findOne(id);
+        updateResource(id, PositionEnum.DATASET, StatusEnum.ONLINE);
+
+        DatasetDTO datasetDTO = findOne(id);
+        applicationContext.publishEvent(new DatasetUpdateEvent(datasetDTO));
+        applicationContext.publishEvent(new AutoAuthorizeUpdateEvent(datasetDTO));
+        return datasetDTO;
     }
 
     @Override
@@ -448,6 +520,11 @@ public class DatasetServiceImpl implements DatasetService {
     }
 
     @Override
+    public void handOverById(Long id, String fromUsername, String toUsername) {
+        datasetMapper.updateCreatorById(id, fromUsername, toUsername);
+    }
+
+    @Override
     public List<DatasetDTO> findDatasetCanAuthorize(Long workspaceId, String username) {
 
         boolean superAdmin = sysUserService.isSuperAdmin(username);
@@ -475,5 +552,93 @@ public class DatasetServiceImpl implements DatasetService {
     @Override
     public List<DatasetDTO> findOnlineDataset(Long workspaceId) {
         return datasetMapper.selectOnlineDataset(workspaceId);
+    }
+
+    public String previewSql(DatasetDTO dataset) {
+
+
+        ConnectionParamDTO connection = metaDataService.getDatasetConnection(dataset);
+
+        QueryContext context = QueryContext.ofQuery(null, dataset, connection);
+        AbstractSqlAssembler sqlAssembler = (AbstractSqlAssembler) SqlAssemblerFactory.getSqlAssembler(context);
+
+        TableJoinSQLGenerator generator = new TableJoinSQLGenerator(dataset.getConfig().getContent(), dataset, sqlAssembler);
+
+        return generator.producePreviewSql();
+
+    }
+
+    @Override
+    public FieldPreviewVO previewField(Long datasetId, List<TableDescriptor> tables, List<DatasetFieldDTO> fields) {
+
+        boolean isSaved = Objects.nonNull(datasetId);
+
+        Set<String> duplicateColumns = Sets.newHashSet();
+        Set<String> allColumns = Sets.newHashSet();
+        for (TableDescriptor table : tables) {
+            List<String> columns = table.getColumns();
+            if (allColumns.isEmpty()) {
+                allColumns.addAll(columns);
+                continue;
+            }
+
+            for (String col : columns) {
+                if (allColumns.contains(col)) {
+                    duplicateColumns.add(col);
+                }
+            }
+
+            allColumns.addAll(columns);
+        }
+
+        Map<String, String> fieldMap = fields
+                .stream()
+                .filter(field -> !field.getType().isNewAdd())
+                .collect(Collectors
+                        .toMap(f -> String.format("%s.%s", f.getTableAlias(), Objects.isNull(f.getSourceFieldName()) ? f.getName() : f.getSourceFieldName()),
+                                f -> f.getName()));
+
+        Set<String> newAddFieldNames = fields.stream().filter(field -> field.getType().isNewAdd()).map(DatasetFieldDTO::getName).collect(Collectors.toSet());
+
+        FieldPreviewVO preview = new FieldPreviewVO();
+
+        for (TableDescriptor table : tables) {
+            List<String> columns = table.getColumns();
+            for (String col : columns) {
+                String tableAndColumn = String.format("%s.%s", table.getAlias(), col);
+                if (isSaved && fieldMap.containsKey(tableAndColumn)) {
+                    preview.putField(table.getAlias(), col, fieldMap.get(tableAndColumn));
+                    continue;
+                }
+                if (duplicateColumns.contains(col) || newAddFieldNames.contains(col)) {
+                    preview.putField(table.getAlias(), col, String.format("%s_%s", col, table.getAlias()));
+                } else {
+                    preview.putField(table.getAlias(), col, col);
+                }
+            }
+
+            allColumns.addAll(columns);
+        }
+
+        return preview;
+    }
+
+    private Set<Long> getAuthorizeDatasetIds(DatasetQuery datasetQuery, ConditionQuery condition) {
+        if (sysUserService.isSuperAdmin(LoginContextHolder.getUsername())) {
+            List<DatasetDTO> datasetDTOList = datasetMapper.selectOnlineDataset(datasetQuery.getWorkspaceId());
+            return datasetDTOList.stream().map(DatasetDTO::getId).collect(Collectors.toSet());
+        }
+        WorkspaceUserResourceDTO workspaceUserResourceDTO = workspaceUserResourceService.get(datasetQuery.getWorkspaceId());
+        if (workspaceUserResourceDTO.getResourceCodes().contains("DATASET:ANALYSIS:ALL:WORKSPACE")) {
+            List<DatasetDTO> datasetDTOList = datasetMapper.selectOnlineDataset(datasetQuery.getWorkspaceId());
+            return datasetDTOList.stream().map(DatasetDTO::getId).collect(Collectors.toSet());
+        }
+
+        List<DatasetAuthorizeDTO> activedAuthorize = datasetAuthorizeMapper.findActivedAuthorize(datasetQuery.getUsername(), datasetQuery.getWorkspaceId());
+        Set<Long> datasetIds = activedAuthorize.stream().map(DatasetAuthorizeDTO::getDatasetId).collect(Collectors.toSet());
+        List<DatasetDTO> creatorByMe = datasetMapper.findMyCreate(condition);
+        datasetIds.addAll(creatorByMe.stream().map(DatasetDTO::getId).collect(Collectors.toSet()));
+        return datasetIds;
+
     }
 }

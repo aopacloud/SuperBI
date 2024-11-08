@@ -12,6 +12,7 @@ import net.aopacloud.superbi.listener.event.DatasetAuthorizeUpdateEvent;
 import net.aopacloud.superbi.mapper.AuthRoleMapper;
 import net.aopacloud.superbi.mapper.DatasetAuthorizeMapper;
 import net.aopacloud.superbi.model.converter.DatasetAuthorizeConverter;
+import net.aopacloud.superbi.model.domain.Rows;
 import net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO;
 import net.aopacloud.superbi.model.dto.DatasetDTO;
 import net.aopacloud.superbi.model.dto.DatasetFieldDTO;
@@ -127,6 +128,11 @@ public class DatasetAuthorizeServiceImpl implements DatasetAuthorizeService {
         oldAuthorize.setPrivilegeType(datasetAuthorize.getPrivilegeType());
         oldAuthorize.setExpireDuration(datasetAuthorize.getExpireDuration());
         oldAuthorize.setRowParam(datasetAuthorize.getRowParam());
+        oldAuthorize.setAutoAuth(datasetAuthorize.getAutoAuth());
+        if(datasetAuthorize.getAutoAuth() == true) {
+            DatasetDTO datasetDTO = datasetService.findOne(datasetAuthorize.getDatasetId());
+            oldAuthorize.setVersion(datasetDTO.getVersion());
+        }
 
         if (!Objects.isNull(datasetAuthorizeDTO.getStartTime())) {
             oldAuthorize.setStartTime(datasetAuthorizeDTO.getStartTime());
@@ -135,9 +141,11 @@ public class DatasetAuthorizeServiceImpl implements DatasetAuthorizeService {
         if (oldAuthorize.isExpire()) {
             oldAuthorize.setStartTime(new Date());
         }
+        //更新过期状态字段
+        oldAuthorize.setExpired(0);
         if (datasetAuthorize.getPrivilegeType().hasRowPrivilege()) {
             DatasetDTO dataset = datasetService.findOne(datasetAuthorize.getDatasetId());
-            oldAuthorize.setRowPrivilege(parseRowPrivilege(JSONUtils.parseObject(datasetAuthorizeDTO.getRowParam(), DatasetAuthorizeVO.Rows.class), dataset));
+            oldAuthorize.setRowPrivilege(JSONUtils.parseObject(datasetAuthorizeDTO.getRowParam(), Rows.class).parseRowPrivilege(dataset));
         }
 
         datasetAuthorizeMapper.update(oldAuthorize);
@@ -263,10 +271,16 @@ public class DatasetAuthorizeServiceImpl implements DatasetAuthorizeService {
         authorize.setPrivilegeType(datasetAuthorizeSaveVO.getPrivilegeType());
         authorize.setColumnPrivilege(datasetAuthorizeSaveVO.getColumnPrivilege());
         authorize.setExpireDuration(datasetAuthorizeSaveVO.getExpireDuration());
+        authorize.setAutoAuth(datasetAuthorizeSaveVO.getAutoAuth());
+        if(datasetAuthorizeSaveVO.getAutoAuth() == true) {
+            DatasetDTO datasetDTO = datasetService.findOne(datasetAuthorizeSaveVO.getDatasetId());
+            authorize.setVersion(datasetDTO.getVersion());
+        }
+
         if (datasetAuthorizeSaveVO.getPrivilegeType().hasRowPrivilege()) {
             authorize.setRowParam(JSONUtils.toJsonString(datasetAuthorizeSaveVO.getRows()));
             DatasetDTO datasetDTO = datasetService.findOne(datasetAuthorizeSaveVO.getDatasetId());
-            authorize.setRowPrivilege(parseRowPrivilege(datasetAuthorizeSaveVO.getRows(), datasetDTO));
+            authorize.setRowPrivilege(datasetAuthorizeSaveVO.getRows().parseRowPrivilege(datasetDTO));
         }
         authorize.setStartTime(new Date());
         if (!Strings.isNullOrEmpty(username)) {
@@ -281,35 +295,40 @@ public class DatasetAuthorizeServiceImpl implements DatasetAuthorizeService {
         return authorize;
     }
 
-    public String parseRowPrivilege(DatasetAuthorizeVO.Rows rows, DatasetDTO datasetDTO) {
-
-        Map<String, DatasetFieldDTO> fieldMap = datasetDTO.getFields().stream().collect(Collectors.toMap(field -> field.getName(), field -> field));
-
-        LogicalEnum relation = LogicalEnum.valueOf(rows.getRelation().toUpperCase());
-
-        List<String> wideExpression = rows.getChildren().stream().map(row -> {
-
-            LogicalEnum childRelation = LogicalEnum.valueOf(row.getRelation().toUpperCase());
-
-            List<String> expressions = row.getChildren().stream().map(condition -> {
-                List<String> value = condition.getValue();
-
-                DatasetFieldDTO field = fieldMap.get(condition.getField());
-
-                String fieldName = field.getType().isNewAdd() ? String.format("[%s]", field.getName()) : field.getName();
-
-                OperatorParam param = new OperatorParam(value, fieldName, field);
-                FunctionalOperatorEnum operator = condition.getOperator();
-                if ("ENUM".equals(condition.getType())) {
-                    operator = FunctionalOperatorEnum.IN;
-                }
-                String expression = operator.getOperator().apply(param);
-
-                return String.format("( %s )", expression);
-            }).collect(Collectors.toList());
-
-            return String.format(" ( %s ) ", Joiner.on(childRelation.getExpression()).join(expressions));
-        }).collect(Collectors.toList());
-        return Joiner.on(relation.getExpression()).join(wideExpression);
+    @Override
+    public List<DatasetAuthorizeDTO> selectAuthorizeShouldDelete() {
+        return datasetAuthorizeMapper.selectAuthorizeShouldDelete();
     }
+
+//    public String parseRowPrivilege(Rows rows, DatasetDTO datasetDTO) {
+//
+//        Map<String, DatasetFieldDTO> fieldMap = datasetDTO.getFields().stream().collect(Collectors.toMap(field -> field.getName(), field -> field));
+//
+//        LogicalEnum relation = LogicalEnum.valueOf(rows.getRelation().toUpperCase());
+//
+//        List<String> wideExpression = rows.getChildren().stream().map(row -> {
+//
+//            LogicalEnum childRelation = LogicalEnum.valueOf(row.getRelation().toUpperCase());
+//
+//            List<String> expressions = row.getChildren().stream().map(condition -> {
+//                List<String> value = condition.getValue();
+//
+//                DatasetFieldDTO field = fieldMap.get(condition.getField());
+//
+//                String fieldName = field.getType().isNewAdd() ? String.format("[%s]", field.getName()) : field.getName();
+//
+//                OperatorParam param = new OperatorParam(value, fieldName, field);
+//                FunctionalOperatorEnum operator = condition.getOperator();
+//                if ("ENUM".equals(condition.getType())) {
+//                    operator = FunctionalOperatorEnum.IN;
+//                }
+//                String expression = operator.getOperator().apply(param);
+//
+//                return String.format("( %s )", expression);
+//            }).collect(Collectors.toList());
+//
+//            return String.format(" ( %s ) ", Joiner.on(childRelation.getExpression()).join(expressions));
+//        }).collect(Collectors.toList());
+//        return Joiner.on(relation.getExpression()).join(wideExpression);
+//    }
 }

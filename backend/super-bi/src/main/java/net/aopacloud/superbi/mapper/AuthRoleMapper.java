@@ -2,6 +2,7 @@ package net.aopacloud.superbi.mapper;
 
 import net.aopacloud.superbi.model.dto.AuthRoleDTO;
 import net.aopacloud.superbi.model.entity.AuthRole;
+import net.aopacloud.superbi.model.query.AuthRoleQuery;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
@@ -25,4 +26,6 @@ public interface AuthRoleMapper {
     List<AuthRoleDTO> search(@Param("keyword") String keyword);
 
     List<AuthRoleDTO> searchByUsername(@Param("usernames") List<String> usernames);
+
+    List<AuthRoleDTO> searchByQuery(AuthRoleQuery query);
 }

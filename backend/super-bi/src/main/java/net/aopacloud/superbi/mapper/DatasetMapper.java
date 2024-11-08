@@ -6,6 +6,8 @@ import net.aopacloud.superbi.model.dto.DatasetDTO;
 import net.aopacloud.superbi.model.entity.Dataset;
 import net.aopacloud.superbi.model.query.ConditionQuery;
 import net.aopacloud.superbi.model.query.DatasetQuery;
+import net.aopacloud.superbi.model.query.RecycleQuery;
+import net.aopacloud.superbi.model.vo.RecycleVO;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
@@ -19,11 +21,19 @@ public interface DatasetMapper {
 
     Dataset selectById(@Param("id") Long id);
 
+    List<Dataset> selectAll();
+
+    Dataset selectByIdRecycle(@Param("id") Long id);
+
     List<DatasetDTO> search(DatasetQuery query);
+
+    List<RecycleVO> searchByRecycle(RecycleQuery query);
 
     List<DatasetDTO> findMyFavorite(ConditionQuery query);
 
     List<DatasetDTO> findMyCreate(ConditionQuery query);
+
+    List<Long> findMyCreateId(@Param("username") String username);
 
     List<DatasetDTO> findHasPermission(ConditionQuery query);
 
@@ -38,6 +48,10 @@ public interface DatasetMapper {
     void update(Dataset dataset);
 
     void deleteById(@Param("id") Long id);
+
+    void recycleDelete(@Param("id") Long id);
+
+    void restore(@Param("id") Long id);
 
     void updateStatus(@Param("id") Long id, @Param("status") StatusEnum status);
 
@@ -54,6 +68,10 @@ public interface DatasetMapper {
     Integer countByUsername(@Param("username") String username);
 
     void updateCreator(@Param("fromUsername") String fromUsername, @Param("toUsername") String toUsername);
+
+    void updateOperatorById(@Param("id") Long id, @Param("operator") String operator);
+
+    void updateCreatorById(@Param("id") Long id, @Param("fromUsername") String fromUsername, @Param("toUsername") String toUsername);
 
     List<DatasetDTO> findListByWorkspace(@Param("workspaceId") Long workspaceId);
 

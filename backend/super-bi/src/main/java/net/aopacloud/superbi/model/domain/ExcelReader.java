@@ -20,12 +20,12 @@ public class ExcelReader {
             log.error("upload file empty");
             return contents;
         }
-        try (InputStream inputStream = file.getInputStream()) {
-            Workbook workbook = WorkbookFactory.create(inputStream);
+        try (InputStream inputStream = file.getInputStream();
+             Workbook workbook = WorkbookFactory.create(inputStream)) {
             Sheet sheet = workbook.getSheetAt(0);
-            Iterator<Row> rowIterator = sheet.rowIterator();
+            Iterator<org.apache.poi.ss.usermodel.Row> rowIterator = sheet.rowIterator();
             while (rowIterator.hasNext()) {
-                Row row = rowIterator.next();
+                org.apache.poi.ss.usermodel.Row row = rowIterator.next();
                 Cell cell = row.getCell(row.getFirstCellNum());
                 String value = convertCellValueToString(cell);
                 if (!Strings.isNullOrEmpty(value)) {

@@ -1,6 +1,8 @@
 package net.aopacloud.superbi.auth;
 
 import lombok.RequiredArgsConstructor;
+import net.aopacloud.superbi.common.core.exception.ObjectNotFoundException;
+import net.aopacloud.superbi.common.core.exception.ServiceException;
 import net.aopacloud.superbi.common.core.exception.auth.NoWorkspacePermissionException;
 import net.aopacloud.superbi.i18n.LocaleMessages;
 import net.aopacloud.superbi.i18n.MessageConsist;
@@ -28,8 +30,12 @@ public class WorkspaceChecker {
         boolean result = workspaces.stream().map(WorkspaceDTO::getId).anyMatch(id -> id.equals(workspaceId));
 
         if (!result) {
-            WorkspaceDTO noPermissionWorkspace = workspaceService.findOne(workspaceId);
-            throw new NoWorkspacePermissionException(LocaleMessages.getMessage(MessageConsist.WORKSPACE_FORBIDDEN_ERROR, noPermissionWorkspace.getName()));
+            try {
+                WorkspaceDTO noPermissionWorkspace = workspaceService.findOne(workspaceId);
+                throw new NoWorkspacePermissionException(LocaleMessages.getMessage(MessageConsist.WORKSPACE_FORBIDDEN_ERROR, noPermissionWorkspace.getName()));
+            }catch (ObjectNotFoundException e) {
+                throw new ServiceException(LocaleMessages.getMessage("workspace.not.found.error"));
+            }
         }
     }
 

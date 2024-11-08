@@ -22,6 +22,8 @@ public class Folder {
 
     private Long parentId;
 
+    private Long sortId;
+
     private String creator;
 
     private FolderTypeEnum type;

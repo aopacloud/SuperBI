@@ -68,6 +68,8 @@ public class DatasetDTO {
 
     private boolean applying;
 
+    private boolean upload;
+
     public boolean isEnableApply() {
         return enableApply == 1;
     }

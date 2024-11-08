@@ -59,4 +59,5 @@ public class DatasetFieldVO {
 
     private PermissionEnum permission;
 
+    private String tableAlias;
 }

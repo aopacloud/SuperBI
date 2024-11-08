@@ -4,6 +4,7 @@ import net.aopacloud.superbi.model.entity.DashboardComponent;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Set;
 
 public interface DashboardComponentMapper {
 
@@ -20,4 +21,8 @@ public interface DashboardComponentMapper {
     List<String> selectReportNameByDashboard(@Param("dashboardId") Long dashboardId, @Param("version") Integer version);
 
     Integer countDashboardByReport(@Param("reportId") Long reportId);
+
+    Set<Long> selectDatasetIdsByDashboard(Long dashboardId);
+
+    Set<Long> selectReportIdsByDashboard(@Param("dashboardId") Long dashboardId, @Param("version") Integer version);
 }

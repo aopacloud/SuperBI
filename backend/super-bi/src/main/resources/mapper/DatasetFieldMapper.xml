@@ -26,12 +26,13 @@
         <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
         <result column="expression" jdbcType="LONGVARCHAR" property="expression"/>
         <result column="custom_format_config" jdbcType="LONGVARCHAR" property="customFormatConfig"/>
+        <result column="table_alias" jdbcType="VARCHAR" property="tableAlias"/>
     </resultMap>
     <sql id="Base_Column_List">
         id
         , dataset_id, version, `name`, display_name, category, `type`, source_field_name, aggregator,
     data_type, origin_data_type, database_data_type, data_format, description, status,
-    sort, `partition`, create_time, update_time,`expression`, custom_format_config, compute_expression
+    sort, `partition`, create_time, update_time,`expression`, custom_format_config, compute_expression, table_alias
     </sql>
 
     <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
@@ -48,14 +49,14 @@
                                       type, source_field_name, aggregator,
                                       data_type, origin_data_type, database_data_type,
                                       data_format, description, status,
-                                      sort, `partition`, `expression`, custom_format_config, compute_expression)
+                                      sort, `partition`, `expression`, custom_format_config, compute_expression, table_alias)
         values (#{datasetId,jdbcType=INTEGER}, #{version,jdbcType=INTEGER},
                 #{name,jdbcType=VARCHAR}, #{displayName,jdbcType=VARCHAR}, #{category,jdbcType=VARCHAR},
                 #{type,jdbcType=VARCHAR}, #{sourceFieldName,jdbcType=VARCHAR}, #{aggregator,jdbcType=VARCHAR},
                 #{dataType,jdbcType=VARCHAR}, #{originDataType,jdbcType=VARCHAR}, #{databaseDataType,jdbcType=VARCHAR},
                 #{dataFormat,jdbcType=VARCHAR}, #{description,jdbcType=VARCHAR}, #{status,jdbcType=VARCHAR},
                 #{sort,jdbcType=INTEGER}, #{partition,jdbcType=TINYINT}, #{expression,jdbcType=LONGVARCHAR},
-                #{customFormatConfig,jdbcType=LONGVARCHAR}, #{computeExpression,jdbcType=VARCHAR})
+                #{customFormatConfig,jdbcType=LONGVARCHAR}, #{computeExpression,jdbcType=VARCHAR}, #{tableAlias,jdbcType=VARCHAR})
     </insert>
 
     <select id="selectByDatasetAndVersion" resultMap="BaseResultMap">

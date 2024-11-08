@@ -70,4 +70,13 @@ public class BiConsist {
 
     public final static Integer DEFAULT_PAGE_SIZE = 10;
 
+    public final static String RATIO_LABEL_FILE="ratio_label.properties";
+
+    public final static String INNER_ALIAS ="_inner";
+
+    public final static String JOIN_TABLE_ALIAS = "join_tmp_table";
+
+    public final static String SUMMARY_FLAG = "-£-";
+
+    public final static String DASHBOARD_PUSH_JVM_ARGS = "-Xmx256m";
 }

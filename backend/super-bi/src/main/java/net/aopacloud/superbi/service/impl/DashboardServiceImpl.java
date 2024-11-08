@@ -1,30 +1,29 @@
 package net.aopacloud.superbi.service.impl;
 
+import com.github.pagehelper.PageInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.aopacloud.superbi.common.core.context.LoginContextHolder;
 import net.aopacloud.superbi.common.core.exception.ObjectNotFoundException;
 import net.aopacloud.superbi.common.core.exception.ServiceException;
 import net.aopacloud.superbi.common.core.utils.PageUtils;
+import net.aopacloud.superbi.common.core.web.page.PageVO;
 import net.aopacloud.superbi.constant.BiConsist;
 import net.aopacloud.superbi.enums.*;
 import net.aopacloud.superbi.i18n.LocaleMessages;
 import net.aopacloud.superbi.i18n.MessageConsist;
-import net.aopacloud.superbi.mapper.DashboardComponentMapper;
-import net.aopacloud.superbi.mapper.DashboardFilterMapper;
-import net.aopacloud.superbi.mapper.DashboardMapper;
-import net.aopacloud.superbi.mapper.ReportMapper;
+import net.aopacloud.superbi.mapper.*;
 import net.aopacloud.superbi.model.converter.DashboardComponentConverter;
 import net.aopacloud.superbi.model.converter.DashboardConverter;
 import net.aopacloud.superbi.model.dto.*;
-import net.aopacloud.superbi.model.entity.Dashboard;
-import net.aopacloud.superbi.model.entity.DashboardComponent;
-import net.aopacloud.superbi.model.entity.DashboardFilter;
-import net.aopacloud.superbi.model.entity.Report;
+import net.aopacloud.superbi.model.entity.*;
 import net.aopacloud.superbi.model.query.ConditionQuery;
 import net.aopacloud.superbi.model.query.DashboardQuery;
+import net.aopacloud.superbi.model.query.RecycleQuery;
 import net.aopacloud.superbi.model.uo.DashboardVisibilityUO;
+import net.aopacloud.superbi.model.vo.DashboardVO;
 import net.aopacloud.superbi.model.vo.FolderNode;
+import net.aopacloud.superbi.model.vo.RecycleVO;
 import net.aopacloud.superbi.service.*;
 import org.apache.commons.compress.utils.Lists;
 import org.assertj.core.util.Strings;
@@ -69,8 +68,10 @@ public class DashboardServiceImpl implements DashboardService {
 
     private final ReportService reportService;
 
+    private final ResourceMapper resourceMapper;
+
     @Override
-    public List<DashboardDTO> search(DashboardQuery dashboardQuery) {
+    public PageVO<DashboardVO> search(DashboardQuery dashboardQuery) {
 
         ConditionQuery condition = ConditionQuery.from(dashboardQuery);
         condition.setSuperAdmin(sysUserService.isSuperAdmin(LoginContextHolder.getUsername()));
@@ -92,12 +93,14 @@ public class DashboardServiceImpl implements DashboardService {
             condition.setSearchUsernames(filterUser.stream().map(SysUserDTO::getUsername).collect(Collectors.toList()));
         }
 
+        Set<Long> shareIds = findDashboardIdsByUsername(dashboardQuery, condition);
+        condition.setAuthorizeIds(shareIds.stream().collect(Collectors.toSet()));
+
         switch (folderEnum) {
             case SHARED:
 //                if(!condition.isSuperAdmin()) {
 //
 //                }
-                List<Long> shareIds = dashboardShareService.findDashboardIdsByUsername(LoginContextHolder.getUsername());
                 condition.setIds(shareIds.stream().collect(Collectors.toSet()));
                 PageUtils.startPage();
                 dashboardDTOS = dashboardMapper.findAuthorized(condition);
@@ -139,6 +142,8 @@ public class DashboardServiceImpl implements DashboardService {
 
         }
 
+        PageInfo pageInfo = new PageInfo(dashboardDTOS);
+
         dashboardDTOS.stream().forEach(dashboardDTO -> {
             FullFolderDTO folderDTO = folderService.findByTarget(dashboardDTO.getId(), PositionEnum.DASHBOARD);
             if (!Objects.isNull(folderDTO)) {
@@ -153,9 +158,22 @@ public class DashboardServiceImpl implements DashboardService {
             dashboardDTO.setPermission(dashboardShareService.findMixedPermission(dashboardDTO.getId(), LoginContextHolder.getUsername()));
         });
 
-        return dashboardDTOS.stream()
-                .filter(dash -> condition.getFolderType() == FolderTypeEnum.PERSONAL || (dash.getPermission() != PermissionEnum.NONE || dash.getVisibility() == Visibility.ALL))
-                .collect(Collectors.toList());
+//        dashboardDTOS = dashboardDTOS.stream()
+//                .filter(dash -> condition.getFolderType() == FolderTypeEnum.PERSONAL || (dash.getPermission() != PermissionEnum.NONE || dash.getVisibility() == Visibility.ALL))
+//                .collect(Collectors.toList());
+
+        return new PageVO<DashboardVO>(dashboardConverter.toVOList(dashboardDTOS), pageInfo.getTotal());
+    }
+
+    public PageVO<RecycleVO> searchByRecycle(RecycleQuery recycleQuery) {
+        PageUtils.startPage();
+        List<RecycleVO> recycleVOS = dashboardMapper.searchByRecycle(recycleQuery);
+        recycleVOS.forEach(recycleVO -> {
+            recycleVO.setCreatorAlias(sysUserService.getUserAliasName(recycleVO.getCreator()));
+            recycleVO.setPosition(recycleQuery.getPosition());
+        });
+        PageInfo<RecycleVO> pageInfo = new PageInfo<>(recycleVOS);
+        return new PageVO<>(recycleVOS, pageInfo.getTotal());
     }
 
     @Override
@@ -168,6 +186,22 @@ public class DashboardServiceImpl implements DashboardService {
     public DashboardDTO findOne(Long id) {
 
         return findOne(id, null);
+    }
+
+    public Set<Long> findDashboardIdsByUsername(DashboardQuery dashboardQuery, ConditionQuery condition) {
+        if (sysUserService.isSuperAdmin(LoginContextHolder.getUsername())) {
+            List<DashboardDTO> dashboardDTOList = dashboardMapper.selectByWorkspace(dashboardQuery.getWorkspaceId());
+            return dashboardDTOList.stream().map(DashboardDTO::getId).collect(Collectors.toSet());
+        }
+        WorkspaceUserResourceDTO workspaceUserResourceDTO = workspaceUserResourceService.get(dashboardQuery.getWorkspaceId());
+        if (workspaceUserResourceDTO.getResourceCodes().contains("DASHBOARD:READ:ALL:WORKSPACE")) {
+            List<DashboardDTO> dashboardDTOList = dashboardMapper.selectByWorkspace(dashboardQuery.getWorkspaceId());
+            return dashboardDTOList.stream().map(DashboardDTO::getId).collect(Collectors.toSet());
+        }
+        Set<Long> idSet = dashboardShareService.findDashboardIdsByUsername(LoginContextHolder.getUsername()).stream().collect(Collectors.toSet());
+        List<DashboardDTO> creatorByMe = dashboardMapper.findCreate(condition);
+        idSet.addAll(creatorByMe.stream().map(DashboardDTO::getId).collect(Collectors.toSet()));
+        return idSet;
     }
 
     public DashboardDTO findOne(Long id, Integer version) {
@@ -183,7 +217,7 @@ public class DashboardServiceImpl implements DashboardService {
 
         FullFolderDTO folderDTO = folderService.findByTarget(dashboard.getId(), PositionEnum.DASHBOARD);
         dashboard.setFolder(folderDTO);
-        if(Objects.nonNull(folderDTO)) {
+        if (Objects.nonNull(folderDTO)) {
             dashboard.setFolderId(folderDTO.getId());
         }
         return dashboard;
@@ -245,6 +279,10 @@ public class DashboardServiceImpl implements DashboardService {
                 componentDTO.setId(component.getId());
 
             });
+            if (dashboardDTO.getName() != null) {
+                //更新资源列表
+                updateResourceName(id, dashboardDTO.getName());
+            }
 
             return findOne(id, dashboardDTO.getLastEditVersion());
         } catch (DuplicateKeyException e) {
@@ -254,7 +292,19 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     public void delete(Long id) {
+        dashboardMapper.updateOperatorById(id, LoginContextHolder.getUsername());
         dashboardMapper.delete(id);
+        resourceMapper.delete(id, PositionEnum.DASHBOARD);
+    }
+
+    @Override
+    public void recycleDelete(Long id) {
+        dashboardMapper.recycleDelete(id);
+    }
+
+    @Override
+    public void restore(Long id) {
+        dashboardMapper.restore(id);
     }
 
     private void addResource(Long groupId, Long dashboardId) {
@@ -280,11 +330,29 @@ public class DashboardServiceImpl implements DashboardService {
     @Override
     public void offline(Long id) {
         dashboardMapper.updateStatus(id, StatusEnum.OFFLINE);
+        updateResource(id, PositionEnum.DASHBOARD, StatusEnum.OFFLINE);
+    }
+
+    private void updateResource(Long id, PositionEnum position, StatusEnum status) {
+        Resource resource = new Resource();
+        resource.setSourceId(id);
+        resource.setPosition(position);
+        resource.setStatus(status);
+        resourceMapper.update(resource);
+    }
+
+    private void updateResourceName(Long id, String name) {
+        Resource resource = new Resource();
+        resource.setSourceId(id);
+        resource.setPosition(PositionEnum.DASHBOARD);
+        resource.setName(name);
+        resourceMapper.update(resource);
     }
 
     @Override
     public void online(Long id) {
         dashboardMapper.updateStatus(id, StatusEnum.ONLINE);
+        updateResource(id, PositionEnum.DASHBOARD, StatusEnum.ONLINE);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -295,6 +363,7 @@ public class DashboardServiceImpl implements DashboardService {
         }
         dashboardMapper.updateVersion(id, version);
         dashboardMapper.updateStatus(id, StatusEnum.ONLINE);
+        updateResource(id, PositionEnum.DASHBOARD, StatusEnum.ONLINE);
         return findOne(id);
     }
 
@@ -306,6 +375,11 @@ public class DashboardServiceImpl implements DashboardService {
     @Override
     public void handOver(String fromUsername, String toUsername) {
         dashboardMapper.updateCreator(fromUsername, toUsername);
+    }
+
+    @Override
+    public void handOverById(Long id, String fromUsername, String toUsername) {
+        dashboardMapper.updateCreatorById(id, fromUsername, toUsername);
     }
 
     @Override
@@ -333,19 +407,14 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     public Set<Long> findDatasetIdsByDashboardId(Long dashboardId) {
-        DashboardDTO dashboard = findOne(dashboardId);
-
-        Set<Long> reportIds = dashboard.getDashboardComponents().stream().filter(item -> ComponentTypeEnum.REPORT.name().equals(item.getType())).map(DashboardComponentDTO::getReportId).collect(Collectors.toSet());
-
-        Set<Long> datasetIds = reportIds.stream().map(reportService::findOne).map(ReportDTO::getDatasetId).collect(Collectors.toSet());
-        return datasetIds;
+        return dashboardComponentMapper.selectDatasetIdsByDashboard(dashboardId);
     }
 
     @Override
     public DashboardDTO updateRefreshInterval(Long id, Integer refreshIntervalSeconds) {
         DashboardDTO dashboardDTO = dashboardMapper.selectById(id);
         dashboardDTO.setRefreshIntervalSeconds(refreshIntervalSeconds);
-        dashboardMapper.updateRefreshInterval(id,refreshIntervalSeconds);
+        dashboardMapper.updateRefreshInterval(id, refreshIntervalSeconds);
         return dashboardDTO;
     }
 

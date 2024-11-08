@@ -25,7 +25,7 @@ public class FieldUtils {
     }
 
     public static boolean hasAggregation(String fieldExpression) {
-        Pattern pattern = Pattern.compile("[\\w\\W]*(sum|avg|count|min|max|median|quantile) *\\([\\w\\W]*");
+        Pattern pattern = Pattern.compile("[\\w\\W]*(sum|avg|count|countIf|min|max|median|quantile) *\\([\\w\\W]*");
         Matcher matcher = pattern.matcher(fieldExpression.toLowerCase(Locale.ROOT).trim());
         return matcher.matches();
     }

@@ -18,4 +18,6 @@ public interface AuthRoleUserMapper {
     List<String> selectUserByRole(Long roleId);
 
     List<AuthRoleUserDTO> selectUserDetailByRole(Long roleId);
+
+    void deleteByUsername(String username);
 }

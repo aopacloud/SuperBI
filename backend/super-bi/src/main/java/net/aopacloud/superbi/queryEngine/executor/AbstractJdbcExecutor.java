@@ -20,10 +20,12 @@ public abstract class AbstractJdbcExecutor implements JdbcExecutor {
         Stopwatch stopwatch = Stopwatch.createStarted();
         QueryResult result = new QueryResult();
         result.setSql(queryContext.getSql());
-        try (Connection connection = getConnection(queryContext.getConnectionParam())) {
-            PreparedStatement statement = connection.prepareStatement(queryContext.getSql());
+        try (Connection connection = getConnection(queryContext.getConnectionParam());
+             PreparedStatement statement = connection.prepareStatement(queryContext.getSql());
+             ResultSet resultSet = statement.executeQuery()) {
+
             statement.setFetchSize(1000);
-            ResultSet resultSet = statement.executeQuery();
+
             ResultSetMetaData metaData = resultSet.getMetaData();
             while (resultSet.next()) {
                 Object[] row = new Object[metaData.getColumnCount()];

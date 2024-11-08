@@ -13,6 +13,8 @@ import net.aopacloud.superbi.model.vo.FolderVO;
 import net.aopacloud.superbi.service.FolderService;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * Folder
  *
@@ -55,6 +57,18 @@ public class FolderController {
         folderVO.setId(id);
         folderService.update(converter.toDTO(folderVO));
         return RestApiResponse.success(folderVO);
+    }
+
+    /**
+     * update folderList
+     *
+     * @param folderVOList
+     * @return
+     */
+    @PutMapping("/list")
+    public RestApiResponse<List<FolderVO>> updateFolderList(@RequestBody List<FolderVO> folderVOList) {
+        folderService.updateList(converter.toDTOList(folderVOList));
+        return RestApiResponse.success(folderVOList);
     }
 
     /**

@@ -3,6 +3,7 @@ package net.aopacloud.superbi.model.query;
 import lombok.Data;
 import net.aopacloud.superbi.enums.AuthorizeScopeEnum;
 import net.aopacloud.superbi.enums.PrivilegeTypeEnum;
+import net.aopacloud.superbi.model.domain.Rows;
 import net.aopacloud.superbi.model.vo.DatasetAuthorizeVO;
 
 import java.util.List;
@@ -26,5 +27,9 @@ public class DatasetAuthorizeSaveVO {
 
     private String columnPrivilege;
 
-    private DatasetAuthorizeVO.Rows rows;
+    private Rows rows;
+
+    // 新增字段默认授权
+    private Boolean autoAuth = false;
+
 }

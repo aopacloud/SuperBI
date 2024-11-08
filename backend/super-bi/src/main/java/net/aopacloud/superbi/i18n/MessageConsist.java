@@ -8,7 +8,7 @@ package net.aopacloud.superbi.i18n;
 public class MessageConsist {
 
     public static final String DUPLICATE_NAME_ERROR = "duplicate.name.error";
-
+    public static final String DATASET_DUPLICATE_NAME_ERROR = "dataset.duplicate.name.error";
     public static final String DASHBOARD_NOT_FOUND_ERROR = "dashboard.not.found.error";
 
     public static final String DATASET_NOT_FOUND_ERROR = "dataset.not.found.error";

@@ -35,6 +35,8 @@ public class ConditionQuery {
 
     protected String sortType;
 
+    private Set<Long> authorizeIds;
+
     public static ConditionQuery from(BaseQuery query) {
         ConditionQuery conditionQuery = new ConditionQuery();
         conditionQuery.setKeyword(query.getKeyword());

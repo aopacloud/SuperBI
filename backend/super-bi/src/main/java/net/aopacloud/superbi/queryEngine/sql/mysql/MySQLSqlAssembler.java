@@ -18,6 +18,6 @@ public class MySQLSqlAssembler extends AbstractSqlAssembler implements SqlAssemb
     private TypeConverter typeConverter;
 
     public MySQLSqlAssembler(QueryContext queryContext) {
-        super(queryContext.getDataset(), new MySQLTypeConverter(), new MySQLTableStage(queryContext.getTable()), queryContext);
+        super(queryContext.getDataset(), new MySQLTypeConverter(), new MySQLTableStage(), queryContext);
     }
 }

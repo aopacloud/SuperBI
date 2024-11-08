@@ -8,6 +8,8 @@ import net.aopacloud.superbi.constant.BiConsist;
 import net.aopacloud.superbi.queryEngine.model.RatioMeasure;
 import net.aopacloud.superbi.queryEngine.model.RatioPart;
 import net.aopacloud.superbi.queryEngine.sql.Segment;
+import net.aopacloud.superbi.queryEngine.sql.join.Table;
+import org.assertj.core.util.Strings;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -27,7 +29,7 @@ public class RatioQueryAnalysisModel implements AnalysisModel {
 
     protected List<Segment> measures = Lists.newArrayList();
 
-    protected String table;
+    protected Table table;
 
     protected List<Segment> where = Lists.newArrayList();
 
@@ -43,12 +45,16 @@ public class RatioQueryAnalysisModel implements AnalysisModel {
 
     protected List<Segment> ratioDimensions;
 
+    protected List<RatioMeasure> ratioMeasures;
+
+    protected String ratioTimeFieldName;
+
     @Override
     public String getSql() {
 
         AnalysisModel originSubQuery = getOriginSubQuery();
 
-        List<AnalysisModel> ratioSubQueries = ratioParts.stream().map(this::getRatioSubQuery).collect(Collectors.toList());
+        List<AnalysisModel> ratioSubQueries = ratioParts.stream().map(part -> getRatioSubQuery(part, false)).collect(Collectors.toList());
 
         // select
         List<String> outSideSelection = dimensions.stream().map(dim -> String.format("t1.%s", dim.getAlias())).collect(Collectors.toList());
@@ -56,16 +62,21 @@ public class RatioQueryAnalysisModel implements AnalysisModel {
         for (Segment measure: measures) {
             outSideSelection.add(String.format("t1.%s", measure.getAlias()));
 
-            for(int i = 0; i < ratioParts.size(); i ++) {
-                RatioPart part = ratioParts.get(i);
-                Optional<RatioMeasure> ratioMeasure = part.getRatioMeasures().stream().filter(m -> measure.getAlias().equals(m.getId())).findFirst();
-                if(ratioMeasure.isPresent()){
-                    outSideSelection.add(String.format("t%d.%s as `%s`", i + 2, measure.getAlias(), ratioMeasure.get().getRatioAlias().replaceAll("`", "") ));
+            for(RatioMeasure ratioMeasure: ratioMeasures) {
+                if (ratioMeasure.getId().equals(measure.getAlias())) {
+                    for(int i = 0; i < ratioParts.size(); i ++) {
+                        RatioPart part = ratioParts.get(i);
+                        Optional<RatioMeasure> ratioMeasureOpt = part.getRatioMeasures().stream().filter(m -> ratioMeasure.getRatioAlias().equals(m.getRatioAlias())).findFirst();
+                        if(ratioMeasureOpt.isPresent()){
+                            outSideSelection.add(String.format("t%d.%s as `%s`", i + 2, measure.getAlias(), ratioMeasureOpt.get().getRatioAlias().replaceAll("`", "") ));
+                        }
+                    }
                 }
             }
         }
 
         StringBuilder sql = new StringBuilder();
+        sql.append("set distributed_product_mode = 'global';");
         sql.append("select ");
         sql.append(Joiner.on(" , ").join(outSideSelection));
         sql.append(" from ");
@@ -79,7 +90,11 @@ public class RatioQueryAnalysisModel implements AnalysisModel {
             sql.append(" on ");
 
             List<String> onFields = ratioDimensions.stream().map(dim -> String.format(" t1.%s = %s.%s ", dim.getAlias(),tableAlias, dim.getAlias())).collect(Collectors.toList());
-            sql.append(Joiner.on(" and ").join(onFields));
+            if (!onFields.isEmpty()) {
+                sql.append(Joiner.on(" and ").join(onFields));
+            } else {
+                sql.append(" 1=1 ");
+            }
         }
 
         if (!Objects.isNull(paging)) {
@@ -102,7 +117,7 @@ public class RatioQueryAnalysisModel implements AnalysisModel {
         return originSubQuery;
     }
 
-    protected AnalysisModel getRatioSubQuery(RatioPart part) {
+    protected AnalysisModel getRatioSubQuery(RatioPart part, boolean withJoinTableFilter) {
 
         Segment joinOnSegment = part.getJoinOnSegment();
 
@@ -123,8 +138,11 @@ public class RatioQueryAnalysisModel implements AnalysisModel {
                 .filter(item -> !ratioTimeFieldSet.contains(item.getName()))
                 .collect(Collectors.toList());
 
+        Table subTable = withJoinTableFilter ? getFilterJoinTable(ratioTimeRanges) : table.clone();
+
         if (Objects.nonNull(ratioTimeRanges) && !ratioTimeRanges.isEmpty()) {
             ratioWhere.addAll(ratioTimeRanges);
+            subTable.replacePushDownFilter(ratioTimeRanges.stream().findFirst().get());
         }
 
         QueryAnalysisModel ratioSubQuery = new QueryAnalysisModel()
@@ -132,11 +150,46 @@ public class RatioQueryAnalysisModel implements AnalysisModel {
                 .addWhere(ratioWhere)
                 .addHaving(having)
                 .addGroupBy(ratioDimension)
-                .setTable(table)
+                .setTable(subTable)
                 .setWithPaging(Boolean.FALSE);
 
         return ratioSubQuery;
     }
 
+    public Table getFilterJoinTable(List<Segment> ratioTimeRanges) {
+        StringBuilder tableSql = new StringBuilder();
 
+        Table filterTable = table.clone();
+        if (Objects.nonNull(ratioTimeRanges) && !ratioTimeRanges.isEmpty()) {
+            filterTable.replacePushDownFilter(ratioTimeRanges.stream().findFirst().get());
+        }
+
+        String tmpTableSql = filterTable.produce();
+        if (tmpTableSql.endsWith(BiConsist.JOIN_TABLE_ALIAS)) {
+            tmpTableSql = tmpTableSql.substring(0, tmpTableSql.length() - BiConsist.JOIN_TABLE_ALIAS.length());
+        }
+        tableSql.append(tmpTableSql).append(" tt");
+
+        List<Segment> selectedDimensions = dimensions.stream()
+                .filter(segment -> !segment.getName().equals(ratioTimeFieldName))
+                .map(segment -> new Segment(segment.getName(), segment.getAggregator(), segment.getExpression(), String.format("`%s%s`", segment.getName(), BiConsist.INNER_ALIAS)))
+                .collect(Collectors.toList());
+
+        if(!selectedDimensions.isEmpty()) {
+            QueryAnalysisModel originSubQuery = new QueryAnalysisModel()
+                    .addDimensions(selectedDimensions)
+                    .addWhere(where)
+                    .addHaving(having)
+                    .addGroupBy(selectedDimensions)
+                    .setTable(filterTable)
+                    .setWithPaging(Boolean.FALSE);
+
+            tableSql.append(" join (").append(originSubQuery.getSql()).append(" ) tm");
+            List<String> joinOn = selectedDimensions.stream().map(segment -> String.format("%s = tm.`%s%s`", segment.getExpression(), segment.getName(), BiConsist.INNER_ALIAS)).collect(Collectors.toList());
+            if (!joinOn.isEmpty()) {
+                tableSql.append(" on ").append(Joiner.on(" and ").join(joinOn));
+            }
+        }
+        return Table.builder().table(tableSql.toString()).build();
+    }
 }

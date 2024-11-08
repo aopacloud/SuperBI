@@ -1,6 +1,7 @@
 package net.aopacloud.superbi.model.converter;
 
 import net.aopacloud.superbi.model.dto.DatasetDTO;
+import net.aopacloud.superbi.model.dto.DatasetMetaConfigDTO;
 import net.aopacloud.superbi.model.entity.Dataset;
 import net.aopacloud.superbi.model.entity.DatasetField;
 import net.aopacloud.superbi.model.entity.DatasetMetaConfig;
@@ -20,5 +21,5 @@ public interface DatasetConverter extends BaseConverter<DatasetVO, DatasetDTO, D
     @Mapping(source = "dataset.version", target = "version")
     @Mapping(source = "dataset.createTime", target = "createTime")
     @Mapping(source = "dataset.updateTime", target = "updateTime")
-    DatasetDTO toDTO(Dataset dataset, DatasetMetaConfig config, List<DatasetField> fields);
+    DatasetDTO toDTO(Dataset dataset, DatasetMetaConfigDTO config, List<DatasetField> fields);
 }

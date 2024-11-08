@@ -9,20 +9,19 @@ import net.aopacloud.superbi.common.core.utils.StringUtils;
 import net.aopacloud.superbi.constant.BiConsist;
 import net.aopacloud.superbi.enums.DataTypeEnum;
 import net.aopacloud.superbi.enums.FieldCategoryEnum;
-import net.aopacloud.superbi.enums.FieldTypeEnum;
 import net.aopacloud.superbi.i18n.LocaleMessages;
 import net.aopacloud.superbi.i18n.MessageConsist;
-import net.aopacloud.superbi.model.dto.DatasetDTO;
-import net.aopacloud.superbi.model.dto.DatasetExtraConfigDTO;
-import net.aopacloud.superbi.model.dto.DatasetFieldDTO;
-import net.aopacloud.superbi.model.dto.TablePartition;
-import net.aopacloud.superbi.queryEngine.TableMergeStage;
+import net.aopacloud.superbi.model.domain.MetaConfigContent;
+import net.aopacloud.superbi.model.dto.*;
 import net.aopacloud.superbi.queryEngine.enums.*;
 import net.aopacloud.superbi.queryEngine.model.*;
 import net.aopacloud.superbi.queryEngine.sql.aggregator.Aggregators;
 import net.aopacloud.superbi.queryEngine.sql.analytic.*;
+import net.aopacloud.superbi.queryEngine.sql.join.Table;
+import net.aopacloud.superbi.queryEngine.sql.join.TableJoinSQLGenerator;
 import net.aopacloud.superbi.queryEngine.sql.operator.FunctionalOperatorEnum;
 import net.aopacloud.superbi.queryEngine.sql.operator.OperatorParam;
+import net.aopacloud.superbi.queryEngine.util.TimeRangeParser;
 import net.aopacloud.superbi.util.FieldUtils;
 import net.aopacloud.superbi.util.JSONUtils;
 
@@ -56,8 +55,10 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
         this.typeConverter = typeConverter;
         this.tableStage = tableStage;
         this.queryContext = queryContext;
-        fieldMap = dataset.getFields().stream().collect(Collectors.toMap(DatasetFieldDTO::getName, field -> field));
-        this.expressionParser = new ExpressionParser(fieldMap,typeConverter);
+        if (Objects.nonNull(dataset) && Objects.nonNull(dataset.getFields())) {
+            fieldMap = dataset.getFields().stream().collect(Collectors.toMap(DatasetFieldDTO::getName, field -> field));
+        }
+        this.expressionParser = new ExpressionParser(fieldMap, typeConverter);
     }
 
     @Override
@@ -83,6 +84,29 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
 
         switch (queryParam.getType()) {
             case QUERY:
+                //判断是否是分组topN查询
+                if (checkTopN(queryParam)) {
+                    Segment sortField = measures.stream()
+                            .filter(segment -> queryParam.getSorts().get(0).getSortField().equals(String.format("%s.%s", segment.getName(), segment.getAggregator())))
+                            .collect(Collectors.toList()).get(0);
+                    List<Segment> sortGroup = Lists.newArrayList();
+                    queryParam.getSorts().get(0).getSortGroup().forEach(group -> dimensions.forEach(dimension -> {
+                        if (dimension.getName().equals(group)) {
+                            sortGroup.add(dimension);
+                        }
+                    }));
+                    return new TopNAnalysisModel().addDimensions(dimensions).addMeasure(measures)
+                            .addWhere(filters)
+                            .addHaving(having)
+                            .addGroupBy(dimensions)
+                            .setTable(getTable())
+                            .setOrderBy(orderBy)
+                            .setPaging(paging)
+                            .setTopN(queryParam.getSorts().get(0).getLimit())
+                            .setSortField(sortField)
+                            .setSortType(queryParam.getSorts().get(0).getSortType())
+                            .setSortGroup(sortGroup);
+                }
                 return new QueryAnalysisModel().addDimensions(dimensions).addMeasure(measures)
                         .addWhere(filters)
                         .addHaving(having)
@@ -121,11 +145,40 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
                 Compare compare = queryParam.getCompare();
                 List<RatioPart> ratioParts = parseRatioPart(compare, queryParam, dimensions);
                 List<Segment> ratioDimSegments = dimensions;
-                if(Objects.nonNull(compare.getDimensions())) {
+                if (Objects.nonNull(compare.getDimensions())) {
                     Set<String> ratioDimNameSet = compare.getDimensions().stream().map(Dimension::getName).collect(Collectors.toSet());
                     ratioDimSegments = dimensions.stream().filter(dim -> ratioDimNameSet.contains(dim.getName())).collect(Collectors.toList());
                 }
 
+                //判断是否是分组topN查询
+                if (checkTopN(queryParam)) {
+                    Segment sortField = measures.stream()
+                            .filter(segment -> queryParam.getSorts().get(0).getSortField().equals(String.format("%s.%s", segment.getName(), segment.getAggregator())))
+                            .collect(Collectors.toList()).get(0);
+                    List<Segment> sortGroup = Lists.newArrayList();
+                    queryParam.getSorts().get(0).getSortGroup().forEach(group -> dimensions.forEach(dimension -> {
+                        if (dimension.getName().equals(group)) {
+                            sortGroup.add(dimension);
+                        }
+                    }));
+                    TopNRatioAnalysisModel topNRatioAnalysisModel = (TopNRatioAnalysisModel) new TopNRatioAnalysisModel().setDimensions(dimensions)
+                            .setMeasures(measures)
+                            .setWhere(filters)
+                            .setHaving(having)
+                            .setGroupBy(dimensions)
+                            .setTable(getTable())
+                            .setOrderBy(orderBy)
+                            .setPaging(paging)
+                            .setRatioParts(ratioParts)
+                            .setRatioMeasures(compare.getMeasures())
+                            .setRatioDimensions(ratioDimSegments)
+                            .setRatioTimeFieldName(compare.getTimeField());
+                    topNRatioAnalysisModel.setTopN(queryParam.getSorts().get(0).getLimit())
+                            .setSortField(sortField)
+                            .setSortType(queryParam.getSorts().get(0).getSortType())
+                            .setSortGroup(sortGroup);
+                    return topNRatioAnalysisModel;
+                }
                 return new RatioQueryAnalysisModel().setDimensions(dimensions)
                         .setMeasures(measures)
                         .setWhere(filters)
@@ -135,7 +188,9 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
                         .setOrderBy(orderBy)
                         .setPaging(paging)
                         .setRatioParts(ratioParts)
-                        .setRatioDimensions(ratioDimSegments);
+                        .setRatioMeasures(compare.getMeasures())
+                        .setRatioDimensions(ratioDimSegments)
+                        .setRatioTimeFieldName(compare.getTimeField());
 
             case PREVIEW:
                 List<Segment> dimSegments = queryParam.getDataset().getFields().stream()
@@ -175,20 +230,29 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
         }
     }
 
+    public static Boolean checkTopN(QueryParam queryParam) {
+        if (queryParam.getSorts() != null && queryParam.getSorts().size() > 0
+                && queryParam.getSorts().get(0) != null && queryParam.getSorts().get(0).getComputeType() != null
+                && queryParam.getSorts().get(0).getComputeType().equals("group")) {
+            return true;
+        }
+        return false;
+    }
+
     private List<Segment> parsePartitionRange(DatasetDTO dataset, QueryParam queryParam) {
-        if(Strings.isNullOrEmpty(dataset.getExtraConfig())) {
+        if (Strings.isNullOrEmpty(dataset.getExtraConfig())) {
             return Lists.newArrayList();
         }
         DatasetExtraConfigDTO extraConfig = JSONUtils.parseObject(dataset.getExtraConfig(), DatasetExtraConfigDTO.class);
 
-        if(Objects.isNull(extraConfig) || Objects.isNull(extraConfig.getPartitionRanges()) || extraConfig.getPartitionRanges().isEmpty()) {
+        if (Objects.isNull(extraConfig) || Objects.isNull(extraConfig.getPartitionRanges()) || extraConfig.getPartitionRanges().isEmpty()) {
             return Lists.newArrayList();
         }
 
         List<Filter> partitionRanges = extraConfig.getPartitionRanges();
         List<Filter> filters = queryParam.getFilters();
-        for(Filter partitionRange : partitionRanges) {
-            for(Filter filter : filters) {
+        for (Filter partitionRange : partitionRanges) {
+            for (Filter filter : filters) {
                 verifyPartitionRange(filter, partitionRange);
             }
         }
@@ -198,37 +262,37 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
 
     private void verifyPartitionRange(Filter filter, Filter partitionRange) {
 
-        if(queryContext.getQueryParam().getType() == QueryTypeEnum.TOTAL) {
+        if (queryContext.getQueryParam().getType() == QueryTypeEnum.TOTAL) {
             return;
         }
 
-        if(!filter.getName().equals(partitionRange.getName())) {
+        if (!filter.getName().equals(partitionRange.getName())) {
             return;
         }
-        if(!filter.getDataType().isTime()) {
+        if (!filter.getDataType().isTime()) {
             return;
         }
-        if(!partitionRange.getDataType().isTime()){
+        if (!partitionRange.getDataType().isTime()) {
             return;
         }
         List<Condition> filterConditions = filter.getConditions();
-        if(Objects.isNull(filterConditions) || filterConditions.isEmpty()) {
+        if (Objects.isNull(filterConditions) || filterConditions.isEmpty()) {
             return;
         }
         List<LocalDateTime> filterDateTimes = parseTimeRange(filterConditions.get(0));
 
         List<Condition> partitionConditions = partitionRange.getConditions();
-        if(Objects.isNull(partitionConditions) || partitionConditions.isEmpty()){
+        if (Objects.isNull(partitionConditions) || partitionConditions.isEmpty()) {
             return;
         }
-        if(Objects.isNull(partitionConditions.get(0).getArgs())){
+        if (Objects.isNull(partitionConditions.get(0).getArgs())) {
             return;
         }
         List<LocalDateTime> partitionDateTimes = parseTimeRange(partitionConditions.get(0));
 
-        if(partitionDateTimes.size() == 1) {
+        if (partitionDateTimes.size() == 1) {
             LocalDateTime partitionDateTime = partitionDateTimes.get(0);
-            if(filterDateTimes.size() == 1) {
+            if (filterDateTimes.size() == 1) {
                 LocalDateTime filterDateTime = filterDateTimes.get(0);
                 if (!partitionDateTime.isEqual(filterDateTime)) {
                     throw new ServiceException(LocaleMessages.getMessage(MessageConsist.PARTITION_OUT_OF_RANGE));
@@ -237,7 +301,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
                 LocalDateTime start = filterDateTimes.get(0);
                 LocalDateTime end = filterDateTimes.get(1);
 
-                if(start.isAfter(partitionDateTime) || end.isBefore(partitionDateTime)) {
+                if (start.isAfter(partitionDateTime) || end.isBefore(partitionDateTime)) {
                     throw new ServiceException(LocaleMessages.getMessage(MessageConsist.PARTITION_OUT_OF_RANGE));
                 }
             }
@@ -245,7 +309,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
             LocalDateTime partitionStart = partitionDateTimes.get(0);
             LocalDateTime partitionEnd = partitionDateTimes.get(1);
 
-            if(filterDateTimes.size() == 1) {
+            if (filterDateTimes.size() == 1) {
                 LocalDateTime filterDateTime = filterDateTimes.get(0);
                 if (filterDateTime.isAfter(partitionEnd) || filterDateTime.isBefore(partitionStart)) {
                     throw new ServiceException(LocaleMessages.getMessage(MessageConsist.PARTITION_OUT_OF_RANGE));
@@ -254,7 +318,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
                 LocalDateTime start = filterDateTimes.get(0);
                 LocalDateTime end = filterDateTimes.get(1);
 
-                if(start.isAfter(partitionEnd) || end.isBefore(partitionStart)) {
+                if (start.isAfter(partitionEnd) || end.isBefore(partitionStart)) {
                     throw new ServiceException(LocaleMessages.getMessage(MessageConsist.PARTITION_OUT_OF_RANGE));
                 }
             }
@@ -324,7 +388,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
                 break;
             default:
 //                segments.add(new Segment(name, typeConverter.toDay(expression)));
-                segments.add(new Segment(name,expression));
+                segments.add(new Segment(name, expression));
                 break;
         }
 
@@ -344,13 +408,17 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
 
         if (!Strings.isNullOrEmpty(field.getComputeExpression())) {
             String computed = String.format("( (%s) %s)", aggregation, field.getComputeExpression());
-            return new Segment(measure.getName(), measure.getAggregator(), computed);
+            return new Segment(measure.getName(), measure.getAggregator(), computed, measure.getId());
         } else {
-            return new Segment(measure.getName(), measure.getAggregator(), aggregation);
+            return new Segment(measure.getName(), measure.getAggregator(), aggregation, measure.getId());
         }
     }
 
     public Segment parseFilter(Filter filter) {
+        //判断组合过滤
+        if (filter.isNested()) {
+            return new Segment(filter.getName(), filter.getTableFilter().parseFilterConditionWithNestFilter(queryContext.getDataset()));
+        }
 
         DatasetFieldDTO field = queryContext.getFieldMap().get(filter.getName());
 
@@ -376,7 +444,13 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
 
         DatasetFieldDTO field = queryContext.getFieldMap().get(filter.getName());
 
-        String expression = measureSegments.stream().filter(segment -> filter.getName().equals(segment.getName())).findFirst().get().getExpression();
+        Optional<Segment> filterSegment = measureSegments.stream().filter(segment -> filter.getName().equals(segment.getName())).findFirst();
+
+        if (!filterSegment.isPresent()) {
+            return null;
+        }
+
+        String expression = filterSegment.get().getExpression();
 
         List<String> conditionExpression = filter.getConditions().stream().map(condition -> parseCondition(condition, expression, field)).filter(item -> !Strings.isNullOrEmpty(item)).collect(Collectors.toList());
 
@@ -416,24 +490,23 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
 
     public List<LocalDateTime> parseTimeRange(Condition condition) {
 
-        if (condition.isUseLatestPartitionValue()) {
-            return TimeTypeEnum.EXACT.getDateTime(Lists.newArrayList(getDataset().getLatestPartitionValue(), getDataset().getLatestPartitionValue()), Lists.newArrayList());
-        }
-
-        List<String> args = condition.getArgs();
-
-        if (args.size() == 1) {
-            args = Lists.newArrayList(args.get(0), args.get(0));
-        }
-
-        return condition.getTimeType().getDateTime(args, condition.getTimeParts());
+        return TimeRangeParser.parseTimeRange(condition, getDataset().getLatestPartitionValue());
 
     }
 
     public Segment parseSortBy(Sort sort, List<Segment> measureSegments) {
 
         String fieldName = sort.getSortField();
-        Segment measure = measureSegments.stream().filter(segment -> fieldName.equals(segment.getName()) || fieldName.equals(String.format("%s.%s", segment.getName(), segment.getAggregator()))).findFirst().get();
+        Optional<Segment> measureOptional = measureSegments.
+                stream().
+                filter(segment -> fieldName.equals(segment.getName()) || fieldName.equals(String.format("%s.%s", segment.getName(), segment.getAggregator()))).
+                findFirst();
+
+        if (!measureOptional.isPresent()) {
+            return null;
+        }
+
+        Segment measure = measureOptional.get();
 
         if (Objects.isNull(sort.getLimit())) {
             return new Segment(fieldName, String.format(" %s %s ", measure.getExpression(), sort.getSortType()));
@@ -453,22 +526,26 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
         }
         return new Segment(limit.toString());
     }
+
     private List<RatioPart> parseRatioPart(Compare compare, QueryParam queryParam, List<Segment> dimensionSegments) {
 
         String timeField = compare.getTimeField();
 
         Optional<Dimension> timeDimension = queryParam.getDimensions().stream().filter(dim -> dim.getName().equals(timeField)).findFirst();
-        DateTruncEnum dateTrunc = Strings.isNullOrEmpty(timeDimension.get().getDateTrunc()) ? DateTruncEnum.ORIGIN : DateTruncEnum.valueOf(timeDimension.get().getDateTrunc());
+//        if (!timeDimension.isPresent()) {
+//            throw new ServiceException(LocaleMessages.getMessage("ratio.time.must.in.dim"));
+//        }
+        DateTruncEnum dateTrunc = !timeDimension.isPresent() || Strings.isNullOrEmpty(timeDimension.get().getDateTrunc()) ? DateTruncEnum.ORIGIN : DateTruncEnum.valueOf(timeDimension.get().getDateTrunc());
 
-        Segment timeDimSegment = dimensionSegments.stream().filter(dim -> dim.getName().equals(timeField)).findFirst().get();
+        Optional<Segment> timeDimSegment = dimensionSegments.stream().filter(dim -> dim.getName().equals(timeField)).findFirst();
 
         List<RatioMeasure> measures = compare.getMeasures();
         // compatible old version
-        for(RatioMeasure ratioMeasure : measures) {
-            if(Objects.isNull(ratioMeasure.getRatioType())) {
+        for (RatioMeasure ratioMeasure : measures) {
+            if (Objects.isNull(ratioMeasure.getRatioType())) {
                 ratioMeasure.setRatioType(compare.getType());
             }
-            if(Objects.isNull(ratioMeasure.getPeriod())) {
+            if (Objects.isNull(ratioMeasure.getPeriod())) {
                 if ((dateTrunc == DateTruncEnum.DAY || dateTrunc == DateTruncEnum.ORIGIN) && ratioMeasure.getRatioType() != RatioTypeEnum.CHAIN) {
                     ratioMeasure.setPeriod(RatioPeriodEnum.WHOLE);
                 } else {
@@ -479,20 +556,20 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
 
         Map<RatioMeasure.RatioPair, List<RatioMeasure>> groupingMeasures = measures.stream().collect(Collectors.groupingBy(RatioMeasure::getRatioPari));
 
-        return groupingMeasures.entrySet().stream().map( entry -> {
-            RatioMeasure.RatioPair ratioPair = entry.getKey();
-            Segment joinOnField = parseJoinOnField(ratioPair.getType(), dateTrunc, timeDimSegment);
+        return groupingMeasures.entrySet().stream().map(entry -> {
+                    RatioMeasure.RatioPair ratioPair = entry.getKey();
+                    Segment joinOnField = parseJoinOnField(ratioPair.getType(), dateTrunc, timeDimSegment);
 
-            List<Segment> ratioTimeRanges = parseRatioTimeRange(compare, queryParam, ratioPair.getType(), ratioPair.getPeriod());
+                    List<Segment> ratioTimeRanges = parseRatioTimeRange(compare, queryParam, ratioPair.getType(), ratioPair.getPeriod());
 
-            return  RatioPart.builder()
-                    .type(ratioPair.getType())
-                    .period(ratioPair.getPeriod())
-                    .ratioMeasures(entry.getValue())
-                    .joinOnSegment(joinOnField)
-                    .timeRanges(ratioTimeRanges)
-                    .build();
-            }
+                    return RatioPart.builder()
+                            .type(ratioPair.getType())
+                            .period(ratioPair.getPeriod())
+                            .ratioMeasures(entry.getValue())
+                            .joinOnSegment(joinOnField)
+                            .timeRanges(ratioTimeRanges)
+                            .build();
+                }
         ).collect(Collectors.toList());
     }
 
@@ -501,7 +578,9 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
         String timeFieldName = compare.getTimeField();
         DatasetFieldDTO timeField = queryContext.getFieldMap().get(timeFieldName);
 
-        List<Filter> filterFields = queryParam.getFilters().stream().filter(filter -> filter.getName().equals(timeFieldName) || BiConsist.DEFAULT_PARTITION_NAME.equals(filter.getName())).collect(Collectors.toList());
+        List<Filter> filterFields = queryParam.getFilters().stream()
+                .filter(filter -> Objects.nonNull(filter.getName()) && (filter.getName().equals(timeFieldName) ))
+                .collect(Collectors.toList());
         Optional<Filter> partitionFilterFieldOptional = queryParam.getFilters().stream().filter(filter -> BiConsist.DEFAULT_PARTITION_NAME.equals(filter.getName())).findFirst();
         Optional<Filter> timeFilterFieldOptional = queryParam.getFilters().stream().filter(filter -> filter.getName().equals(timeFieldName)).findFirst();
 
@@ -543,7 +622,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
             DatasetFieldDTO field = queryContext.getFieldMap().get(filterFieldName);
             List<String> rationTimeRange = ratioType.transformTime(timeRange, dataTrunc, ratioPeriod, timeField)
                     .stream()
-                    .map(time -> field.getDataType() == DataTypeEnum.TIME_YYYYMMDD_HHMMSS ?  time.format(BiConsist.YYYY_MM_DD_HH_MM_SS_FORMATTER) : time.format(BiConsist.YYYY_MM_DD_FORMATTER))
+                    .map(time -> field.getDataType() == DataTypeEnum.TIME_YYYYMMDD_HHMMSS ? time.format(BiConsist.YYYY_MM_DD_HH_MM_SS_FORMATTER) : time.format(BiConsist.YYYY_MM_DD_FORMATTER))
                     .collect(Collectors.toList());
 
             String expression = expressionParser.parse(field);
@@ -559,17 +638,18 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
     }
 
 
-    public Segment parseJoinOnField(RatioTypeEnum ratioType, DateTruncEnum dateTrunc, Segment timeSegment) {
+    public Segment parseJoinOnField(RatioTypeEnum ratioType, DateTruncEnum dateTrunc, Optional<Segment> timeSegmentOptional) {
 
-        if(Objects.isNull(timeSegment)) {
+        if (!timeSegmentOptional.isPresent()) {
             return null;
         }
+        Segment timeSegment = timeSegmentOptional.get();
         DatasetFieldDTO field = queryContext.getFieldMap().get(timeSegment.getName());
         String expression = ratioType.transformDimension(timeSegment.getExpression(), dateTrunc, typeConverter, field);
         return new Segment(timeSegment.getName(), expression);
     }
 
-    private boolean isHavingFilter(Filter filter) {
+    protected boolean isHavingFilter(Filter filter) {
         DatasetFieldDTO field = queryContext.getFieldMap().get(filter.getName());
         String expression = expressionParser.parse(field);
         return filter.isHaving() || FieldUtils.hasAggregation(expression);
@@ -588,7 +668,7 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
                 return field.get();
             }
 
-            return getDataset().getFields().stream().filter(f -> f.getName().equals(BiConsist.DEFAULT_PARTITION_NAME)).findFirst().get();
+            return getDataset().getFields().stream().filter(f -> f.getName().equals(BiConsist.DEFAULT_PARTITION_NAME)).findFirst().orElse(null);
         } catch (Exception e) {
             log.error("get partition field error", e);
         }
@@ -600,11 +680,35 @@ public abstract class AbstractSqlAssembler implements SqlAssembler {
     }
 
 
-    private String getTable() {
-        if(queryContext.getConnectionParam().isRealtime()) {
-            return tableStage.getRealTimeTable();
-        } else {
-            return tableStage.getTable();
+    @Override
+    public Table getTable() {
+        ConnectionParamDTO connectionParam = queryContext.getConnectionParam();
+        MetaConfigContent metaConfigContent = dataset.getConfig().getContent();
+        if (Objects.nonNull(dataset.getConfig().getContent())) {
+
+            Map<String, Boolean> tableAttrs = connectionParam.getTableAttrs();
+
+            metaConfigContent.getTables().forEach(table -> {
+                if (tableAttrs.get(table.getTableIdentifier())) {
+                    table.setTableName(tableStage.getRealTimeTable(table.getTableName()));
+                }
+            });
+
+            return Table.builder()
+                    .sqlAssembler(this)
+                    .configContent(metaConfigContent)
+                    .dataset(dataset)
+                    .build();
         }
+
+        if (connectionParam.isRealtime()) {
+            return Table.builder().table(tableStage.getRealTimeTable(queryContext.getTable())).build();
+        } else {
+            return Table.builder().table(tableStage.getTable(queryContext.getTable())).build();
+        }
+    }
+
+    public QueryContext getQueryContext() {
+        return queryContext;
     }
 }

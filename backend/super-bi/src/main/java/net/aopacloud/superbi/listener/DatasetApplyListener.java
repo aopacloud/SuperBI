@@ -63,6 +63,7 @@ public class DatasetApplyListener {
                             .status(ApplyStatusEnum.PASSED)
                             .aliasName(sysUserService.getUserAliasName(datasetApply.getUsername()))
                             .datasetCreatorAlias(sysUserService.getUserAliasName(datasetApply.getDatasetCreator()))
+                            .reason(datasetApply.getReason())
                             .operator(datasetApply.getDatasetCreator())
                             .applyId(datasetApply.getId())
                             .build();

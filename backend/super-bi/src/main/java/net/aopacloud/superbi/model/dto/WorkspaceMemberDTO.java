@@ -1,6 +1,7 @@
 package net.aopacloud.superbi.model.dto;
 
 import lombok.Data;
+import lombok.experimental.Accessors;
 
 import java.util.Date;
 
@@ -10,6 +11,7 @@ import java.util.Date;
  * @description:
  */
 @Data
+@Accessors(chain = true)
 public class WorkspaceMemberDTO {
 
     private Long id;

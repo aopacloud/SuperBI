@@ -5,7 +5,8 @@ public enum QueryTypeEnum {
     TOTAL("query total", false, true),
     SINGLE_FIELD("query single field values", false, false),
     RATIO("query ratio", true, true),
-    PREVIEW("dataset preview", false, false);
+    PREVIEW("dataset preview", false, false),
+    ALERT("data alert", false, false);
 
     private String msg;
 

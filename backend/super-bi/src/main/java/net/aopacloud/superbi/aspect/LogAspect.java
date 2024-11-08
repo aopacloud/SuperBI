@@ -81,7 +81,6 @@ public class LogAspect {
             applicationContext.publishEvent(operatorEvent);
         } catch (Exception exception) {
             log.error("write log with exception: {}", exception.getMessage());
-            exception.printStackTrace();
         } finally {
             TIME_THREAD_LOCAL.remove();
         }
@@ -141,13 +140,13 @@ public class LogAspect {
             return clazz.getComponentType().isAssignableFrom(MultipartFile.class);
         } else if (Collection.class.isAssignableFrom(clazz)) {
             Collection collection = (Collection) o;
-            for (Object value : collection) {
-                return value instanceof MultipartFile;
+            if (!collection.isEmpty()) {
+                return collection.iterator().next() instanceof MultipartFile;
             }
         } else if (Map.class.isAssignableFrom(clazz)) {
             Map map = (Map) o;
-            for (Object value : map.entrySet()) {
-                Map.Entry entry = (Map.Entry) value;
+            if (!map.isEmpty()) {
+                Map.Entry entry = (Map.Entry) map.entrySet().iterator().next();
                 return entry.getValue() instanceof MultipartFile;
             }
         }

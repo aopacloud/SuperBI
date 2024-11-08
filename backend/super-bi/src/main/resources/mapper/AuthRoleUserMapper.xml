@@ -38,6 +38,9 @@
         #{listItem}
     </foreach>
   </delete>
+    <delete id="deleteByUsername">
+      delete from bi_auth_role_user where username = #{username}
+    </delete>
     <select id="countByRoleId" resultType="java.lang.Integer">
         select count(*) from bi_auth_role_user where role_id = #{roleId}
     </select>

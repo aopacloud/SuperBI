@@ -26,6 +26,10 @@ public enum DataTypeEnum {
         return this == TIME || this == TIME_YYYY || this == TIME_YYYYMM || this == TIME_YYYYMMDD || this == TIME_YYYYMMDD_HHMMSS;
     }
 
+    public boolean isNumber() {
+        return this == NUMBER;
+    }
+
     public boolean isText() {
         return this == TEXT;
     }

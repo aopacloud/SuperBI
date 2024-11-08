@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * @Description:
@@ -35,17 +36,16 @@ public class SysRoleMenuServiceImpl implements SysRoleMenuService {
             return;
         }
 
-        SysRoleMenuDTO sysRoleMenuDTO = sysRoleMenuDTOS.stream().findFirst().get();
-        Long roleId = sysRoleMenuDTO.getRoleId();
-
-        sysRoleMenuMapper.deleteByRoleId(roleId);
+        Optional<SysRoleMenuDTO> firstSysRoleMenu = sysRoleMenuDTOS.stream().findFirst();
+        if(firstSysRoleMenu.isPresent()) {
+            sysRoleMenuMapper.deleteByRoleId(firstSysRoleMenu.get().getRoleId());
+        }
 
         sysRoleMenuDTOS.stream().forEach(sysRoleMenu -> {
             sysRoleMenu.setOperator(LoginContextHolder.getUsername());
             sysRoleMenu.setCreator(LoginContextHolder.getUsername());
             sysRoleMenuMapper.insert(converter.toEntity(sysRoleMenu));
         });
-
     }
 
     @Override

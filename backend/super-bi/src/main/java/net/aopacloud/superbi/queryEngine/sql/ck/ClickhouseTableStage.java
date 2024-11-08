@@ -1,22 +1,16 @@
 package net.aopacloud.superbi.queryEngine.sql.ck;
 
-import net.aopacloud.superbi.queryEngine.TableMergeStage;
+import net.aopacloud.superbi.queryEngine.sql.TableMergeStage;
 
 public class ClickhouseTableStage implements TableMergeStage {
 
-    private String originTable;
-
-    public ClickhouseTableStage(String originTable) {
-        this.originTable = originTable;
-    }
-
     @Override
-    public String getTable() {
+    public String getTable(String originTable) {
         return originTable;
     }
 
     @Override
-    public String getRealTimeTable() {
+    public String getRealTimeTable(String originTable) {
         return String.format(" %s final ", originTable);
     }
 }

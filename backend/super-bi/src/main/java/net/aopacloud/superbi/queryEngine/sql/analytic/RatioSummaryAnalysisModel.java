@@ -16,21 +16,28 @@ import net.aopacloud.superbi.queryEngine.model.RatioPart;
 @Accessors(chain = true)
 public class RatioSummaryAnalysisModel extends RatioQueryAnalysisModel {
 
+    private boolean summaryRow;
+
+    private boolean summaryDetail;
+
     public RatioSummaryAnalysisModel(AnalysisModel query) {
         BeanUtils.copyBeanProp(this, query);
     }
 
-    protected AnalysisModel getRatioSubQuery(RatioPart part) {
+    @Override
+    protected AnalysisModel getRatioSubQuery(RatioPart part, boolean withJoinTableFilter) {
 
-        QueryAnalysisModel queryAnalysisModel = (QueryAnalysisModel) super.getRatioSubQuery(part);
+        QueryAnalysisModel queryAnalysisModel = (QueryAnalysisModel) super.getRatioSubQuery(part, true);
 
-        return new SummaryAnalysisModel(queryAnalysisModel);
+        return new SummaryAnalysisModel(queryAnalysisModel, summaryRow, summaryDetail);
     }
 
     @Override
     protected AnalysisModel getOriginSubQuery() {
         QueryAnalysisModel queryAnalysisModel = (QueryAnalysisModel) super.getOriginSubQuery();
 
-        return new SummaryAnalysisModel(queryAnalysisModel);
+        return new SummaryAnalysisModel(queryAnalysisModel, summaryRow, summaryDetail);
     }
+
+
 }

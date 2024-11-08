@@ -17,6 +17,12 @@ public class DatasetAuthorize {
 
     private Long id;
 
+    // 新增字段默认授权
+    private Boolean autoAuth;
+
+    // autoAuth开启时，字段的版本
+    private Integer version;
+
     private AuthorizeScopeEnum scope;
 
     private PermissionEnum permission;
@@ -42,6 +48,8 @@ public class DatasetAuthorize {
     private String rowParam;
 
     private String remark;
+
+    private Integer expired;
 
     private Integer deleted;
 

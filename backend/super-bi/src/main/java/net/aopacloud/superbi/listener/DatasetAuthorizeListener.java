@@ -9,6 +9,7 @@ import net.aopacloud.superbi.enums.EventActionEnum;
 import net.aopacloud.superbi.enums.PermissionEnum;
 import net.aopacloud.superbi.enums.PositionEnum;
 import net.aopacloud.superbi.listener.event.DatasetAuthorizeUpdateEvent;
+import net.aopacloud.superbi.mapper.DatasetAuthorizeMapper;
 import net.aopacloud.superbi.model.converter.DatasetAuthorizeConverter;
 import net.aopacloud.superbi.model.dto.DatasetApplyDTO;
 import net.aopacloud.superbi.model.dto.DatasetAuthorizeDTO;
@@ -41,6 +42,8 @@ public class DatasetAuthorizeListener {
     private final DatasetApplyService applyService;
 
     private final DatasetAuthorizeService authorizeService;
+
+    private final DatasetAuthorizeMapper authorizeMapper;
 
     private final ApplicationContext applicationContext;
 
@@ -141,6 +144,24 @@ public class DatasetAuthorizeListener {
             });
         } catch (Exception e) {
             log.error("scan expire authorize error", e);
+        }
+    }
+
+    /**
+     * scan delete authorize
+     * 每周一一次
+     */
+    @Scheduled(cron = "0 0 0 ? * MON")
+    public void scanDeleteAuthorize() {
+        try {
+            List<DatasetAuthorizeDTO> shouldDelete = authorizeService.selectAuthorizeShouldDelete();
+
+            shouldDelete.stream().forEach(authorize -> {
+                authorizeMapper.softDelete(authorize.getId());
+                log.info("dataset authorize {} auto delete", authorize);
+            });
+        } catch (Exception e) {
+            log.error("scan delete authorize error", e);
         }
     }
 }
