@@ -7,7 +7,8 @@
     :title="null"
     :keyboard="false"
     :closable="false"
-    :maskClosable="false">
+    :maskClosable="false"
+  >
     <template #title>
       <a-button
         type="text"
@@ -26,7 +27,8 @@
           allow-clear
           v-model:value="keyword"
           @input="e => onKeywordInput(e.target.value)"
-          @search="onSearch" />
+          @search="onSearch"
+        />
       </div>
     </template>
 
@@ -41,16 +43,22 @@
       :pagination="pager"
       :row-class-name="setRowClassName"
       @change="onTableChange"
-      @showSizeChange="onShowSizeChange">
+      @showSizeChange="onShowSizeChange"
+    >
       <template #bodyCell="{ text, record, column }">
         <template v-if="column.dataIndex === 'name'">
           <span
             v-if="record.permission === 'EXPIRED'"
             class="expire-flag"
-            data-text="已过期"></span>
+            data-text="已过期"
+          ></span>
 
           <a-dropdown :trigger="['contextmenu']">
-            <a class="row--name" :href="getAnalysisHref(record)" target="_blank">
+            <a
+              class="row--name"
+              :href="getAnalysisHref(record)"
+              target="_blank"
+            >
               {{ text }}
             </a>
             <template #overlay>
@@ -68,9 +76,11 @@
                   <a-menu-item key="authorize">授权</a-menu-item>
                   <a-menu-item
                     v-if="
-                      record.status === 'UN_PUBLISH' || record.status === 'OFFLINE'
+                      record.status === 'UN_PUBLISH' ||
+                      record.status === 'OFFLINE'
                     "
-                    key="publish">
+                    key="publish"
+                  >
                     发布
                   </a-menu-item>
                   <a-menu-item v-if="record.status === 'ONLINE'" key="offline">
@@ -85,9 +95,17 @@
 
         <template v-if="column.dataIndex === 'folder'">
           <span v-if="!text">-</span>
-          <a v-else style="color: inherit" @click="openWindowWithParams(record)">
+          <a v-else @click="openWindowWithParams(record)">
             {{ text.absolutePath }}
           </a>
+        </template>
+
+        <template v-if="column.dataIndex === 'source'">
+          <span v-if="record.upload">本地上传文件</span>
+          <template v-else-if="text">
+            <div v-for="s in text.split(',')">{{ s }}</div>
+          </template>
+          <template v-else></template>
         </template>
 
         <template v-if="column.dataIndex === 'action'">
@@ -95,15 +113,18 @@
             <a-tooltip
               v-if="
                 record.enableApply === 1 &&
-                (record.permission === 'NONE' || record.permission === 'EXPIRED') &&
+                (record.permission === 'NONE' ||
+                  record.permission === 'EXPIRED') &&
                 !record.applying
               "
-              title="申请">
+              title="申请"
+            >
               <a-button
                 size="small"
                 type="text"
                 :icon="h(LockOutlined)"
-                @click="apply(record)" />
+                @click="apply(record)"
+              />
             </a-tooltip>
 
             <a-tooltip title="收藏">
@@ -112,7 +133,8 @@
                 type="text"
                 :style="{ color: record.favorite ? '#e6a23c' : '' }"
                 :icon="h(record.favorite ? StarFilled : StarOutlined)"
-                @click="favor(record)" />
+                @click="favor(record)"
+              />
             </a-tooltip>
 
             <a-tooltip v-if="hasAnalysisPermission(record)" title="分析">
@@ -120,12 +142,14 @@
                 size="small"
                 type="text"
                 :icon="h(LineChartOutlined)"
-                @click="toAnalysis(record, true)" />
+                @click="toAnalysis(record, true)"
+              />
             </a-tooltip>
 
             <a-dropdown
               v-if="hasWritePermission(record) || hasManagePermission(record)"
-              :trigger="['click']">
+              :trigger="['click']"
+            >
               <a-button size="small" type="text" :icon="h(MoreOutlined)" />
 
               <template #overlay>
@@ -147,13 +171,20 @@
                     <template v-if="hasManagePermission(record)">
                       <a-menu-item
                         v-if="record.status === 'UN_PUBLISH'"
-                        key="publish">
+                        key="publish"
+                      >
                         发布
                       </a-menu-item>
-                      <a-menu-item v-if="record.status === 'ONLINE'" key="offline">
+                      <a-menu-item
+                        v-if="record.status === 'ONLINE'"
+                        key="offline"
+                      >
                         下线
                       </a-menu-item>
-                      <a-menu-item key="delete" style="color: red">删除</a-menu-item>
+                      <a-menu-item key="transfer">移交</a-menu-item>
+                      <a-menu-item key="delete" style="color: red">
+                        删除
+                      </a-menu-item>
                     </template>
                   </template>
                 </a-menu>
@@ -172,10 +203,27 @@
   <MoveDrawer
     v-model:open="moveDrawerOpen"
     :init-data="rowInfo"
-    :init-params="{ position: 'DATASET', type: 'ALL', workspaceId }" />
+    :init-params="{ position: 'DATASET', type: 'ALL', workspaceId }"
+  />
 
   <!-- 授权 -->
   <AuthorizeDrawer v-model:open="authorizeDrawerOpen" :init-data="rowInfo" />
+
+  <UploadModal
+    mode="EDIT"
+    :id="uploadId"
+    v-model:open="uploadOpen"
+    @ok="onUploadOk"
+  />
+
+  <!-- 移交 -->
+  <TransferModal
+    resourceType="DATASET"
+    :initData="rowInfo"
+    v-model:open="transferDrawerOpen"
+    @close="rowInfo = {}"
+    @ok="onTransferOk"
+  />
 </template>
 
 <script setup>
@@ -186,7 +234,7 @@ import {
   LockOutlined,
   StarOutlined,
   LineChartOutlined,
-  MoreOutlined,
+  MoreOutlined
 } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import { tableColumns } from './config'
@@ -198,6 +246,8 @@ import useAppStore from '@/store/modules/app'
 import useUserStore from '@/store/modules/user'
 import useMenus from './useMenus.jsx'
 import { UIStyle } from '@/settings'
+import UploadModal from '@/components/DatasetUploadModal/index.vue'
+import TransferModal from '@/components/TransferModal/index.vue'
 
 const {
   getAnalysisHref,
@@ -208,7 +258,7 @@ const {
   handleExport,
   publish,
   offline,
-  del,
+  del
 } = useMenus()
 
 const userStore = useUserStore()
@@ -219,12 +269,12 @@ const workspaceId = computed(() => appStore.workspaceId)
 const emits = defineEmits(['update:open', 'close'])
 const props = defineProps({
   open: {
-    type: Boolean,
+    type: Boolean
   },
   initParams: {
     type: Object,
-    default: () => ({}),
-  },
+    default: () => ({})
+  }
 })
 
 // 分析权限
@@ -326,9 +376,9 @@ const columns = computed(() => {
     {
       title: '文件夹路径',
       dataIndex: 'folder',
-      width: 150,
+      width: 150
     },
-    ...res,
+    ...res
   ]
 })
 const list = ref([])
@@ -337,7 +387,7 @@ const pager = reactive({
   pageSize: 20,
   total: 0,
   showSizeChanger: true,
-  showQuickJumper: true,
+  showQuickJumper: true
 })
 
 const queryParams = computed(() => {
@@ -349,7 +399,7 @@ const queryParams = computed(() => {
     pageNum,
     pageSize,
     keyword: kw,
-    folderType: 'ALL',
+    folderType: 'ALL'
   }
 })
 const fetchData = async () => {
@@ -368,7 +418,9 @@ const fetchData = async () => {
 }
 
 const setRowClassName = ({ permission, status }) => {
-  return permission === 'NONE' || permission === 'EXPIRED' || status === 'OFFLINE'
+  return permission === 'NONE' ||
+    permission === 'EXPIRED' ||
+    status === 'OFFLINE'
     ? 'no-permission'
     : ''
 }
@@ -387,6 +439,18 @@ const onShowSizeChange = (current, pageSize) => {
   fetchData()
 }
 
+// 上传
+const uploadOpen = ref(false)
+const uploadId = ref()
+const editUpload = id => {
+  uploadId.value = id
+  uploadOpen.value = true
+}
+const onUploadOk = () => {
+  uploadOpen.value = false
+  fetchList()
+}
+
 const onMenuClick = ({ key }, row) => {
   switch (key) {
     case '_self':
@@ -396,7 +460,11 @@ const onMenuClick = ({ key }, row) => {
       toAnalysis(row, true)
       break
     case 'edit':
-      edit(row)
+      if (row.upload) {
+        editUpload(row.id)
+      } else {
+        edit(row)
+      }
       break
     case 'export':
       handleExport(row)
@@ -415,6 +483,9 @@ const onMenuClick = ({ key }, row) => {
       break
     case 'delete':
       del(row, fetchData)
+      break
+    case 'transfer':
+      transfer(row)
       break
     default:
       break
@@ -442,6 +513,16 @@ const moveDrawerOpen = ref(false)
 const move = row => {
   rowInfo.value = { ...row }
   moveDrawerOpen.value = true
+}
+
+// 移交
+const transferDrawerOpen = ref(false)
+const transfer = row => {
+  rowInfo.value = { ...row }
+  transferDrawerOpen.value = true
+}
+const onTransferOk = () => {
+  fetchList()
 }
 </script>
 

@@ -16,10 +16,22 @@
             placeholder="请输入关键字搜索"
             allow-clear
             v-model:value="keyword"
-            @search="onSearch" />
-          <a-button type="primary" style="margin-left: 10px" @click="insert">
-            新增授权
-          </a-button>
+            @search="onSearch"
+          />
+
+          <a-dropdown>
+            <a-button type="primary" style="margin-left: 8px">
+              新增授权
+              <DownOutlined />
+            </a-button>
+
+            <template #overlay>
+              <a-menu @click="onMoreClick">
+                <a-menu-item key="insert">新增授权</a-menu-item>
+                <a-menu-item key="copy">复制授权</a-menu-item>
+              </a-menu>
+            </template>
+          </a-dropdown>
         </template>
       </a-tabs>
 
@@ -30,18 +42,20 @@
         :loading="loading"
         :columns="columns"
         :data-source="list"
-        :pagination="pager"
+        :pagination="false"
+        :scroll="{ y: tableHeight }"
         :row-class-name="record => setRowClassName(record)"
-        @change="onTableChange">
+      >
         <template #bodyCell="{ text, record, column }">
           <a-select
             v-if="column.dataIndex === 'permission'"
             size="small"
-            style="width: 100px"
+            style="width: 100%"
             :value="text"
             :loading="record.loading"
             :disabled="record.loading"
-            @change="e => onRoleChange(record, e)">
+            @change="e => onRoleChange(record, e)"
+          >
             <a-select-option value="READ">查看者</a-select-option>
             <a-select-option value="WRITE">协作者</a-select-option>
           </a-select>
@@ -50,10 +64,11 @@
             <a
               v-if="record.expired || record.isWillExpire"
               style="color: #5cdbd3"
-              @click="edit({ ...record, _mode: 'RENEW' })">
+              @click="edit({ ...record, _mode: 'renew' })"
+            >
               续期
             </a>
-            <a v-else @click="edit(record)">编辑</a>
+            <a v-else @click="edit({ ...record, _mode: 'modify' })">编辑</a>
 
             <a-popconfirm title="确认删除该授权？" @confirm="del(record.id)">
               <a style="color: red">删除</a>
@@ -64,10 +79,16 @@
     </section>
   </a-drawer>
 
-  <AuthorDrawer
-    v-model:open="drawerOpen"
-    :init-data="itemRecord"
-    @success="onAuthorSuccess" />
+  <!-- 复制权限 -->
+  <CopyAuthorizeModal
+    resource="DATASET"
+    :initData="initData"
+    v-model:open="copyModalOpen"
+    @success="fetchData"
+  />
+
+  <!-- 新增授权 -->
+  <AuthorDrawer v-model:open="drawerOpen" @success="fetchData" />
 </template>
 
 <script setup>
@@ -79,24 +100,27 @@ import {
   getAuthorizeUsers,
   getAuthorizeGroups,
   putAuthorizeRole,
-  deleteAuthorize,
+  deleteAuthorize
 } from '@/apis/dataset/authorize'
 import { tableColumns, isWillExpire, isExpired } from './config'
 
 const appStore = useAppStore()
-const workspaceId = computed(() => appStore.workspaceId)
 
 const emits = defineEmits(['update:open'])
 const props = defineProps({
   open: {
     type: Boolean,
-    default: false,
+    default: false
   },
   initData: {
     type: Object,
-    default: () => ({}),
-  },
+    default: () => ({})
+  }
 })
+
+const workspaceId = computed(
+  () => props.initData.workspaceId ?? appStore.workspaceId
+)
 
 const activeKey = ref('USER')
 const isUser = computed(() => activeKey.value === 'USER')
@@ -138,9 +162,9 @@ const queryParams = computed(() => {
   return {
     workspaceId: workspaceId.value,
     datasetId: props.initData.id,
-    keyword: keyword.value,
-    pageNum,
-    pageSize,
+    keyword: keyword.value.trim(),
+    pageNum: 1,
+    pageSize: 10000
   }
 })
 
@@ -148,7 +172,7 @@ const userList = ref([])
 const userPager = shallowReactive({
   current: 1,
   pageSize: 10,
-  total: 0,
+  total: 0
 })
 const fetchAuthorizeUsers = async () => {
   try {
@@ -164,7 +188,7 @@ const fetchAuthorizeUsers = async () => {
       return {
         ...t,
         expired,
-        isWillExpire: expired ? false : isWillExpire(startTime, expireDuration),
+        isWillExpire: expired ? false : isWillExpire(startTime, expireDuration)
       }
     })
   } catch (error) {
@@ -178,7 +202,7 @@ const groupList = ref([])
 const groupPager = shallowReactive({
   current: 1,
   pageSize: 10,
-  total: 0,
+  total: 0
 })
 const fetchAuthorizeGroups = async () => {
   try {
@@ -194,7 +218,7 @@ const fetchAuthorizeGroups = async () => {
       return {
         ...t,
         expired,
-        isWillExpire: expired ? false : isWillExpire(startTime, expireDuration),
+        isWillExpire: expired ? false : isWillExpire(startTime, expireDuration)
       }
     })
   } catch (error) {

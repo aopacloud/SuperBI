@@ -1,40 +1,49 @@
 <template>
   <section class="page dataset flex relative">
-    <aside class="aside-tree" :class="{ collapsed }">
-      <DirTree
-        ref="dirTreeRef"
-        style="padding: 16px"
-        v-model:type="type"
-        @select="onSelect" />
-    </aside>
-
-    <div
-      class="aside-collapse-trigger"
-      :class="{ collapsed }"
-      @click="collapsed = !collapsed">
-      <CaretLeftOutlined />
-    </div>
+    <Resize
+      class="resize-theme-1"
+      :directions="['right']"
+      :style="{ width: asideWidth }"
+      :minWidth="0"
+      @resized="onResized"
+    >
+      <aside class="aside-tree">
+        <DirTree
+          ref="dirTreeRef"
+          style="padding: 16px 0 16px 16px"
+          v-model:type="type"
+          @select="onSelect"
+        />
+      </aside>
+    </Resize>
 
     <main class="main flex-1 flex flex-column">
-      <header class="flex justify-between align-center" style="margin-bottom: 16px">
+      <header
+        class="flex justify-between align-center"
+        style="margin-bottom: 16px"
+      >
         <div>
           <span>{{ typeLabel }}</span>
           <div
             class="select-tag"
             style="margin-left: 10px"
-            v-if="typeof dirInfo.id === 'number'">
+            v-if="typeof dirInfo.id === 'number'"
+          >
             {{ dirInfo.name }}
 
             <CloseOutlined
               class="pointer"
               style="margin-left: 10px"
-              @click="onSelectClear" />
+              @click="onSelectClear"
+            />
           </div>
         </div>
 
         <a-space>
           <span style="color: #bfbfbf">
-            <ExclamationCircleFilled style="color: #1890ff; vertical-align: -2px" />
+            <ExclamationCircleFilled
+              style="color: #1890ff; vertical-align: -2px"
+            />
             {{ versionJs.ViewsDashboard.keywordSearchLeftTip }}
           </span>
 
@@ -43,13 +52,15 @@
             placeholder="输入关键字搜索"
             allow-clear
             v-model:value="keyword"
-            @search="onSearch" />
+            @search="onSearch"
+          />
 
           <a-button
             v-permission="'DASHBOARD:VIEW:CREATE'"
             type="primary"
             style="margin-left: 8px"
-            @click="toCreate">
+            @click="toCreate"
+          >
             新建看板
           </a-button>
         </a-space>
@@ -64,7 +75,8 @@
         :pagination="pager"
         :scroll="{ x: 1200, y: 'auto' }"
         :row-class-name="setRowClassName"
-        @change="onTableChange">
+        @change="onTableChange"
+      >
         <template #emptyText>
           <a-empty :description="type === 'ALL' ? '暂无数据' : ''" />
           <div v-if="type === 'PERSONAL'">
@@ -73,7 +85,8 @@
               type="primary"
               size="small"
               style="margin-right: 4px"
-              @click="jumpToAll">
+              @click="jumpToAll"
+            >
               跳转公共
             </a-button>
             列表查看更多数据
@@ -84,13 +97,17 @@
           <template v-if="column.dataIndex === 'name'">
             <a-dropdown
               v-if="column.dataIndex === 'name'"
-              :trigger="['contextmenu']">
+              :trigger="['contextmenu']"
+            >
               <a
                 class="row--name"
                 target="_blank"
                 :href="
-                  hasReadPermission(record) ? getPreviewlHref(record) : undefined
-                ">
+                  hasReadPermission(record)
+                    ? getPreviewlHref(record)
+                    : undefined
+                "
+              >
                 {{ text }}
               </a>
 
@@ -100,7 +117,8 @@
                   hasReadPermission(record) ||
                   hasWritePermission(record) ||
                   hasManagePermission(record)
-                ">
+                "
+              >
                 <a-menu @click="e => onMeunClick(e, record)">
                   <template v-if="hasReadPermission(record)">
                     <a-menu-item key="_self"> 当前页面打开 </a-menu-item>
@@ -112,10 +130,16 @@
                   </a-menu-item>
 
                   <template v-if="hasManagePermission(record)">
-                    <a-menu-item v-if="record.status === 'UN_PUBLISH'" key="publish">
+                    <a-menu-item
+                      v-if="record.status === 'UN_PUBLISH'"
+                      key="publish"
+                    >
                       发布
                     </a-menu-item>
-                    <a-menu-item v-if="record.status === 'ONLINE'" key="offline">
+                    <a-menu-item
+                      v-if="record.status === 'ONLINE'"
+                      key="offline"
+                    >
                       下线
                     </a-menu-item>
                     <a-menu-item key="share"> 共享 </a-menu-item>
@@ -130,18 +154,18 @@
             <a-popover
               v-else
               placement="rightTop"
-              overlayClassName="chartNamesList-popover">
+              overlayClassName="chartNamesList-popover"
+            >
               <a>{{ text }}</a>
-
               <template #content>
-                <div class="chart-list" style="min-width: 120px">
-                  <a
-                    class="chart-item"
+                <div class="c-list">
+                  <div
+                    class="c-item"
                     v-for="(t, i) in record.reportNames"
                     :key="i"
-                    :title="t">
-                    {{ t }}
-                  </a>
+                  >
+                    <a :title="t"> {{ t }} </a>
+                  </div>
                 </div>
               </template>
             </a-popover>
@@ -155,7 +179,8 @@
                   type="text"
                   :style="{ color: record.favorite ? '#e6a23c' : '' }"
                   :icon="h(record.favorite ? StarFilled : StarOutlined)"
-                  @click="favor(record)" />
+                  @click="favor(record)"
+                />
               </a-tooltip>
 
               <a-tooltip v-if="hasWritePermission(record)" title="编辑">
@@ -163,12 +188,14 @@
                   size="small"
                   type="text"
                   :icon="h(EditOutlined)"
-                  @click="edit(record)" />
+                  @click="edit(record)"
+                />
               </a-tooltip>
 
               <a-dropdown
                 v-if="hasManagePermission(record) || isPersonal"
-                trigger="click">
+                trigger="click"
+              >
                 <a-button size="small" type="text" :icon="h(MoreOutlined)" />
 
                 <template #overlay>
@@ -183,17 +210,27 @@
                       <a-menu-item key="share">共享 </a-menu-item>
                       <a-menu-item
                         key="publish"
-                        v-if="record.status === 'UN_PUBLISH'">
+                        v-if="record.status === 'UN_PUBLISH'"
+                      >
                         发布
                       </a-menu-item>
-                      <a-menu-item key="offline" v-if="record.status === 'ONLINE'">
+                      <a-menu-item
+                        key="offline"
+                        v-if="record.status === 'ONLINE'"
+                      >
                         下线
                       </a-menu-item>
-                      <a-menu-item key="online" v-if="record.status === 'OFFLINE'">
+                      <a-menu-item
+                        key="online"
+                        v-if="record.status === 'OFFLINE'"
+                      >
                         上线
                       </a-menu-item>
                       <ViewsDashboardActionDropdownMenuItemPushSetting />
-                      <a-menu-item key="delete" style="color: red">删除</a-menu-item>
+                      <a-menu-item key="transfer">移交</a-menu-item>
+                      <a-menu-item key="delete" style="color: red">
+                        删除
+                      </a-menu-item>
                     </template>
                   </a-menu>
                 </template>
@@ -209,25 +246,38 @@
   <ShareDrawer
     v-model:open="shareDrawerOpen"
     :initData="rowInfo"
-    @visibility-change="onVisibilityChange" />
+    @visibility-change="onVisibilityChange"
+  />
 
   <!-- 移动 -->
   <MoveDrawer
     v-model:open="moveDrawerOpen"
     :init-data="rowInfo"
     :init-params="{ position: 'DASHBOARD', type, workspaceId }"
-    @ok="onMoveOk" />
+    @ok="onMoveOk"
+  />
 
   <!-- 推送设置 -->
   <ViewsDashboardPushSettingDrawer
     v-model:open="pushSettingDrawerOpen"
-    :initData="rowInfo" />
+    :initData="rowInfo"
+  />
 
   <!-- 搜索页面 -->
   <SearchPageDrawer
     v-model:open="searchPageDrawerOpen"
     :initParams="searchPageParams"
-    @close="onSearchPageDrawerClose" />
+    @close="onSearchPageDrawerClose"
+  />
+
+  <!-- 移交 -->
+  <TransferModal
+    resourceType="DASHBOARD"
+    :initData="rowInfo"
+    v-model:open="transferDrawerOpen"
+    @close="rowInfo = {}"
+    @ok="onTransferOk"
+  />
 </template>
 <script setup>
 import { h, ref, computed, onMounted, watch } from 'vue'
@@ -240,26 +290,36 @@ import {
   MoreOutlined,
   ExclamationCircleFilled,
   CaretLeftOutlined,
-  CloseOutlined,
+  CloseOutlined
 } from '@ant-design/icons-vue'
 import DirTree from '@/components/DirTree'
 import ShareDrawer from './components/ShareDrawer.vue'
 import SearchPageDrawer from './SearchPageDrawer.vue'
 import { MoveDrawer } from '@/components/DirTree'
 import { getDashboardList } from '@/apis/dashboard'
-import useMenus from './useMenus.js'
+import useMenus from './useMenus'
 import useTable from 'common/hooks/useTable'
 import useAppStore from '@/store/modules/app'
 import useUserStore from '@/store/modules/user'
 import { versionJs, versionVue } from '@/versions'
+import Resize from 'common/components/Layout/Resize/index.vue'
+import TransferModal from '@/components/TransferModal/index.vue'
 
 const {
   ViewsDashboardActionDropdownMenuItemPushSetting,
-  ViewsDashboardPushSettingDrawer,
+  ViewsDashboardPushSettingDrawer
 } = versionVue
 
-const { getPreviewlHref, openWindow, edit, favor, publish, offline, online, del } =
-  useMenus()
+const {
+  getPreviewlHref,
+  openWindow,
+  edit,
+  favor,
+  publish,
+  offline,
+  online,
+  del
+} = useMenus()
 
 const router = useRouter()
 const route = useRoute()
@@ -350,7 +410,7 @@ const initQueryParams = computed(() => {
   return {
     workspaceId: workspaceId.value,
     folderType: type.value,
-    folderId: dirInfo.value.id,
+    folderId: dirInfo.value.id
   }
 })
 
@@ -358,7 +418,7 @@ const { loading, keyword, sorter, pager, list, fetchList } = useTable(
   getDashboardList,
   {
     sorter: { field: 'updateTime', order: 'descend' },
-    initQueryParams,
+    initQueryParams
   }
 )
 
@@ -377,7 +437,7 @@ const columns = computed(() => {
   return tableColumns.map(col => {
     return {
       ...col,
-      sortOrder: col.dataIndex === field && order,
+      sortOrder: col.dataIndex === field && order
     }
   })
 })
@@ -453,6 +513,9 @@ const onMeunClick = async ({ key }, row) => {
     case 'pushSetting':
       setting(row)
       break
+    case 'transfer':
+      transfer(row)
+      break
     default:
   }
 }
@@ -489,11 +552,32 @@ const setting = row => {
   rowInfo.value = { ...row }
   pushSettingDrawerOpen.value = true
 }
+
+const asideWidth = computed(() => {
+  const width = appStore.appLayout?.dashboard?.aside?.width
+
+  if (typeof width === 'undefined') {
+    return 260 + 'px'
+  }
+  return width + 'px'
+})
+const onResized = e => {
+  appStore.setLayout('dashboard', { aside: { width: e.width } })
+}
+
+// 移交
+const transferDrawerOpen = ref(false)
+const transfer = row => {
+  rowInfo.value = { ...row }
+  transferDrawerOpen.value = true
+}
+const onTransferOk = () => {
+  fetchList()
+}
 </script>
 <style scoped lang="scss">
-$asideWidth: 300px;
 .aside-tree {
-  width: $asideWidth;
+  height: 100%;
   overflow: hidden;
   border-right: 1px solid #f3f3f3;
   transition: all 0.15s;
@@ -501,25 +585,7 @@ $asideWidth: 300px;
     width: 0;
   }
 }
-.aside-collapse-trigger {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  padding: 12px 1px;
-  background-color: #f6f7ff;
-  border-top-right-radius: 4px;
-  border-bottom-right-radius: 4px;
-  transition: all 0.15s;
-  transform: translateX($asideWidth);
-  cursor: pointer;
-  z-index: 9;
-  &.collapsed {
-    transform: translateX(0);
-    .anticon-caret-left {
-      transform: rotateY(180deg);
-    }
-  }
-}
+
 .main {
   padding: 10px;
   overflow: auto;
@@ -574,9 +640,18 @@ $asideWidth: 300px;
     }
   }
 }
-
-.chart-item {
-  display: block;
+.c-list {
+  min-width: 120px;
+  max-width: 520px;
+  max-height: 600px;
+  margin-right: -10px;
+  padding-right: 10px;
+  overflow: auto;
+}
+.c-item {
+  & + & {
+    margin-top: 2px;
+  }
   @extend .ellipsis;
 }
 </style>

@@ -4,7 +4,8 @@
     :columns="MEMBER_TABLE_COLUMNS"
     :dataSource="list"
     :pagination="pager"
-    @change="onTableChange">
+    @change="onTableChange"
+  >
     <template #bodyCell="{ column, record }">
       <a-select
         v-if="column.dataIndex === 'sysRoleId'"
@@ -13,7 +14,8 @@
         :disabled="!hasCurrentUserAdd"
         :loading="record.loading"
         :value="record.sysRoleId"
-        @change="e => onRoleChange(e, record)">
+        @change="e => onRoleChange(e, record)"
+      >
         <a-select-option v-for="item in roles" :key="item.id">
           {{ item.name }}
         </a-select-option>
@@ -23,7 +25,8 @@
         <a-popconfirm
           v-if="hasCurrentUserAdd"
           title="确定删除"
-          @confirm="del(record)">
+          @confirm="del(record)"
+        >
           <a style="color: red">删除</a>
         </a-popconfirm>
         <span v-else>-</span>
@@ -37,7 +40,8 @@
     labelField="aliasName"
     :data-source="sysUsers"
     v-model:open="selectListModalOpen"
-    :confirmFn="onSelectModalOk" />
+    :confirmFn="onSelectModalOk"
+  />
 </template>
 
 <script setup>
@@ -52,7 +56,7 @@ import {
   deleteWorkspaceMembers,
   putWorkspaceMembers,
   getWorkspaceAllMembers,
-  postWorkspaceMembers,
+  postWorkspaceMembers
 } from '@/apis/workspace/member'
 
 import { MEMBER_TABLE_COLUMNS } from './config'
@@ -60,15 +64,15 @@ import { onMounted, watch } from 'vue'
 
 const props = defineProps({
   workspaceId: {
-    type: Number,
+    type: Number
   },
   keyword: {
-    type: String,
+    type: String
   },
   permissions: {
     type: Array,
-    default: () => [],
-  },
+    default: () => []
+  }
 })
 
 const hasCurrentUserAdd = computed(() => {
@@ -81,8 +85,8 @@ const { loading, pager, list, fetchList, onTableChange } = useTable(
     sorter: null,
     initQueryParams: () => ({
       workspaceId: props.workspaceId,
-      keyword: props.keyword,
-    }),
+      keyword: props.keyword
+    })
   }
 )
 
@@ -149,13 +153,13 @@ const insert = async () => {
     selectListLoading.value = true
 
     const { data = [] } = await getWorkspaceAllMembers({
-      workspaceId: props.workspaceId,
+      workspaceId: props.workspaceId
     })
 
     sysUsers.value = sysUsers.value.map(user => {
       return {
         ...user,
-        disabled: data.some(t => t.username === user.username),
+        disabled: data.some(t => t.username === user.username)
       }
     })
   } catch (error) {
@@ -168,12 +172,10 @@ const onSelectModalOk = async users => {
   try {
     if (users.length === 0) return
 
-    const payload = users.map(user => {
-      return {
-        workspaceId: props.workspaceId,
-        username: user,
-      }
-    })
+    const payload = {
+      workspaceId: props.workspaceId,
+      usernames: users
+    }
 
     await postWorkspaceMembers(payload)
 

@@ -29,3 +29,5 @@ export function removeToken() {
 }
 
 export const HEADER_TOKEN = 'Authorization'
+
+export const PROXY_TOKEN = 'p_sign'

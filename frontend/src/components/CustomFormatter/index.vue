@@ -24,9 +24,9 @@
       </template>
     </a-input-number>
 
-    <a-checkbox style="margin-top: 10px" v-model:checked="modelValue.thousand"
-      >千分位</a-checkbox
-    >
+    <a-checkbox style="margin-top: 10px" v-model:checked="modelValue.thousand">
+      千分位
+    </a-checkbox>
 
     <div style="margin-top: 10px; text-align: right">
       <a-space>
@@ -38,9 +38,13 @@
 </template>
 
 <script setup>
-import { reactive, ref, toRaw, watch } from 'vue'
+import { reactive, toRaw, watch } from 'vue'
 import VOutclick from 'common/directives/outclick'
 import { deepCloneByJson } from 'common/utils/help'
+
+defineOptions({
+  name: 'CustomFormatter',
+})
 
 // 配置项
 const DEFAULT_CONFIG = {
@@ -65,24 +69,12 @@ const onOutclick = () => {
   emits('update:open', false)
 }
 
-const cType = ref(DEFAULT_CONFIG.TYPE) // 0 数字， 1 百分比
-const cThousand = ref(DEFAULT_CONFIG.THOUSAND) // 千分位
-const cDigit = ref(DEFAULT_CONFIG.DIGIT) // 保留小数位
-
-const CODE_MAP = {
-  1: { type: 0, digit: 0 },
-  2: { type: 0, digit: 1 },
-  3: { type: 0, digit: 2 },
-  4: { type: 1, digit: 0 },
-  5: { type: 1, digit: 1 },
-  6: { type: 1, digit: 2 },
-}
-
 const modelValue = reactive({
   type: DEFAULT_CONFIG.TYPE,
   thousand: DEFAULT_CONFIG.THOUSAND,
   digit: DEFAULT_CONFIG.DIGIT,
 })
+
 const init = () => {
   let { type = 0, thousand = true, digit = 2 } = props.value
 

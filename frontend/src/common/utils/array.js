@@ -108,3 +108,60 @@ export function bfs(list, cb) {
 
   return bfs(children, cb)
 }
+
+/**
+ * 一维数组去重
+ * @param {array} list 源数据
+ * @param {string} key 判重的字段
+ * @returns {array}
+ */
+export function unique(list, key) {
+  return list.reduce((acc, cur) => {
+    const value = cur[key]
+
+    if (acc.every(t => t[key] !== value)) {
+      acc.push(cur)
+    }
+
+    return acc
+  }, [])
+}
+
+/**
+ * 获取数组的并集
+ * @param  {any[]} res
+ * @returns
+ */
+export function union(...res) {
+  return [...new Set([].concat(...res))]
+}
+
+/**
+ * 获取数据的交集
+ * @param  {any[]} res
+ * @returns
+ */
+export function intersection(...res) {
+  if (!res.length || res.some(r => !r.length)) return []
+
+  // 取出第一个作为对比
+  let set0 = new Set(res[0])
+
+  for (let i = 0; i < res.length; i++) {
+    const set1 = new Set()
+    const set2 = new Set(res[i])
+
+    // 遍历当前，判断与对比的交集
+    set0.forEach(v => {
+      if (set2.has(v)) set1.add(v)
+    })
+
+    // 更新
+    set0 = set1
+
+    // 若交集为空，则跳出循环
+    if (set0.size === 0) break
+  }
+
+  return [...set0]
+}

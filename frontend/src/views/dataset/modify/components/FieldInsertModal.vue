@@ -7,30 +7,39 @@
     :maskClosable="false"
     :keyboard="false"
     @cancel="cancel"
-    @ok="ok">
+    @ok="ok"
+  >
     <a-form
       class="field-insert-form"
-      :label-col="{ span: 4 }"
-      :wrapper-col="{ span: 19 }">
+      :label-col="{ style: { width: '120px' } }"
+    >
       <a-form-item label="字段名称" v-bind="validateInfos.name">
         <a-input
           placeholder="名称只支持字母、下划线、数字的组合，最长50个字符"
           :disabled="initData._mode === 'edit'"
-          v-model:value="formState.name" />
+          v-model:value="formState.name"
+        />
       </a-form-item>
       <a-form-item label="显示名称" v-bind="validateInfos.displayName">
-        <a-input placeholder="最长50个字符" v-model:value="formState.displayName" />
+        <a-input
+          placeholder="最长50个字符"
+          v-model:value="formState.displayName"
+        />
       </a-form-item>
       <a-form-item label="字段逻辑" v-bind="validateInfos.expression">
         <div class="expression flex" style="height: 412px">
           <SelectList
             class="fields-select-list"
-            style="width: 180px"
+            style="width: 200px"
+            keyField="name"
+            labelField="displayName"
             :bordered="false"
             :multiple="false"
             :data-source="fields"
-            keyField="name"
-            labelField="displayName">
+            :filterOption="
+              (s, t) => t.name?.includes(s) || t.displayName?.includes(s)
+            "
+          >
             <template #prefix>
               <div style="padding: 2px 10px; color: #bbb">点击引用字段</div>
             </template>
@@ -38,36 +47,52 @@
             <template #item="{ item }">
               <div
                 class="select-item disabled"
-                v-if="item.id === CATEGORY.PROPERTY || item.id === CATEGORY.INDEX">
+                v-if="
+                  item.id === CATEGORY.PROPERTY || item.id === CATEGORY.INDEX
+                "
+              >
                 <b style="font-size: 16px">{{ item.name }}</b>
               </div>
 
               <a-tooltip v-else placement="right" :title="item.name">
                 <div class="select-item flex" @click="insertField(item)">
+                  <span
+                    v-if="multipleTable"
+                    class="table-alias"
+                    :class="{ empty: !item.tableAlias }"
+                  >
+                    {{ item.tableAlias }}
+                  </span>
                   <i
-                    :class="['iconfont', getIconByFieldType(item.dataType)['icon']]"
+                    :class="[
+                      'iconfont',
+                      getIconByFieldType(item.dataType)['icon']
+                    ]"
                     :style="{
                       marginRight: '8px',
-                      color: getIconByFieldType(item.dataType)['color'],
-                    }"></i>
-                  <div class="flex-1 ellipsis">{{ item.displayName }}</div>
+                      color: getIconByFieldType(item.dataType)['color']
+                    }"
+                  ></i>
+                  <div class="flex-1 ellipsis">
+                    {{ item.displayName }}
+                  </div>
                 </div>
               </a-tooltip>
             </template>
           </SelectList>
           <SelectList
-            style="width: 180px; border-left: 1px solid #e8e8e8"
+            style="width: 200px; border-left: 1px solid #e8e8e8"
+            keyField="name"
+            labelField="expression"
             :bordered="false"
             :multiple="false"
             :data-source="functions"
-            keyField="name"
-            labelField="expression">
+          >
             <template #prefix>
-              <div style="padding: 2px 10px; color: #bbb">点击引用字段</div>
+              <div style="padding: 2px 10px; color: #bbb">点击引用函数</div>
             </template>
             <template #item="{ item }">
               <div class="select-item flex" @click="insertFunc(item)">
-                <!-- <span>{{ item.dataType }}</span> -->
                 <div class="flex-1 ellipsis">{{ item.name }}</div>
               </div>
             </template>
@@ -82,34 +107,41 @@
               border-left: 1px solid #e8e8e8;
             "
             placeholder="请输入字段逻辑"
-            v-model:value="formState.expression" />
+            v-model:value="formState.expression"
+          />
         </div>
       </a-form-item>
       <a-form-item label="数据类型">
         <a-radio-group
           :options="dataTypeOptions"
           v-model:value="formState.dataType"
-          @change="onDataTypeChange" />
+          @change="onDataTypeChange"
+        />
       </a-form-item>
       <a-form-item label="字段类型">
         <a-radio-group
           :options="categoryOptions"
-          v-model:value="formState.category" />
+          v-model:value="formState.category"
+        />
       </a-form-item>
       <a-form-item
         label="数据格式"
         v-if="
-          formState.category === CATEGORY.INDEX && formState.dataType === 'NUMBER'
-        ">
+          formState.category === CATEGORY.INDEX &&
+          formState.dataType === 'NUMBER'
+        "
+      >
         <a-select
           style="width: 180px"
           placeholder="请选择"
           :value="formState.dataFormat"
-          @change="onDataFormatChange">
+          @change="onDataFormatChange"
+        >
           <a-select-option
             v-for="item in formatterOptions"
             :key="item.value"
-            @click="onFormatterOptionClick(item)">
+            @click="onFormatterOptionClick(item)"
+          >
             {{
               item.value === FORMAT_CUSTOM_CODE
                 ? formState.customFormatterLabel || item.label
@@ -121,23 +153,31 @@
           style="position: absolute; bottom: 100%"
           v-model:open="dataFormatOpen"
           :value="JSON.parse(formState.customFormatConfig || '{}')"
-          @ok="onFormatOk" />
+          @ok="onFormatOk"
+        />
       </a-form-item>
-      <a-form-item label="字段计算" v-if="formState.category === CATEGORY.INDEX">
+      <a-form-item
+        label="字段计算"
+        v-if="formState.category === CATEGORY.INDEX"
+      >
         <FieldCalculation
           style="width: 180px"
           placeholder="请选择"
-          v-model:value="formState.computeExpression" />
+          v-model:value="formState.computeExpression"
+        />
       </a-form-item>
       <a-form-item label="字段说明">
-        <a-input placeholder="请输入字段名" v-model:value="formState.description" />
+        <a-input
+          placeholder="请输入字段名"
+          v-model:value="formState.description"
+        />
       </a-form-item>
     </a-form>
   </a-modal>
 </template>
 
 <script setup lang="jsx">
-import { ref, computed, watch, reactive, shallowRef, toRaw } from 'vue'
+import { ref, computed, watch, reactive, shallowRef, toRaw, inject } from 'vue'
 import { Form, message, Tooltip } from 'ant-design-vue'
 import { InfoCircleOutlined } from '@ant-design/icons-vue'
 import {
@@ -148,11 +188,11 @@ import {
   FORMAT_CUSTOM_CODE,
   SUMMARY_DEFAULT,
   SUMMARY_PROPERTY_DEFAULT,
-  SUMMARY_INDEX_DEFAULT,
+  SUMMARY_INDEX_DEFAULT
 } from '@/views/dataset/config.field'
 import {
   getIconByFieldType,
-  displayCustomFormatterLabel,
+  displayCustomFormatterLabel
 } from '@/views/dataset/utils'
 import FieldCalculation from './FieldCalculation.vue'
 import CustomFormatter from '@/components/CustomFormatter/index.vue'
@@ -169,24 +209,27 @@ const { show } = ErrorSuggestion()
 
 const { fetchReason, reason: errorReason, reasonLoading } = useError()
 
+const { getDatasetConfig } = inject('index')
+
 const emits = defineEmits(['update:open', 'ok', 'cancel'])
 const props = defineProps({
   open: {
     type: Boolean,
-    default: false,
+    default: false
   },
   dataset: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
   initData: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
   fields: {
     type: Array,
-    default: () => [],
+    default: () => []
   },
+  multipleTable: Boolean // 是否多表
 })
 
 const functions = shallowRef([])
@@ -229,8 +272,8 @@ const init = () => {
       formState[key] = Array.isArray(val)
         ? val[0]
         : val.includes('TIME')
-        ? 'TIME'
-        : val
+          ? 'TIME'
+          : val
     } else {
       formState[key] = val ?? undefined
     }
@@ -246,7 +289,7 @@ const formState = reactive({
   dataFormat: FORMAT_DEFAULT_CODE,
   computeExpression: '',
   description: '',
-  type: 'ADD',
+  type: 'ADD'
 })
 const nameValidator = (rule, value) => {
   const names = props.fields
@@ -259,22 +302,25 @@ const nameValidator = (rule, value) => {
     return Promise.resolve()
   }
 }
-const formRulus = reactive({
+const formRules = reactive({
   name: [
     { required: true, message: '字段名不能为空' },
-    { pattern: /^[0-9a-zA-Z_]{1,}$/, message: '字段名只能包含数字、字母、下划线' },
+    {
+      pattern: /^[0-9a-zA-Z_]{1,}$/,
+      message: '字段名只能包含数字、字母、下划线'
+    },
     { max: 50, message: '字段名长度不能超过50个字符' },
-    { validator: nameValidator, message: '字段名不能和现有字段名重复' },
+    { validator: nameValidator, message: '字段名不能和现有字段名重复' }
   ],
   displayName: [
     { required: true, message: '显示名称不能为空' },
-    { max: 50, message: '字段显示名不能超过50个字符' },
+    { max: 50, message: '字段显示名不能超过50个字符' }
   ],
-  expression: [{ required: true, message: '字段逻辑不能为空' }],
+  expression: [{ required: true, message: '字段逻辑不能为空' }]
 })
-const { resetFields, validate, clearValidate, validateInfos } = Form.useForm(
+const { resetFields, validate, validateInfos } = Form.useForm(
   formState,
-  formRulus
+  formRules
 )
 
 const cancel = () => {
@@ -283,17 +329,56 @@ const cancel = () => {
   emits('update:open', false)
 }
 
+/**
+ * 验证表达式
+ * @param str 表达式字符串
+ * @returns 如果表达式合法则返回true，否则返回false
+ */
+const reg = /\[([^\[\]]+)\]/g
+const validateExpression = str => {
+  let matchesNames = str.match(reg)
+
+  if (!matchesNames) return true
+
+  matchesNames = matchesNames.map(t => t.replace(/[\[\]]/g, ''))
+
+  if (
+    matchesNames.some(name => {
+      const sameItems = props.fields.filter(
+        t => t.sourceFieldName === name && t.name !== name
+      )
+      if (sameItems.length) {
+        const sameNames = sameItems.map(t => '[' + t.name + ']').join('、')
+
+        message.warn(
+          `由于数据集中有多个[${name}]，已自动重命名为${sameNames}，请输入重命名后的字段名`
+        )
+        return true
+      }
+    })
+  ) {
+    return false
+  }
+
+  return true
+}
+
 const confirmLoading = ref(false)
 const ok = () => {
   validate().then(async res => {
     const payload = {
       ...props.initData,
-      ...toRaw(formState),
+      ...toRaw(formState)
+    }
+
+    if (props.multipleTable && !validateExpression(payload.expression)) {
+      return
     }
 
     const hasAggregation = await validateField()
 
-    payload.parentName = payload.category === CATEGORY.PROPERTY ? '维度' : '指标'
+    payload.parentName =
+      payload.category === CATEGORY.PROPERTY ? '维度' : '指标'
 
     // 更新字段类型的格式
     if (payload.dataType === 'TIME') {
@@ -305,12 +390,17 @@ const ok = () => {
     }
 
     payload.description = payload.description || payload.displayName
-    payload.aggregator = hasAggregation
-      ? SUMMARY_DEFAULT
-      : props.initData.aggregator ||
-        (payload.category === CATEGORY.PROPERTY
+
+    if (hasAggregation) {
+      payload.aggregator = SUMMARY_DEFAULT
+    } else if (!props.initData.aggregator) {
+      payload.aggregator =
+        payload.category === CATEGORY.PROPERTY
           ? SUMMARY_PROPERTY_DEFAULT
-          : SUMMARY_INDEX_DEFAULT)
+          : SUMMARY_INDEX_DEFAULT
+    } else {
+      payload.aggregator = props.initData.aggregator
+    }
 
     emits('ok', payload)
     setTimeout(() => {
@@ -324,7 +414,7 @@ const validateField = async () => {
   try {
     confirmLoading.value = true
 
-    const { dataset, fields } = props
+    const { fields } = props
     const payloadFields = fields
       .filter(t => t.id !== CATEGORY.PROPERTY && t.id !== CATEGORY.INDEX)
       .map(t => {
@@ -332,14 +422,18 @@ const validateField = async () => {
           ...t,
           dataType: Array.isArray(t.dataType)
             ? t.dataType.filter(Boolean).join('_')
-            : t.dataType,
+            : t.dataType
         }
       })
 
     const payload = {
-      workspaceId: dataset.workspaceId,
-      dataset: { ...dataset, fields: payloadFields },
-      expression: formState.expression,
+      workspaceId: props.dataset.workspaceId,
+      dataset: {
+        ...props.dataset,
+        config: getDatasetConfig(),
+        fields: payloadFields
+      },
+      expression: formState.expression
     }
 
     // pass 校验通过 hasAggregation 是否有聚合
@@ -347,7 +441,7 @@ const validateField = async () => {
       pass,
       msg,
       hasAggregation,
-      queryId: qId,
+      queryId: qId
     } = await validateDatasetField(payload)
 
     queryId.value = qId
@@ -395,7 +489,7 @@ const validateField = async () => {
               </div>
             ) : null}
           </span>
-        ),
+        )
       })
 
       return Promise.reject()

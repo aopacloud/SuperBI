@@ -309,7 +309,9 @@ export function copyText(str = '', option = {}) {
 
   const reg = new RegExp(`^${name + spe + joinStr}(\\d*)$`)
   // 已经存在的数字
-  const exitedNumber = exited.filter(t => reg.test(t)).map(t => +t.match(reg)[1])
+  const exitedNumber = exited
+    .filter(t => reg.test(t))
+    .map(t => +t.match(reg)[1])
   // 如果已经存在数字，则取已存在的最大数字作为初始值
   const initNumber = Math.max(...exitedNumber, resNum)
 
@@ -328,26 +330,45 @@ export function copyText(str = '', option = {}) {
  * @param {string|number} prop 排序字段
  * @returns
  */
-export function createSortByOrder(isUp = false, prop) {
-  const isDate = e => isNaN(e) && !isNaN(Date.parse(e))
-
+export function createSortByOrder({ order, field, custom }) {
   return function (a, b) {
-    const aV = typeof prop !== 'undefined' ? a[prop] : a
-    const bV = typeof prop !== 'undefined' ? b[prop] : b
+    let aV = typeof field !== 'undefined' ? a[field] : a
+    let bV = typeof field !== 'undefined' ? b[field] : b
 
-    if (typeof aV === 'string') {
-      if (isDate(aV)) {
-        return isUp
-          ? new Date(aV).getTime() - new Date(bV).getTime()
-          : new Date(bV).getTime() - new Date(aV).getTime()
+    if (aV !== bV) {
+      if (order === 'custom' && !!custom) {
+        aV = String(aV)
+        bV = String(bV)
+
+        const customArr = custom.split(/\n/)
+        const getIndex = v => customArr.indexOf(v)
+
+        if (getIndex(aV) >= 0 && getIndex(bV) >= 0)
+          return getIndex(aV) - getIndex(bV)
+
+        if (getIndex(aV) >= 0 && getIndex(bV) < 0) return -1
+        if (getIndex(aV) < 0 && getIndex(bV) >= 0) return 1
       } else {
-        let aa = aV || '',
-          bb = bV || ''
-        return isUp ? aa.localeCompare(bb) : bb.localeCompare(aa)
+        const isUp = order === 'asc'
+        const isDate = e => isNaN(e) && !isNaN(Date.parse(e))
+
+        if (typeof aV === 'string') {
+          if (isDate(aV)) {
+            return isUp
+              ? new Date(aV).getTime() - new Date(bV).getTime()
+              : new Date(bV).getTime() - new Date(aV).getTime()
+          } else {
+            let aa = aV || '',
+              bb = bV || ''
+            return isUp ? aa.localeCompare(bb) : bb.localeCompare(aa)
+          }
+        } else {
+          return isUp ? aV - bV : bV - aV
+        }
       }
-    } else {
-      return isUp ? aV - bV : bV - aV
     }
+
+    return 0
   }
 }
 
@@ -446,7 +467,7 @@ export const listToTree2 = (list = [], id = 'id', parentId = 'parentId') => {
     },
     {
       result: [],
-      temp: {},
+      temp: {}
     }
   )
 
@@ -477,7 +498,7 @@ export function listToTreeByPrentId(list = [], parentId) {
   return children.map(child => {
     return {
       ...child,
-      children: listToTreeByPrentId(others, child.id),
+      children: listToTreeByPrentId(others, child.id)
     }
   })
 }
@@ -495,7 +516,7 @@ export const sortTree = (treeList = [], sortKey = 'sort') => {
 
       return {
         ...t,
-        children: sortTree(children),
+        children: sortTree(children)
       }
     })
     .sort((a, b) => a[sortKey] - b[sortKey])
@@ -587,7 +608,7 @@ export const qs = {
         })
         .join('&')
     )
-  },
+  }
 }
 
 /**
@@ -600,11 +621,133 @@ export const qs = {
 export const getDiffColor = (
   origin,
   target,
-  { increaseColor = 'green', decreaseColor = 'red', initialColor = '' } = {}
+  {
+    increaseColor = '#008000',
+    decreaseColor = '#ff0000',
+    initialColor = ''
+  } = {}
 ) => {
   if (origin === target) return initialColor
 
   if (target / origin === Infinity) return initialColor
 
   return target > origin ? increaseColor : decreaseColor
+}
+
+/**
+ * 获取指定数组（可能是嵌套数组）中唯一的子元素
+ * @param l 数组，可能包含嵌套数组
+ * @returns 返回一个包含所有唯一子元素的数组
+ */
+export const getOnlyChild = (l = []) =>
+  l.reduce(
+    (a, t) => a.concat(t.children?.length ? getOnlyChild(t.children) : t),
+    []
+  )
+
+/**
+ * 获取树形结构的最大深度
+ * @param l 树形结构数组
+ * @param init 初始深度值，默认为1
+ * @returns 返回最大深度值
+ */
+export const getMaxDepth = (l = [], init = 1) => {
+  return l.reduce((a, t) => {
+    if (t.children?.length) {
+      return Math.max(getMaxDepth(t.children, init + 1), a)
+    } else {
+      return Math.max(init, a)
+    }
+  }, init)
+}
+
+// 多字段排序
+export const createSortByOrders = (sorters = []) => {
+  sorters = Array.isArray(sorters) ? sorters : [sorters]
+  const isDate = e => isNaN(e) && !isNaN(Date.parse(e))
+
+  return function (a, b) {
+    // sorters = sorters.filter(
+    //   ({ field, fieldAlias = field }) =>
+    //     typeof a[fieldAlias] !== 'undefined' ||
+    //     typeof b[fieldAlias] !== 'undefined'
+    // )
+
+    for (const item of sorters) {
+      const { field, fieldAlias = field, order, custom } = item
+      const isUp = order === 'asc'
+
+      let aV =
+          typeof fieldAlias !== 'undefined' ? (a[fieldAlias] ?? '_null_') : a,
+        bV = typeof fieldAlias !== 'undefined' ? (b[fieldAlias] ?? '_null_') : b
+
+      // 空值 null, undefined 排在最前面或最后面
+      if (aV === '_null_') return isUp ? -1 : 1
+      if (bV === '_null_') return isUp ? 1 : -1
+
+      if (aV !== bV) {
+        if (!!custom && order === 'custom') {
+          aV = String(aV)
+          bV = String(bV)
+          const customArr = custom.split(/\n/)
+          const getIndex = v => customArr.indexOf(v)
+
+          if (getIndex(aV) >= 0 && getIndex(bV) >= 0)
+            return getIndex(aV) - getIndex(bV)
+
+          if (getIndex(aV) >= 0 && getIndex(bV) < 0) return -1
+          if (getIndex(aV) < 0 && getIndex(bV) >= 0) return 1
+        } else {
+          if (typeof aV === 'string' && typeof bV === 'string') {
+            if (isDate(aV) && isDate(bV)) {
+              aV = new Date(aV).getTime()
+              bV = new Date(bV).getTime()
+
+              return isUp ? aV - bV : bV - aV
+            } else {
+              aV = String(aV)
+              bV = String(bV)
+
+              return isUp ? aV.localeCompare(bV) : bV.localeCompare(aV)
+            }
+          } else {
+            return isUp ? aV - bV : bV - aV
+          }
+        }
+      }
+    }
+
+    return 0
+  }
+}
+
+export const isEmpty = v => typeof v === 'undefined' || v === null || v === ''
+
+/**
+ * 获取下一个未被占用的索引
+ * @param init 初始索引，默认为0
+ * @param exited 已占用的索引数组
+ * @returns 返回下一个未被占用的索引
+ */
+export const getNextIndex = (init = 0, exist = []) => {
+  if (!exist.length) return init
+
+  let nextIndex = init
+  const sortedExisted = exist.sort((a, b) => a - b)
+
+  // for (let i = init; i < sortedExisted.length - init; i++) {
+  //   const eI = sortedExisted[i + init]
+  //   if (eI === nextIndex) {
+  //     nextIndex++
+  //   }
+  // }
+
+  let i = 0
+  while (i < sortedExisted.length) {
+    const sI = sortedExisted[i]
+    if (sI === nextIndex) nextIndex = sI + 1
+    i++
+  }
+
+  return nextIndex
 }

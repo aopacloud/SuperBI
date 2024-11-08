@@ -1,21 +1,23 @@
 import { message } from 'ant-design-vue'
 import { CATEGORY } from '@/CONST.dict'
-import { transformFieldsByVs, createSortByOrder, isEmpty } from './index'
+import { transformFieldsByVs, isEmpty } from './index'
 import {
   transformFieldToColumn,
   listDataToTreeByKeys,
   updateColumnsWithCompare,
   createSummaryMap,
-  transformWithQuickIndex,
+  getListByReplacedSpecial
 } from '../Table/utils'
 import { pickFlatten } from 'common/utils/array'
 import { TREE_GROUP_NAME } from './createGroupTable'
+import { createSortByOrder, deepClone } from 'common/utils/help'
+import { transformWithQuickIndex } from '@/views/analysis/utils'
 
 export const COLUMN_FIELDS_NAME_JOIN = '__' // 列分组值的分隔符
 
 export const MAX_COLUMNS_COUNT = 500 // 列字段最大数量
 
-export const MAX_COUNT_MESSAGE =
+export const MAX_COLUMNS_COUNT_MESSAGE =
   '当前条件分组过多，不适合使用交叉表格，请切换至明细表格'
 
 // 转换列数据
@@ -38,7 +40,7 @@ const transformFields = fields => {
         _isMergeFields: true,
         _fields: columnFields,
         _columnFields: columnFields,
-        _showSummary: false,
+        _showSummary: false
       }
     }
 
@@ -51,7 +53,7 @@ const transformFields = fields => {
       displayName: rowFields.map(t => t.displayName).join('/'),
       _isMergeFields: true,
       _fields: rowFields,
-      _columnFields: columnFields,
+      _columnFields: columnFields
     }
   }
 
@@ -60,7 +62,7 @@ const transformFields = fields => {
     columnFields,
     indexFields,
     groupLength,
-    mergeGroupFields,
+    mergeGroupFields
   }
 }
 
@@ -68,14 +70,14 @@ const createIndexColumn = ({
   columnFields = [],
   indexFields = [],
   data = [],
-  parentVal,
+  parentVal
 }) => {
   const prefix = parentVal ? parentVal + COLUMN_FIELDS_NAME_JOIN : ''
   if (!columnFields.length)
     return indexFields.map(t => {
       return {
         ...t,
-        renderNameByValue: prefix + t.renderName,
+        renderNameByValue: prefix + t.renderName
       }
     })
 
@@ -83,27 +85,34 @@ const createIndexColumn = ({
   const firstData = [
     ...new Set(
       data.map(t => {
-        const v = t[first.renderName]
-        return isEmpty(v) ? '-' : v
+        return t[first.renderName]
       })
-    ),
-  ].sort(createSortByOrder(true))
+    )
+  ].sort(createSortByOrder({ order: 'asc' }))
 
-  return firstData.map(t => {
-    const renderNameByValue = prefix + t
+  return firstData
+    .filter(t => {
+      // 过滤掉不在数据中但是交叉出来的分组
+      const renderNameByValue = prefix + t
+      return data
+        .map(row => Object.keys(row))
+        .some(t => t.some(a => a.includes(renderNameByValue)))
+    })
+    .map(t => {
+      const renderNameByValue = prefix + t
 
-    return {
-      ...first,
-      displayName: t,
-      renderNameByValue,
-      children: createIndexColumn({
-        columnFields: rest,
-        indexFields,
-        data,
-        parentVal: renderNameByValue,
-      }),
-    }
-  })
+      return {
+        ...first,
+        displayName: t,
+        renderNameByValue,
+        children: createIndexColumn({
+          columnFields: rest,
+          indexFields,
+          data,
+          parentVal: renderNameByValue
+        })
+      }
+    })
 }
 
 export default function createTableData({
@@ -112,39 +121,51 @@ export default function createTableData({
   summaryRows = [],
   datasetFields = [],
   compare,
-  config = {},
+  config = {}
 }) {
+  originData = getListByReplacedSpecial(
+    {
+      dataSource: deepClone(originData),
+      columns: deepClone(originFields),
+      config: config.special
+    },
+    '-'
+  )
   // 处理对比字段
   const fields = transformFieldsByVs({ fields: originFields, compare })
 
   // 将字段数据转为分组字段
-  const { rowFields, columnFields, indexFields, groupLength, mergeGroupFields } =
-    transformFields(fields)
+  const {
+    rowFields,
+    columnFields,
+    indexFields,
+    groupLength,
+    mergeGroupFields
+  } = transformFields(fields)
 
+  // .map(row => row.map((t, i) => (t === '' && i < groupLength ? '-' : t)))
   // 对象数据
-  let dataList = originData
-    .map(row => row.map((t, i) => (t === '' && i < groupLength ? '-' : t)))
-    .map(row => {
-      const cValue = row.slice(0, columnFields.length),
-        cValueStr = cValue.join(COLUMN_FIELDS_NAME_JOIN)
+  let dataList = originData.map(row => {
+    const cValue = row.slice(0, columnFields.length),
+      cValueStr = cValue.join(COLUMN_FIELDS_NAME_JOIN)
 
-      return row.reduce((a, b, i) => {
-        const { renderName } = fields[i]
-        if (i >= groupLength + columnFields.length) {
-          const prefix = cValueStr ? cValueStr + COLUMN_FIELDS_NAME_JOIN : ''
+    return row.reduce((a, b, i) => {
+      const { renderName } = fields[i]
+      if (i >= groupLength + columnFields.length) {
+        const prefix = cValueStr ? cValueStr + COLUMN_FIELDS_NAME_JOIN : ''
 
-          a[prefix + renderName] = b
-        } else {
-          a[renderName] = b
-        }
-        return a
-      }, {})
-    })
+        a[prefix + renderName] = b
+      } else {
+        a[renderName] = b
+      }
+      return a
+    }, {})
+  })
 
   const indexColumns = createIndexColumn({
     columnFields,
     indexFields: indexFields.map(transformWithQuickIndex),
-    data: dataList,
+    data: dataList
   })
 
   const getChildren = (list = []) => {
@@ -158,15 +179,16 @@ export default function createTableData({
       }
     }, [])
   }
+
   // 检测列分组字段的数量
   const allIndexFields = columnFields.length
     ? pickFlatten(indexColumns)
     : indexColumns
 
   if (allIndexFields.length > MAX_COLUMNS_COUNT) {
-    message.warn(MAX_COUNT_MESSAGE)
+    message.warn(MAX_COLUMNS_COUNT_MESSAGE)
 
-    throw Error(MAX_COUNT_MESSAGE)
+    throw Error(MAX_COLUMNS_COUNT_MESSAGE)
   }
 
   // 分组字段
@@ -174,11 +196,53 @@ export default function createTableData({
 
   // 将字段信息转为列信息
   let columns = (groupField ? [groupField, ...indexColumns] : indexColumns).map(
-    (field, index) => transformFieldToColumn({ field, index })
+    (field, index) =>
+      transformFieldToColumn({ field, index }, config.columnsWidth)
   )
 
+  // 列汇总
+  let columnSummaryColumn = [],
+    summaryColumn = config.summary?.column
+  if (summaryColumn?.enable) {
+    const resizeWidth = config.columnsWidth?.find(
+      t => t.field === 'column_summary'
+    )?.width
+
+    columnSummaryColumn = {
+      field: 'column_summary',
+      title: '汇总',
+      _width: resizeWidth,
+      className: 'summary-cell',
+      params: {
+        _isColumnSummary: true
+      },
+      slots: {
+        default: 'columnSummary'
+      }
+    }
+
+    if (summaryColumn.position === 'first') {
+      columns.unshift(columnSummaryColumn)
+    } else if (summaryColumn.position === 'afterInDimension') {
+      columns.splice(1, 0, columnSummaryColumn)
+    } else {
+      columns.push(columnSummaryColumn)
+    }
+  }
+
+  // 序号
+  if (config.orderSeq) {
+    columns.unshift({
+      type: 'seq',
+      title: '序号',
+      align: 'center',
+      fixed: 'left',
+      resizable: false
+    })
+  }
+
   // 汇总数据
-  const summaryMap = createSummaryMap(summaryRows, fields)
+  const summaryMap = createSummaryMap(summaryRows, fields, config)
 
   // 树结构
   const treeData = listDataToTreeByKeys({
@@ -186,6 +250,7 @@ export default function createTableData({
     groupKeys: rowFields.map(t => t.renderName),
     columnGroupKeys: columnFields.map(t => t.renderName),
     summaryMap,
+    renderType: config.renderType
   })
 
   // 对比合并显示
@@ -194,13 +259,13 @@ export default function createTableData({
       columns,
       originData,
       datasetFields,
-      compare: config.compare,
+      compare: config.compare
     })
   }
 
   return {
     columns,
     list: treeData,
-    summaryMap,
+    summaryMap
   }
 }

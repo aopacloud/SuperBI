@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia'
 import { staticRoutes } from '@/router'
-import { registeDynamicRoutes, transfromResourceWithRoute } from '@/router/utils'
+import {
+  registeDynamicRoutes,
+  transformResourceWithRoute
+} from '@/router/utils'
 import { listToTree, sortTree } from 'common/utils/help'
 import { versionJs } from '@/versions'
 import useAppStore from './app'
@@ -16,7 +19,7 @@ export default defineStore('resource', {
     // 顶部导航栏的资源
     navbarResources: [],
     // 所有的路由
-    routes: [],
+    routes: []
   }),
   actions: {
     setLoaded(loaded) {
@@ -24,7 +27,9 @@ export default defineStore('resource', {
     },
     async fetchResource() {
       try {
-        return versionJs.StoreModulesResource.fetchResourceByVersion.bind(this)()
+        return versionJs.StoreModulesResource.fetchResourceByVersion.bind(
+          this
+        )()
       } catch (error) {
         console.error('资源列表获取失败', error)
       } finally {
@@ -63,13 +68,13 @@ export default defineStore('resource', {
     },
     // 设置侧边栏资源
     setSidebarResource(list) {
-      this.sidebarResources = transfromResourceWithRoute(
+      this.sidebarResources = transformResourceWithRoute(
         sortTree(listToTree(list).sort((a, b) => a.id - b.id))
       )
     },
     // 设置导航栏资源
     setNavbarResouce(list) {
       this.navbarResources = list
-    },
-  },
+    }
+  }
 })

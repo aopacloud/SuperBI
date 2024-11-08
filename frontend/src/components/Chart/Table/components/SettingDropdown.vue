@@ -10,18 +10,6 @@
           :key="SORT_PREFFIX + '_/_' + item.order">
           {{ item.label }}
         </a-menu-item>
-
-        <a-sub-menu v-if="showFormat" title="格式" key="formatter">
-          <a-menu-item
-            v-for="item in formatterOptions"
-            :key="FORMAT_PREFFIX + '_/_' + item.value">
-            {{
-              item.value === FORMAT_CUSTOM_CODE
-                ? displayCustomFormatterLabel(formatter.config) || item.label
-                : item.label
-            }}
-          </a-menu-item>
-        </a-sub-menu>
       </a-menu>
     </template>
   </a-dropdown>
@@ -31,12 +19,7 @@ import { computed } from 'vue'
 import { SettingOutlined } from '@ant-design/icons-vue'
 import { CATEGORY } from '@/CONST.dict.js'
 import { sortOptions, SORT_PREFFIX } from './config'
-import {
-  FORMAT_PREFFIX,
-  FORMAT_CUSTOM_CODE,
-  formatterOptions,
-} from '@/views/dataset/config.field'
-import { displayCustomFormatterLabel } from '@/views/dataset/utils'
+import { FORMAT_PREFFIX } from '@/views/dataset/config.field'
 
 const emits = defineEmits(['openChange', 'menuClick'])
 const props = defineProps({
@@ -52,12 +35,6 @@ const props = defineProps({
     type: [Number, Object],
     default: () => ({}),
   },
-})
-
-const showFormat = computed(() => {
-  const { field, _isVs } = props.column.params
-
-  return field.category === CATEGORY.INDEX && !_isVs
 })
 
 const selectedKeys = computed(() => {

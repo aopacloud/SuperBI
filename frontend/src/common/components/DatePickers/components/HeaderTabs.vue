@@ -37,7 +37,7 @@ const emits = defineEmits(['update:tab', 'reset'])
 const props = defineProps({
   tab: {
     type: Number,
-    default: 1,
+    default: 0,
   },
   value: {
     type: Array,

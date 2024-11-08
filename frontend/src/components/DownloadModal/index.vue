@@ -43,6 +43,10 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
+  options: {
+    type: Object,
+    default: () => ({}),
+  },
 })
 
 const loading = ref(false)
@@ -56,11 +60,11 @@ const cancel = () => {
 }
 
 const ok = () => {
-  if (modelValue.value) {
-    downloadFromOrigin()
-  } else {
+  if (!modelValue.value) {
     emits('download')
     cancel()
+  } else {
+    downloadFromOrigin()
   }
 }
 

@@ -3,19 +3,35 @@
 </template>
 
 <script setup>
-import { ref, shallowRef, reactive, watch, onMounted, onBeforeUnmount } from 'vue'
+import {
+  ref,
+  shallowRef,
+  reactive,
+  watch,
+  onMounted,
+  onBeforeUnmount
+} from 'vue'
 import echarts from './utils/install.js'
-import { gridCommon, legendCommon, colors, CHART_GRID_HEIGHT } from './utils/default.js'
+import {
+  gridCommon,
+  legendCommon,
+  colors,
+  CHART_GRID_HEIGHT
+} from './utils/default.js'
+import { debounce } from 'common/utils/help'
 
+const emits = defineEmits(['chart-resized'])
 const props = defineProps({
   options: {
-    type: Object,
-  },
+    type: Object
+  }
 })
 // 图表实例
 const chart = shallowRef(null)
 // 根元素
 const rootEl = ref(null)
+
+const renderId = ref(0)
 
 // 更新图表尺寸
 const updateChartSize = () => {
@@ -31,26 +47,35 @@ const updateChartSize = () => {
 
   chart.value.resize({
     width: 'auto',
-    height: gridsHeight > domHeight ? gridsHeight : 'auto',
+    height: gridsHeight > domHeight ? gridsHeight : domHeight - 1 // -1 是由于尺寸存在小数，避免出现滚动条  ('auto'),
   })
 }
 
+const updateChartSizeDebounced = debounce(updateChartSize, 1)
+const chartResized = debounce(() => emits('chart-resized'), 200, false)
+
 // 创建一个resize监听器，响应父级尺寸大小, 重置chart尺寸
-const ob = new ResizeObserver(entries => {
-  updateChartSize()
+const ob = new ResizeObserver(() => {
+  if (renderId.value < 2) return
+  updateChartSizeDebounced()
+  chartResized()
 })
 
 // 默认配置项
 const defaultOptions = reactive({
   grid: gridCommon,
   color: colors,
-  legend: legendCommon,
+  legend: legendCommon
 })
 // 初始化图表
 const initChart = async () => {
   chart.value = echarts.init(rootEl.value, null, {
     width: 'auto',
-    height: 'auto',
+    height: 'auto'
+  })
+
+  chart.value.on('finished', () => {
+    renderId.value++
   })
 }
 
@@ -59,12 +84,12 @@ const render = options => {
   chart.value.setOption(
     {
       ...defaultOptions,
-      ...options,
+      ...options
     },
     {
       notMerge: true,
       replaceMerge: ['legend', 'xAxis', 'yAxis', 'series'],
-      lazyUpdate: true,
+      lazyUpdate: true
     }
   )
 }
@@ -79,7 +104,7 @@ watch(
   },
   {
     immediate: true,
-    deep: true,
+    deep: true
   }
 )
 
@@ -91,7 +116,7 @@ onMounted(() => {
 
 defineExpose({
   getInstance: () => chart.value,
-  setOption: render,
+  setOption: render
 })
 
 onBeforeUnmount(() => {

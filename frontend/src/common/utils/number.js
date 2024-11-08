@@ -26,7 +26,10 @@ export function toThousand(num) {
 export function toDigit(num, digit = 0, thousand = true) {
   if (isNaN(num)) return num
 
-  const n = Number(num).toFixed(digit)
+  let n = Number(num).toFixed(digit)
+
+  // 去掉默认的小数位0
+  n = removeTrailingZeros(n)
 
   return thousand ? toThousand(n) : n
 }
@@ -45,7 +48,10 @@ export function toPercent(num, digit = 2, thousand) {
   if (isNaN(num)) return num
   if (digit < 0) digit = 0
 
-  const n = (num * 100).toFixed(digit)
+  let n = (num * 100).toFixed(digit)
+
+  // 去掉默认的小数位0
+  n = removeTrailingZeros(n)
 
   return thousand ? toThousand(n) + '%' : n + '%'
 }
@@ -57,6 +63,7 @@ export function toPercent(num, digit = 2, thousand) {
  * @returns
  */
 export function quantile(arr, q) {
+  q = q >= 1 ? q / 100 : q
   // 将数组排序
   const sorted = arr.sort((a, b) => a - b)
   // 计算分位数位置的近似值
@@ -71,3 +78,9 @@ export function quantile(arr, q) {
     return sorted[base] + rest * (sorted[base + 1] - sorted[base])
   }
 }
+
+export const sum = arr => arr.reduce((a, b) => a + b, 0)
+export const avg = arr => sum(arr) / arr.length
+
+// 去除小数位末尾的0
+export const removeTrailingZeros = n => Number(n).toString()

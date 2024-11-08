@@ -1,7 +1,10 @@
 ﻿<template>
   <section class="box" :id="`box_${reportId}`" :data-reportId="reportId">
-    <header class="header graggable-handler">
-      <div class="title">
+    <!-- 底部拖动触发器 -->
+    <div class="drag-trigger drag-trigger-bottom draggable-handler"></div>
+
+    <header class="header">
+      <div class="title draggable-handler" @mousedown.prevent>
         <div class="name">
           <a class="report-name" target="_blank" @click="toChartPage">
             {{ report.name }}
@@ -14,7 +17,8 @@
           <a-tooltip
             :title="`数据更新至: ${
               report.dataset ? report.dataset.latestPartitionValue : '-'
-            }`">
+            }`"
+          >
             <FieldTimeOutlined
               class="flex-center"
               style="
@@ -22,70 +26,111 @@
                 height: 24px;
                 font-size: 20px;
                 color: rgba(0, 0, 0, 0.88);
-              " />
+              "
+            />
           </a-tooltip>
 
           <a-button
             type="text"
             size="small"
             :icon="h(ReloadOutlined)"
-            @click="reload" />
+            @click="reload"
+          />
 
-          <a-dropdown trigger="click">
+          <a-dropdown trigger="click" v-model:open="dropdownOpen">
             <a-button type="text" size="small" :icon="h(MoreOutlined)" />
             <template #overlay>
               <a-menu @click="onMoreMenuClick">
+                <ViewsReportActionDropdownMenuitemWarning />
                 <a-menu-item key="sql">查看SQL</a-menu-item>
                 <a-menu-item key="download">下载</a-menu-item>
+                <ReportInfoPopover title="图表信息" :chart="report">
+                  <a-menu-item key="info"> 图表信息 </a-menu-item>
+                </ReportInfoPopover>
               </a-menu>
             </template>
           </a-dropdown>
         </a-space>
       </div>
-      <div class="sub-title">{{ subTitle }}</div>
+      <div class="sub-title">
+        <span v-if="!hasDynamicFiltersDt" style="margin-right: 8px">
+          {{ subTitle }}
+        </span>
+      </div>
     </header>
     <main class="content">
       <!-- 使用 keepAlive 会导致图表渲染闪烁 -->
 
       <!-- loading -->
-      <a-spin _comment_="loading" v-if="loading" class="flex-column flex-center" />
+      <a-spin
+        _comment_="loading"
+        v-if="loading"
+        class="flex-column flex-center"
+      />
 
       <!-- 初始化 -->
-      <a-empty _comment_="初始化" v-else-if="isInit" class="flex-column flex-center" />
+      <a-empty
+        _comment_="初始化"
+        v-else-if="isInit"
+        class="flex-column flex-center"
+      />
 
       <!-- 无权限 -->
-      <BoxUnaccess _comment_="无权限"
+      <BoxUnaccess
+        _comment_="无权限"
         v-else-if="
-          report.dataset.permission !== 'WRITE' &&
-          report.dataset.permission !== 'READ'
+          report.dataset?.permission !== 'WRITE' &&
+          report.dataset?.permission !== 'READ'
         "
         :dataset="report.dataset"
-        @apply="emits('dataset-apply', report.dataset)" />
+        @apply="emits('dataset-apply', report.dataset)"
+      />
 
       <!-- 查询异常 -->
-      <div _comment_="查询异常" v-else-if="!isQuerySuccess" style="text-align: center">
-        <img src="@/assets/svg/chartBox_error.svg" style="width: 200px" alt="查询异常" />
-        <p style="color: #999">
+      <div
+        _comment_="查询异常"
+        v-else-if="!isQuerySuccess"
+        style="text-align: center"
+      >
+        <img
+          src="@/assets/svg/chartBox_error.svg"
+          style="width: 200px"
+          alt="查询异常"
+        />
+        <div style="color: #999">
           查询异常 <span v-if="errorLog"> ( {{ errorLog }} ) </span>
-          <a-spin v-if="reasonLoading"  size="small" style="margin-left: 6px" />
-          <div v-if="errorReason" style="margin-top: 4px;">AI分析: {{ errorReason }}</div>
-        </p>
+          <a-spin v-if="reasonLoading" size="small" style="margin-left: 6px" />
+          <div v-if="errorReason" style="margin-top: 4px">
+            AI分析: {{ errorReason }}
+          </div>
+        </div>
       </div>
 
       <!-- 无数据 -->
-      <div _comment_="无数据"
+      <div
+        _comment_="无数据"
         v-else-if="
           requestResponse.layout.renderType !== 'table' && !dataSource.length
         "
-        style="text-align: center">
-        <img src="@/assets/svg/chartBox_empty.svg" style="width: 200px" alt="无数据" />
+        style="text-align: center"
+      >
+        <img
+          src="@/assets/svg/chartBox_empty.svg"
+          style="width: 200px"
+          alt="无数据"
+        />
         <p style="color: #999">当前查询条件下暂无数据</p>
       </div>
 
       <!-- 有数据 -->
-      <Chart _comment_="有数据"
+      <Chart
+        _comment_="有数据"
         v-else
         ref="chartRef"
+        from="dashboard"
+        :teleportTo="`#box_${reportId} .sub-title`"
+        :setDynamicFilterDefault="setDynamicFilterDefault"
+        :dynamicFilterConfig="{ size: 'small' }"
         :choosed="choosed"
         :columns="columns"
         :dataSource="dataSource"
@@ -93,7 +138,9 @@
         :compare="requestResponse.request.compare"
         :dataset="report.dataset"
         :options="requestResponse.layout"
-        :extraChartOptions="{ grid: { left: 50, right: 50, bottom: 40 } }" />
+        :extraChartOptions="{ grid: { left: 60, right: 60, bottom: 40 } }"
+      >
+      </Chart>
     </main>
   </section>
 </template>
@@ -110,67 +157,104 @@ import {
 import Chart from '@/components/Chart/index.vue'
 import { postAnalysisQuery } from '@/apis/analysis'
 import { getDetailById } from '@/apis/report'
-import { CATEGORY } from '@/CONST.dict'
-import { transformColumns, sortDimension } from '@/views/analysis/utils'
+import { CATEGORY, RELATION } from '@/CONST.dict'
+import {
+  transformColumns,
+  sortDimension,
+  compatibleDefault,
+  compatibleHistory,
+  getFieldsChoseMap
+} from '@/views/analysis/utils'
 import { deepClone } from 'common/utils/help'
 import { storagePrefix } from '@/settings'
 import { DASHBORD_TO_REPORT_NAME } from '../config'
 import BoxUnaccess from './BoxUnaccess.vue'
 import emittor from 'common/plugins/emittor'
 import { versionJs } from '@/versions'
-import { getStartDateStr, getEndDateStr } from 'common/components/DatePickers/utils'
+import {
+  getStartDateStr,
+  getEndDateStr,
+  isIncludeToday
+} from 'common/components/DatePickers/utils'
 import dayjs from 'dayjs'
 import { isRenderTable } from '@/views/analysis/utils'
 import useError from '@/hooks/useError'
+import { versionVue } from '@/versions'
+import ReportInfoPopover from '@/components/ReportInfoPopover/index.vue'
+
+const { ViewsReportActionDropdownMenuitemWarning } = versionVue
 
 const { fetchReason, reason: errorReason, reasonLoading } = useError()
 
 const router = useRouter()
 
-const emits = defineEmits(['sql', 'download', 'dataset-apply', 'loaded', 'reload'])
+const emits = defineEmits([
+  'sql',
+  'download',
+  'dataset-apply',
+  'loaded',
+  'reload',
+  'warning'
+])
 const props = defineProps({
   detail: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
   reportId: {
-    type: [String, Number],
+    type: [String, Number]
   },
   globalDateConfig: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
   shouldLoad: {
-    type: Boolean,
+    type: Boolean
   },
-  item: {
+  chartItem: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
+  },
+  layoutItem: {
+    type: Object,
+    default: () => ({})
   },
   // 全局筛选过滤器
   filters: {
     type: [Array, Object],
-    default: () => [],
+    default: () => []
   },
   observer: {
     type: Object,
-    default: () => ({}),
+    default: () => ({})
   },
   timeOffset: {
     type: String,
-    default: '+8',
-  },
+    default: '+8'
+  }
 })
 
 const chartRef = ref(null)
+
+const dropdownOpen = ref(false)
 const onMoreMenuClick = ({ key }) => {
+  if (key === 'info' || key === 'trigger') {
+    dropdownOpen.value = true
+    return
+  }
+
+  dropdownOpen.value = false
   if (key === 'sql') {
     emits('sql', requestResponse.response)
   } else if (key === 'download') {
     emits('download', {
       payload: downloadQueryParams.value,
+      // payload: requestResponse.request,
+      options: requestResponse.layout,
       download: chartRef.value?.download
     })
+  } else if (key === 'warning') {
+    emits('warning', report.value)
   }
 }
 
@@ -180,7 +264,7 @@ const getReportDetailHref = () => {
 
   const routeRes = router.resolve({
     name: 'ReportDetail',
-    params: { id: props.reportId },
+    params: { id: props.reportId }
   })
   if (!routeRes) return
 
@@ -198,7 +282,7 @@ const toChartPage = () => {
 
     const payload = {
       dashboard: props.detail,
-      filters: mergedFilters.value,
+      filters: mergedFilters.value
     }
 
     window.localStorage.setItem(
@@ -214,14 +298,18 @@ const loading = ref(false)
 const requestResponse = reactive({
   request: {},
   response: {},
-  layout: {},
+  layout: {}
 })
 
 // 是否请求成功过
-const isQuerySuccess = computed(() => requestResponse.response.status === 'SUCCESS')
+const isQuerySuccess = computed(
+  () => requestResponse.response.status === 'SUCCESS'
+)
 
 // // 初始化
-const isInit = computed(() => Object.keys(requestResponse.response).length === 0)
+const isInit = computed(
+  () => Object.keys(requestResponse.response).length === 0
+)
 
 const _n = category => category.toLowerCase() + 's'
 // 从数据集字段中恢复category
@@ -233,12 +321,12 @@ const _addCategoryFromDatasetFields = (t, category) => {
   const displayName =
     t.displayName !== item.displayName
       ? t.displayName
-      : t._modifyDisplayName ?? item.displayName
+      : (t._modifyDisplayName ?? item.displayName)
 
   return {
     ...t,
     displayName: displayName + '',
-    category,
+    category
   }
 }
 
@@ -255,12 +343,15 @@ const choosed = computed(() => {
       .map(t => _addCategoryFromDatasetFields(t, CATEGORY.INDEX)),
     [CATEGORY.FILTER]: (requestRes[_n(CATEGORY.PROPERTY)] ?? [])
       .filter(filterFields)
-      .map(_addCategoryFromDatasetFields),
+      .map(_addCategoryFromDatasetFields)
   }
 })
 
 // 过滤掉非数据集中的字段
 const filterFields = item => {
+  // 组合过滤
+  if (item.nested) return true
+
   const fields = report.value.dataset?.fields || []
 
   return fields.filter(t => t.status !== 'HIDE').some(t => t.name === item.name)
@@ -271,12 +362,12 @@ const columns = computed(() => {
   // 使用查询成功的请求字段
   const fields = [
     ...choosed.value[CATEGORY.PROPERTY],
-    ...choosed.value[CATEGORY.INDEX],
+    ...choosed.value[CATEGORY.INDEX]
   ]
 
   return transformColumns({
     fields,
-    fieldNames: requestResponse.response.fieldNames,
+    fieldNames: requestResponse.response.fieldNames
   })
 })
 
@@ -316,12 +407,21 @@ const fetchReportDetail = async () => {
     report.value = { ...rest }
     requestResponse.request = {
       ...JSON.parse(queryParam),
-      fromSource: 'dashboard',
+      fromSource: 'dashboard'
     }
 
-    requestResponse.layout = JSON.parse(layout)
-    props.item.report = { ...rest }
+    let layoutObj = JSON.parse(layout)
+    layoutObj = compatibleDefault(layoutObj)
+    layoutObj = compatibleHistory(
+      layoutObj,
+      getFieldsChoseMap(JSON.parse(queryParam))
+    )
 
+    requestResponse.layout = layoutObj
+    props.chartItem.report = { ...rest }
+
+    props.chartItem._load = true
+    emits('loaded', props.reportId)
     emits('reload', rest)
   } catch (error) {
     loading.value = false
@@ -342,98 +442,119 @@ const toFilterItem = item => {
     const { date = [], mode = 0, offset = [], extra = {}, hms } = value
     return {
       name: fieldName,
-      logical: 'AND',
+      logical: RELATION.AND,
       conditions: [
         {
           useLatestPartitionValue: !!extra.dt,
           functionalOperator: 'BETWEEN',
           timeType: mode === 0 ? 'RELATIVE' : 'EXACT',
           args: mode === 0 ? [...offset] : [...date],
-          timeParts: hms,
-        },
-      ],
+          timeParts: hms
+        }
+      ]
     }
   } else if (filterType === 'TEXT' || filterType === 'NUMBER') {
     // 文本、数值
     return {
       name: fieldName,
-      logical: ['AND', 'ALL'].includes(filterMethod) ? filterMethod : 'AND',
+      logical: [RELATION.AND, RELATION.OR].includes(filterMethod)
+        ? filterMethod
+        : RELATION.AND,
       conditions: value.map(val => {
         return {
           functionalOperator: val.operator,
-          args: [val.value],
+          args: [val.value]
         }
-      }),
+      })
     }
   } else if (filterType === 'CUSTOM') {
     // 自定义
     return {
       name: fieldName,
-      logical: 'AND',
+      logical: RELATION.AND,
       conditions: [
         {
           functionalOperator: 'IN',
-          args: value,
-        },
-      ],
+          args: value
+        }
+      ]
     }
   } else {
     // 枚举
     return {
       name: fieldName,
-      logical: 'AND',
+      logical: RELATION.AND,
       conditions: [
         {
           functionalOperator: 'IN',
-          args: Array.isArray(value) ? value : [value],
-        },
-      ],
+          args: Array.isArray(value) ? value : [value]
+        }
+      ]
     }
   }
 }
 
 // 更新日期筛选项
 const updateFilterItem = filter => {
-  if (!filter.dataType.includes('TIME')) {
+  const { nested, tableFilter, children = [] } = filter
+
+  // 组合过滤
+  if (nested) {
+    return {
+      ...filter,
+      tableFilter: {
+        ...tableFilter,
+        children: (tableFilter.children || []).map(updateFilterItem)
+      }
+    }
+  }
+  if (children.length)
+    return { ...filter, children: children.map(updateFilterItem) }
+
+  const {
+    dataType,
+    conditions: [cond1]
+  } = filter
+  if (!dataType.includes('TIME')) {
     return filter
   } else {
-    const cond = filter.conditions[0]
-    const { timeType = 'RELATIVE', _this, _until } = cond
+    const { timeType = 'RELATIVE', _this, _until } = cond1
 
     if (!!_until) {
       const endDate = getEndDateStr(
         { type: 'day', offset: _until.split('_')[1] },
         props.timeOffset
       )
-      cond.args[1] = endDate
-      cond.timeType = 'EXACT'
+      cond1.args[1] = endDate
+      cond1.timeType = 'EXACT'
 
       return {
         ...filter,
-        conditions: [cond],
+        conditions: [cond1]
       }
     } else if (timeType === 'RELATIVE' && _this) {
       // 相对时间的当月在查询时重新计算
-      const [tp, of = 0] = _this.split('_')
+      const [tp, of = 0, mode] = _this.split('_')
+      const isToday = isIncludeToday(mode)
       const s = getStartDateStr(
-        { type: tp.toLowerCase(), offset: +of },
+        { type: tp.toLowerCase(), offset: isToday ? +of + 1 : +of },
         props.timeOffset
       )
       const e = getEndDateStr(
-        { type: tp.toLowerCase(), offset: +of },
+        { type: tp.toLowerCase(), offset: isToday ? 0 : +of },
         props.timeOffset
       )
       const sDiff = dayjs().startOf('day').diff(s, 'day')
-      const eDiff = dayjs().endOf('day').diff(e, 'day')
+      const eDiff = dayjs().startOf('day').diff(e, 'day')
 
       return {
         ...filter,
         conditions: [
           {
-            ...cond,
-            args: [sDiff, eDiff],
-          },
-        ],
+            ...cond1,
+            args: [sDiff, eDiff]
+          }
+        ]
       }
     } else {
       return filter
@@ -459,21 +580,50 @@ const reload = async () => {
 // 下载的查询参数
 const downloadQueryParams = ref({})
 
-const payloadSummary = computed(() => {
-  const {
-    renderType,
-    table: { showSummary },
-  } = requestResponse.layout
+const getSummaryPayload = () => {
+  const { request, layout } = requestResponse
+  const { renderType, table } = layout
 
-  // 非表格，无需请求汇总
-  if (!isRenderTable(renderType)) return
+  // 非表格，不进行任何汇总
+  // if (!isRenderTable(renderType)) return
 
-  // 普通表格只有显示汇总行才请求汇总
-  if (renderType === 'table') return showSummary
+  // 有快速计算时计算明细汇总和汇总行
+  const iList = request[_n(CATEGORY.INDEX)]
+  if (iList.some(t => !!t.fastCompute)) {
+    return {
+      summary: true,
+      summaryDetail: true
+    }
+  }
 
-  // 其余都请求汇总
-  return true
-})
+  // 是否显示汇总行
+  const { showSummary, summary = showSummary } = table
+  const showRowSummary =
+    typeof summary === 'boolean'
+      ? summary
+      : Array.isArray(summary)
+        ? summary.length > 0
+        : summary.row.enable
+
+  // 明细表格只根据配置显示汇总行
+  if (renderType === 'table') {
+    return {
+      summary: showRowSummary
+    }
+  }
+
+  // 分组表格和交叉表格
+  const pList = request[_n(CATEGORY.PROPERTY)]
+  // 行分组
+  const rowPList = pList.filter(t => t._group !== 'column')
+  return {
+    summary: showRowSummary,
+    summaryDetail:
+      renderType === 'intersectionTable' || rowPList.length > 1
+        ? true
+        : undefined
+  }
+}
 
 const runQuery = async () => {
   try {
@@ -497,20 +647,27 @@ const runQuery = async () => {
     // 维度分组排序
     const pFields = requestResponse.request[p].filter(filterFields)
 
+    // 获取汇总参数（为兼容历史保存的图表，手动处理一遍汇总参数）
+    const summary = getSummaryPayload(pFields)
+
     const requestParams = {
       ...requestResponse.request,
-      [p]: sortDimension(pFields, true),
+      ...summary,
+      [p]: sortDimension(
+        pFields,
+        requestResponse.layout.renderType === 'intersectionTable'
+      ),
       [i]: requestResponse.request[i].filter(filterFields),
-      filters: queryFilters.value.filter(filterFields),
-      summary: payloadSummary.value,
+      filters: queryFilters.value.filter(filterFields)
     }
 
     const res = await postAnalysisQuery(requestParams)
 
+    // requestResponse.request = requestParams
     downloadQueryParams.value = requestParams // 下载的请求参数，不可直接赋值给reqeust，因为reqeust的filters会使用queryFiltersHandler
     requestResponse.response = res
 
-    if(res.status !== 'SUCCESS') {
+    if (res.status !== 'SUCCESS') {
       fetchReason(res.queryId)
     }
   } catch (error) {
@@ -529,12 +686,7 @@ watch(
   () => props.shouldLoad,
   async b => {
     if (b) {
-      fetchReportDetail()
-        .then(runQuery)
-        .then(() => {
-          props.item._load = true
-          emits('loaded', props.reportId)
-        })
+      fetchReportDetail().then(runQuery)
     }
   },
   { immediate: true }
@@ -551,6 +703,37 @@ const onDatasetApplying = e => {
 onMounted(() => {
   emittor.on('dataset-applying', onDatasetApplying)
 })
+
+// 动态维度过滤是否包含dt
+const hasDynamicFiltersDt = computed(() => {
+  const dynamicFilters = requestResponse.layout.dynamicFilters || {}
+  const keys = Object.keys(dynamicFilters)
+  return keys.some(t => t === versionJs.ViewsDatasetModify.dtFieldName)
+})
+const setDynamicFilterDefault = () => {
+  const dynamic = requestResponse.layout.dynamicFilters || {}
+  const dtDynamic = dynamic[versionJs.ViewsDatasetModify.dtFieldName] || []
+
+  const [s, e] = dtDynamic.length
+    ? [...dtDynamic]
+    : subTitle.value
+        .replace(/\s+/g, '')
+        .split('-')
+        .map(t => {
+          const [y, m, d] = t.split('/')
+          return `20${y}-${m}-${d}`
+        })
+
+  let r = []
+
+  if (!e) {
+    if (s) r = [s, s]
+  } else {
+    r = [s, e]
+  }
+
+  return { [versionJs.ViewsDatasetModify.dtFieldName]: r }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -569,11 +752,12 @@ onMounted(() => {
 }
 
 .header {
-  padding: 16px 12px 8px;
+  // padding: 16px 12px 8px;
 }
 .title {
   display: flex;
   align-items: center;
+  padding: 12px 12px 6px;
   .name {
     flex: 1;
     display: flex;
@@ -595,13 +779,16 @@ onMounted(() => {
   }
 }
 .sub-title {
-  margin-top: 6px;
+  padding: 0 12px;
+  line-height: 24px;
+  overflow: auto;
+  white-space: nowrap;
   color: #999;
 }
 .content {
   flex: 1;
   overflow: auto;
-  padding: 8px 12px;
+  padding: 12px 12px 8px;
   :deep(.ant-spin-nested-loading) {
     height: 100%;
     .ant-spin-container {
@@ -620,6 +807,29 @@ onMounted(() => {
   justify-content: center;
   :deep(.ant-empty-image) {
     overflow: hidden;
+  }
+}
+
+// 拖动触发器
+.drag-trigger {
+  --triggerSize: 18px;
+  position: absolute;
+  z-index: 999;
+  &-left,
+  &-right {
+    width: var(--triggerSize);
+    height: 100%;
+  }
+  &-left {
+    left: 0;
+  }
+  &-right {
+    right: 0;
+  }
+  &-bottom {
+    bottom: 0;
+    width: 100%;
+    height: var(--triggerSize);
   }
 }
 </style>

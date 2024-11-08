@@ -41,6 +41,8 @@
     }
 
     this.pending[eventName] = pend
+
+    return this
   }
 
   off(eventName, cb) {

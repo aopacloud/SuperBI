@@ -13,6 +13,7 @@ dist*?
 stats.html
 node_modules/
 envs/*.local
+/frontend/.gitignore
 ######################################################################
 # IDE
 

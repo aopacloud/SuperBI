@@ -5,18 +5,23 @@
       <PlusOutlined
         class="pointer"
         style="padding: 2px; margin-left: 6px"
-        @click="add" />
+        @click="add"
+      />
     </header>
 
     <main class="list">
+      <a-empty v-if="!dataSource.length" style="margin-top: 50px" />
+
       <draggable
+        v-else
         itemKey="id"
         :componentData="{
           name: 'fade',
-          type: 'transition-group',
+          type: 'transition-group'
         }"
         :options="{ handle: '.handler' }"
-        :list="list">
+        :list="list"
+      >
         <template #item="{ element, index }">
           <div class="item" :class="{ active: activeIndex === index }">
             <UnorderedListOutlined class="handler" />
@@ -31,12 +36,14 @@
               v-model="element.name"
               @dblclick="onItemDbclick(element, index)"
               @click="onItemclick(index)"
-              @blur="onItemBlur(element, index)" />
+              @blur="onItemBlur(element, index)"
+            />
 
             <a-dropdown
               trigger="click"
               placement="bottomRight"
-              :getPopupContainer="node => node.parentNode">
+              :getPopupContainer="node => node.parentNode"
+            >
               <EllipsisOutlined class="condition--icon-more" />
               <template #overlay>
                 <a-menu @click="e => onMenuClick(e, index, element)">
@@ -64,39 +71,35 @@ import {
   UnorderedListOutlined,
   EllipsisOutlined,
   EditOutlined,
-  DeleteOutlined,
+  DeleteOutlined
 } from '@ant-design/icons-vue'
 import draggable from 'vuedraggable'
 import { defaultFilterItem } from '../config'
 
-const emits = defineEmits(['select'])
+const emits = defineEmits(['select', 'update:dataSource'])
 const getId = () => Date.now()
 
 const props = defineProps({
   dataSource: {
     type: Array,
-    default: () => [],
-  },
+    default: () => []
+  }
 })
 
 // 筛选项列表
 const list = ref([])
-watchEffect(() => {
-  list.value = props.dataSource.map(t => {
-    const { charts = {}, ...res } = t
+watch(
+  list,
+  e => {
+    emits('update:dataSource', e)
+  },
+  { deep: true }
+)
 
-    return {
-      ...res,
-      charts,
-    }
-  })
-
-  nextTick(() => {
-    if (list.value.length) {
-      onItemclick(0)
-    }
-  })
-})
+const init = () => {
+  list.value = [...props.dataSource]
+  if (list.value.length) onItemclick(0)
+}
 
 // 当前选中索引
 const activeIndex = ref(-1)
@@ -156,7 +159,7 @@ const add = () => {
     id,
     name: '',
     _editting: true,
-    ...defaultFilterItem,
+    ...defaultFilterItem
   })
 
   onItemclick(list.value.length - 1)
@@ -183,38 +186,9 @@ const remove = i => {
 
 // 检验
 const validate = () => {
-  // 筛选项名称必填
-  const _unValidateName = t => t.name.trim().length === 0
-  // 必须关联图表
-  const _unValidateCharts = t => Object.keys(t.charts).length === 0
-  // 关联图表必须选择筛选字段
-  const _unValidateChartsField = t => {
-    return Object.keys(t.charts).some(id => {
-      const chart = t.charts[id]
+  if (list.value.some(t => !t.name.trim().length)) {
+    message.warn('查询条件名称不能为空')
 
-      return typeof chart.fieldName === 'undefined'
-    })
-  }
-
-  if (
-    list.value.some(item => {
-      if (_unValidateName(item)) {
-        message.warn('查询条件名称不能为空')
-
-        return true
-      } else if (_unValidateCharts(item)) {
-        message.warn('查询条件必须关键图表')
-
-        return true
-      } else if (_unValidateChartsField(item)) {
-        message.warn('关联图表必须选择筛选项')
-
-        return true
-      } else {
-        return false
-      }
-    })
-  ) {
     return false
   }
 
@@ -233,7 +207,7 @@ const update = (item = {}) => {
   list.value[index] = item
 }
 
-defineExpose({ update, validate, getData })
+defineExpose({ init, update, validate, getData })
 </script>
 
 <style lang="scss" scoped>

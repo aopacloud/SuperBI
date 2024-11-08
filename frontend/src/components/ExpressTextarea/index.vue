@@ -2,7 +2,11 @@
   <section class="express">
     <header class="tools flex">
       <Compact>
-        <a-button type="text" v-for="item in tools" :key="item" @click="insert(item)">
+        <a-button
+          type="text"
+          v-for="item in tools"
+          :key="item"
+          @click="insert(item)">
           {{ item }}
         </a-button>
       </Compact>
@@ -29,7 +33,7 @@ const props = defineProps({
   },
   tools: {
     type: Array,
-    default: () => ['+', '-', 'x', '/', '(', ')'],
+    default: () => ['+', '-', '*', '/', '(', ')'],
   },
   placeholder: {
     type: String,

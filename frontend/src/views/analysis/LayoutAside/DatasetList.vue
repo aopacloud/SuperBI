@@ -4,10 +4,15 @@
       size="small"
       placeholder="输入查询"
       allow-clear
-      v-model:value="keyword" />
+      v-model:value="keyword"
+      @search="onSearch"
+    />
 
     <a-spin :spinning="loading">
-      <p v-if="!list.length" style="margin: 50px 0; text-align: center; color: #aaa">
+      <p
+        v-if="!list.length"
+        style="margin: 50px 0; text-align: center; color: #aaa"
+      >
         暂无数据
       </p>
 
@@ -17,14 +22,20 @@
           v-for="item in list"
           :class="{ active: datasetId === item.id }"
           :key="item.id"
-          @click="toggle(item)">
+          @click="toggle(item)"
+        >
           {{ item.name }}
         </li>
       </ul>
     </a-spin>
 
-    <div style="text-align: center">
-      <a-button block size="small" type="primary"> 新建数据集 </a-button>
+    <div class="footer">
+      <a-button type="link" size="small" @click="emits('upload')">
+        本地文件
+      </a-button>
+      <a-button size="small" type="primary" @click="toCreate">
+        新建数据集
+      </a-button>
     </div>
   </div>
 </template>
@@ -33,17 +44,25 @@
 import { ref, computed, onBeforeMount } from 'vue'
 import { getDatasetList } from '@/apis/dataset'
 import useAppStore from '@/store/modules/app'
+import { useRouter, useRoute } from 'vue-router'
 
+const router = useRouter()
+const route = useRoute()
 const appStore = useAppStore()
 const workspaceId = computed(() => appStore.workspaceId)
 
-const emits = defineEmits(['toggle'])
+const emits = defineEmits(['toggle', 'upload'])
 const props = defineProps({
-  datasetId: [String, Number],
+  datasetId: [String, Number]
 })
 
 // 搜索关键字
 const keyword = ref('')
+const onSearch = s => {
+  const t = s.trim()
+  if (!t.length) fetchData()
+}
+
 // 所有数据集列表
 const loading = ref(false)
 const allList = ref([])
@@ -53,10 +72,12 @@ const fetchData = async () => {
     loading.value = true
     const { data = [] } = await getDatasetList({
       workspaceId: workspaceId.value,
-      folderType: 'PERSONAL',
+      folderType: 'PERSONAL'
     })
 
-    allList.value = data.filter(t => t.permission === 'READ' || t.permission === 'WRITE')
+    allList.value = data.filter(
+      t => t.permission === 'READ' || t.permission === 'WRITE'
+    )
   } catch (error) {
     console.error('获取数据集列表错误', error)
   } finally {
@@ -80,6 +101,16 @@ const list = computed(() => {
 const toggle = item => {
   emits('toggle', { ...item })
 }
+
+const toCreate = () => {
+  const routeRes = router.resolve({
+    name: 'DatasetModify',
+    query: { from: route.name }
+  })
+  if (!routeRes) return
+
+  window.open(routeRes.href, '_blank')
+}
 </script>
 
 <style lang="scss" scoped>
@@ -94,7 +125,11 @@ const toggle = item => {
     }
   }
 }
-
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 .list {
   height: inherit;
   flex: 1;

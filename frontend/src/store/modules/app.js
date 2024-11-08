@@ -16,7 +16,7 @@ const useAppStore = defineStore('app', {
     // 侧边栏
     sidebar: {
       // 显示、隐藏
-      hide: versionJs.StoreModulesApp.siderbarHide,
+      hide: versionJs.StoreModulesApp.siderbarHide
     },
 
     // 页面标题
@@ -34,6 +34,14 @@ const useAppStore = defineStore('app', {
     unAccessable: false,
     // 不可访问状态信息
     unAccessableInfo: {},
+
+    // 应用入口
+    entryInfo: {
+      origin: '', // 来源名
+      pToken: '' // 代理token
+    },
+
+    layout: {}
   }),
   getters: {
     // 时区便宜设置
@@ -48,6 +56,9 @@ const useAppStore = defineStore('app', {
 
       return activeTimezone || defaultActiveTimeOffset
     },
+    entryOrigin: state => state.entryInfo.origin,
+    entryToken: state => state.entryInfo.pToken,
+    appLayout: state => state.layout || {}
   },
   actions: {
     setInfo(info) {
@@ -63,7 +74,7 @@ const useAppStore = defineStore('app', {
       if (typeof info === 'string') {
         this.unAccessableInfo = {
           title: info,
-          status,
+          status
         }
       } else {
         this.unaccessableInfo = { status, ...info }
@@ -84,7 +95,6 @@ const useAppStore = defineStore('app', {
     // 设置所有空间列表
     setWorkspaceList(list = []) {
       this.workspaceList = list
-
       // 无任何空间访问权限
       if (!list.length) {
         this.setUnAccessableInfo(
@@ -123,7 +133,16 @@ const useAppStore = defineStore('app', {
 
       this.setWorkspaceId(info.id)
     },
-  },
+
+    // 设置入口信息
+    setEntryInfo(info = {}) {
+      this.entryInfo = info
+    },
+
+    setLayout(k, v) {
+      this.layout[k] = v
+    }
+  }
 })
 
 export default useAppStore

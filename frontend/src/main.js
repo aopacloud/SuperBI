@@ -37,16 +37,12 @@ import 'virtual:svg-icons-register' // 生成雪碧图
 import SvgIcon from '@/components/SvgIcon/index.vue'
 app.component(SvgIcon.name, SvgIcon) // 全局注册SvgIcon
 
-// 按需加载 vxe-table
-import { Grid, Table, Column, Icon } from 'vxe-table'
-import 'vxe-table/styles/cssvar.scss'
-app.use(Grid)
-app.use(Table)
-app.use(Column)
-app.use(Icon)
+// 注册vxe-table插件
+import useVxeTable from './useVxeTable'
+app.use(useVxeTable)
 
 // TODO：组件内部注册失效？？？
-import VueGridLayout from 'vue-grid-layout'
-app.use(VueGridLayout)
+// import VueGridLayout from 'vue-grid-layout'
+// app.use(VueGridLayout)
 
 app.mount('#app')

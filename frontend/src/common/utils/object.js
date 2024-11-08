@@ -1,7 +1,9 @@
-﻿export const getPrimitiveType = o => Object.prototype.toString.call(o).slice(8, -1)
+﻿export const getPrimitiveType = o =>
+  Object.prototype.toString.call(o).slice(8, -1).toLowerCase()
 
 export const isEmpty = o => {
-  if (getPrimitiveType(o) === 'undefiend' || getPrimitiveType(o) === 'null') return true
+  if (getPrimitiveType(o) === 'undefined' || getPrimitiveType(o) === 'null')
+    return true
 
   if (getPrimitiveType(o) === 'string') return o.length === 0
 
@@ -13,6 +15,8 @@ export const isEmpty = o => {
 
   return false
 }
+
+export const isObject = o => getPrimitiveType(o) === 'object'
 
 /**
  * 递归合并对象，如果目标对象属性为对象，则递归合并
@@ -36,4 +40,26 @@ export const merge = (target, source) => {
   }
 
   return target
+}
+
+/**
+ * 深度合并两个对象
+ *
+ * @param target 目标对象
+ * @param source 源对象
+ * @returns 合并后的对象
+ */
+export const mergeDeep = (target, source) => {
+  let output = Object.assign({}, target)
+  if (isObject(target) && isObject(source)) {
+    Object.keys(source).forEach(key => {
+      if (isObject(source[key])) {
+        if (!(key in target)) Object.assign(output, { [key]: source[key] })
+        else output[key] = mergeDeep(target[key], source[key])
+      } else {
+        Object.assign(output, { [key]: source[key] })
+      }
+    })
+  }
+  return output
 }

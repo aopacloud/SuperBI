@@ -7,6 +7,7 @@ import useUserStore from '@/store/modules/user'
 import useResourceStore from '@/store/modules/resource'
 import { hasRoleAccessWithRoute } from '@/router/utils'
 import { versionJs } from '@/versions'
+import setEntry, { clearEntryQuery } from './entry'
 
 NProgress.configure({ showSpinner: false })
 
@@ -41,6 +42,7 @@ router.beforeEach((to, from, next) => {
     if (to.path === '/login') {
       next({ path: '/' })
     } else {
+      setEntry(to)
       if (!useResourceStore().loaded) {
         useResourceStore()
           .fetchResource()
@@ -80,7 +82,9 @@ router.beforeEach((to, from, next) => {
   }
 })
 
-router.afterEach(() => {
+router.afterEach(a => {
+  clearEntryQuery(a)
+
   NProgress.done()
 
   if (!canAccess) {

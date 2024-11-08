@@ -144,8 +144,8 @@ import {
   MinusCircleOutlined,
   CloseCircleFilled,
 } from '@ant-design/icons-vue'
-import FilterVue from '@/views/analysis/LayoutContent/components/Filter/index.vue'
-import { displayFilter } from '@/views/analysis/LayoutContent/components/Filter/utils'
+import FilterVue from '@/components/Filter/index.vue'
+import { displayFilter } from '@/components/Filter/utils'
 import { getRandomKey } from 'common/utils/string'
 import { versionJs } from '@/versions'
 import dayjs from 'dayjs'

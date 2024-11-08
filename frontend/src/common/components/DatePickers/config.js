@@ -63,7 +63,7 @@ export const customRangeOptions = createRange().map(t => ({
 }))
 
 // 自定义模式
-export const customMode = [
+export const customTypeOptions = [
   { label: '天', value: 'day' },
   { label: '周', value: 'week' },
   { label: '月', value: 'month' },

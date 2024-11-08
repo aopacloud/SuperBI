@@ -1,17 +1,19 @@
 ﻿<template>
-  <section class="custom-picker-section">
-    <header class="header">
+  <section class="custom-picker-section" :class="{ pickerOnly }">
+    <header class="header" v-if="!pickerOnly">
       <HeaderTabs
         :tabOnly="modeOnly"
         :value="modelValue"
         v-model:tab="modeKey"
-        @reset="onReset">
+        @reset="onReset"
+      >
         <template #desc>{{ desc }}</template>
       </HeaderTabs>
     </header>
 
     <main class="main">
       <AsideQuick
+        v-if="!pickerOnly"
         class="aside"
         :single="single"
         :options="options"
@@ -20,13 +22,16 @@
         :utcOffset="currentUtc"
         :value="modelValue"
         :extra="extraValue"
-        @click="onPresetClick" />
+        @click="onPresetClick"
+      />
 
       <div
         class="content"
         :style="{
-          paddingBottom: showTime && !single ? '40px' : '',
-        }">
+          marginLeft: pickerOnly ? '0' : '',
+          paddingBottom: showTime && !single ? '40px' : ''
+        }"
+      >
         <component
           ref="pickerRef"
           :is="pickerComponent"
@@ -35,26 +40,35 @@
           :extra="extraValue"
           :utcOffset="currentUtc"
           :showTime="showTime"
+          :pickerOnly="pickerOnly"
           v-model:value="modelValue"
           v-model:hms="hmsValue"
           @change="onPickerChange"
-          @ok="ok" />
+          @ok="ok"
+        />
       </div>
     </main>
 
     <footer
       class="footer"
-      :style="{ margin: single && showTime ? '-12px 10px 0px' : '' }">
+      :style="{ margin: single && showTime ? '-20px 10px 0px' : '' }"
+    >
       <div class="left flex-inline">
-        <a-tooltip arrowPointAtCenter placement="topLeft" :title="utcOffsetTooltip">
+        <a-tooltip
+          arrowPointAtCenter
+          placement="topLeft"
+          :title="utcOffsetTooltip"
+        >
           <InfoCircleOutlined
             style="position: relative; font-size: 16px"
-            :style="{ top: single && showTime ? '-10px' : '' }" />
+            :style="{ top: single && showTime ? '-10px' : '' }"
+          />
         </a-tooltip>
         <div
           v-if="!single"
           :id="`pick-custom-placeholder-${id}`"
-          style="margin-left: 16px"></div>
+          style="margin-left: 16px"
+        ></div>
       </div>
 
       <a-space v-if="!single || !showTime">
@@ -71,12 +85,18 @@ import HeaderTabs from './components/HeaderTabs.vue'
 import AsideQuick from './components/AsideQuick.vue'
 import RangePicker from './components/RangePicker.vue'
 import SinglePicker from './components/SinglePicker.vue'
-import { getStartDateStr, getEndDateStr, getUtcDate } from './utils'
+import {
+  getStartDateStr,
+  getEndDateStr,
+  getUtcDate,
+  isIncludeToday
+} from './utils'
 import { InfoCircleOutlined } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
+import { deepClone } from '@/common/utils/help'
 
 defineOptions({
-  inheritAttrs: false,
+  inheritAttrs: false
 })
 
 const emits = defineEmits([
@@ -86,7 +106,7 @@ const emits = defineEmits([
   'update:hms',
   'update:extra',
   'ok',
-  'cancel',
+  'cancel'
 ])
 const props = defineProps({
   // 单个面板
@@ -124,6 +144,8 @@ const props = defineProps({
 
   // 一些配置参数
   options: { type: Object, default: () => ({}) },
+
+  pickerOnly: { type: Boolean }
 })
 
 // 是否显示时分秒
@@ -141,8 +163,8 @@ const pickerComponent = computed(() => {
 })
 
 const id = ref(Date.now())
-// 模式 1 动态， 0 静态
-const modeKey = ref(1)
+// 模式 0 动态， 1 静态
+const modeKey = ref(0)
 // 值
 const modelValue = ref()
 // 跨度
@@ -183,10 +205,28 @@ const getByOffset = (offsets = []) => {
 
 const pickerRef = ref(null)
 // 初始化
-const init = () => {
+const init = async () => {
   pickerRef.value?.open?.()
 
   const { moda, modeOnly, offset, value, hms = [], extra = {} } = props
+
+  if (props.pickerOnly) {
+    const [dates, hms] = value.reduce(
+      (acc, v) => {
+        const [date, h] = v.split(' ')
+        acc[0].push(date)
+        if (h) acc[1].push(h)
+        return acc
+      },
+      [[], []]
+    )
+
+    modelValue.value = dates
+    hmsValue.value = hms
+
+    return
+  }
+  // if (!value.length || !offset?.length) return
 
   modeKey.value = modeOnly ?? moda
   offsetValue.value = offset ?? offsetValue.value
@@ -203,7 +243,7 @@ const init = () => {
       currentUtc.value
     )
 
-    modelValue.value = [value[0], endDate]
+    modelValue.value = [offset[0], endDate]
   } else {
     // 静态
     if (moda === 1) {
@@ -216,13 +256,14 @@ const init = () => {
       extraValue.value.isCustom = isCustom
 
       if (current) {
-        const [tp, of = 0] = current.split('_')
+        const [tp, of = 0, mode] = current.split('_')
+        const isToday = isIncludeToday(mode)
         const s = getStartDateStr(
-          { type: tp.toLowerCase(), offset: +of },
+          { type: tp.toLowerCase(), offset: isToday ? +of + 1 : +of },
           currentUtc.value
         )
         const e = getEndDateStr(
-          { type: tp.toLowerCase(), offset: +of },
+          { type: tp.toLowerCase(), offset: isToday ? 0 : +of },
           currentUtc.value
         )
 
@@ -236,7 +277,9 @@ const init = () => {
         } else {
           // 默认昨天
           const yDay = dayjs().subtract(1, 'day')
-          const yDayStr = getUtcDate(currentUtc.value, yDay).format('YYYY-MM-DD')
+          const yDayStr = getUtcDate(currentUtc.value, yDay).format(
+            'YYYY-MM-DD'
+          )
 
           modelValue.value = [yDayStr, yDayStr]
         }
@@ -276,7 +319,7 @@ const onReset = () => {
 
 // 预设快捷
 const onPresetClick = item => {
-  const { offset, type, custom } = item
+  let { custom, mode, offset, type } = item
 
   extraValue.value.dt = type === 'dt'
   extraValue.value.isCustom = !!custom
@@ -310,9 +353,12 @@ const onPresetClick = item => {
 
     extraValue.value.until = undefined
 
+    // 自定义且从最近(包含今天)
+    const isCustomAndIncludeToday = custom && mode === 'recent'
     // 自定义
     if (custom) {
-      extraValue.value.current = type.toUpperCase() + '_' + offset
+      extraValue.value.current =
+        type.toUpperCase() + '_' + offset + (mode ? '_' + mode : '')
     } else {
       // 动态
       if (props.moda === 0) {
@@ -329,8 +375,14 @@ const onPresetClick = item => {
       }
     }
 
-    const s = getStartDateStr({ type, offset }, currentUtc.value)
-    const e = getEndDateStr({ type, offset }, currentUtc.value)
+    const s = getStartDateStr(
+      { type, offset: isCustomAndIncludeToday ? offset + 1 : offset },
+      currentUtc.value
+    )
+    const e = getEndDateStr(
+      { type, offset: isCustomAndIncludeToday ? 0 : offset },
+      currentUtc.value
+    )
 
     modelValue.value = [s, e]
   }
@@ -362,6 +414,18 @@ const desc = computed(() => {
 })
 
 const ok = () => {
+  if (props.pickerOnly) {
+    let value = deepClone(modelValue.value)
+    if (props.showTime && hmsValue.value.length) {
+      const hms = toRaw(hmsValue.value)
+      value = value.map((t, i) => (t += ' ' + hms[i]))
+    }
+    emits('update:value', value)
+    emits('ok', value)
+
+    return
+  }
+
   const offsets = getOffsets(modelValue.value)
   const values = [...modelValue.value]
   const moda = +!!extraValue.value.until || modeKey.value
@@ -388,8 +452,8 @@ const ok = () => {
         ...extraValue.value,
         current: undefined,
         isCustom: undefined,
-        until: undefined,
-      },
+        until: undefined
+      }
     })
 
     return
@@ -413,7 +477,7 @@ const ok = () => {
     offset: offsets,
     value: values,
     hms: hmsValue.value,
-    extra: extraValue.value,
+    extra: extraValue.value
   })
 }
 
@@ -429,8 +493,19 @@ const onCancel = () => {
   padding: 12px;
   background: #fff;
   border-radius: 8px;
-  box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12),
+  box-shadow:
+    0 6px 16px 0 rgba(0, 0, 0, 0.08),
+    0 3px 6px -4px rgba(0, 0, 0, 0.12),
     0 9px 28px 8px rgba(0, 0, 0, 0.05);
+  &.pickerOnly {
+    .main {
+      padding: 0;
+    }
+    .footer {
+      margin-left: 0;
+      margin-right: 0;
+    }
+  }
 }
 
 .main,

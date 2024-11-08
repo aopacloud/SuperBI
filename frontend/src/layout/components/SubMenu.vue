@@ -4,9 +4,13 @@
       <span>{{ menu.name }}</span>
     </template>
     <template v-for="child in menu.children">
-      <a-menu-item v-if="!child.children || !child.children.length" :key="child.id">
-        <!-- <a-icon v-if="child.icon" :type="child.icon" /> -->
-        <span>{{ child.name }}</span>
+      <a-menu-item
+        v-if="!child.children || !child.children.length"
+        :key="child.id"
+      >
+        <router-link :to="child.url">
+          <span>{{ child.name }}</span>
+        </router-link>
       </a-menu-item>
       <SubMenu v-else :menu="child" />
     </template>
@@ -23,23 +27,29 @@ const router = useRouter()
 const props = defineProps({
   menu: {
     type: Object,
-    default: () => ({}),
-  },
+    default: () => ({})
+  }
 })
 
 const onSubMenuTitleClick = () => {
-  const { appPath: menuPath, url, children = [], type } = props.menu
-  if (menuPath === '/' + appPath) {
-    const first = children[0]
+  const { appPath: menuPath, url, children = [], type, redirect } = props.menu
 
-    router.push(first ? first.url : url)
-  } else {
-    // type = 4 外链
-    if (isHttp(url) || type === 4) {
-      window.open(url, '_blank')
+  if (type === 4 || isHttp(url)) {
+    window.open(url, '_blank')
+    return
+  }
+
+  if (menuPath === '/' + appPath) {
+    if (type === 2) {
+      const first = children[0]
+      router.push(first?.url ?? url)
     } else {
-      window.open(menuPath + '#' + url, '_blank')
+      if (children.length && redirect) {
+        router.push(redirect)
+      }
     }
+  } else {
+    window.open(menuPath + '#' + url, '_blank')
   }
 }
 </script>

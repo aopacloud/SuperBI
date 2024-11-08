@@ -25,8 +25,8 @@
 </template>
 
 <script setup>
-import { h, ref, onMounted } from 'vue'
-import { ReloadOutlined, LoadingOutlined } from '@ant-design/icons-vue'
+import { h, ref, onMounted, inject } from 'vue'
+import { ReloadOutlined } from '@ant-design/icons-vue'
 import { getWordWidth } from 'common/utils/help'
 import { postAnalysisQuery } from '@/apis/analysis'
 import { AGGREGATOR_SPLIT } from '@/views/analysis/utils'
@@ -37,11 +37,17 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
+  selectedContent: {
+    type: Object,
+    default: () => ({}),
+  },
   fields: {
     type: Array,
     default: () => [],
   },
 })
+
+const { selectedContent, getDatasetConfig, getDatasetFields } = inject('index')
 
 const loading = ref(false)
 const canRetry = ref(false)
@@ -54,7 +60,9 @@ const fetchData = async () => {
   try {
     loading.value = true
 
-    if (!props.dataset.config?.tableName) {
+    const tables = selectedContent.get('tables')
+
+    if (!tables.length) {
       message.warn('暂未选中任何表')
 
       return
@@ -63,7 +71,8 @@ const fetchData = async () => {
     const { rows, fieldNames } = await postAnalysisQuery({
       dataset: {
         ...props.dataset,
-        fields: props.fields.filter(t => t.status !== 'HIDE'),
+        config: getDatasetConfig(),
+        fields: getDatasetFields(),
       },
       type: 'PREVIEW',
     })
